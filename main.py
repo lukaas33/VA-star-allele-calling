@@ -4,6 +4,7 @@ import os.path
 import os
 import algebra as va
 
+
 def api_get(url, params={}):
     """ Wrapper for making API calls. 
     """
@@ -19,7 +20,7 @@ def api_get(url, params={}):
 def reference_get():
     """ Get reference sequence
 
-    TODO find proper API, is now hardcoded on webqrequest
+    TODO find proper API, is now hardcoded on web request
     """
     url = "https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file&log$=seqview&db=nuccore&report=fasta&id=568815576&&ncbi_phid=null"
     foldername = "data"
@@ -33,9 +34,8 @@ def reference_get():
     with open(filename, 'r') as file:
         file.readline() # Skip header
         response = file.read()
-    # TODO needed to remove newlines?
+        response = response.replace('\n', '').replace('\r', '') # Remove newlines
     return response
-
 
 def pharmvar_api_get(target):
     """ Call the Pharmvar API and return the data as a Python object. 
@@ -74,11 +74,23 @@ def pharmvar_get(target):
         with open(filename, 'wb') as file:
             pickle.dump(data, file)
         return data
-        
+
+def parse_multi_hgvs(hgvs_lst, reference):
+    """Wrapper for parsing a list of hgvs variants and combining them into a set of variants.
+    """        
+    variant_lst = []
+    for hgvs in hgvs_lst:
+        try:
+            variant_lst += va.variants.parse_hgvs(hgvs, reference=reference) # Reference needed to handle insertions
+        except: 
+            raise Exception(f"HGVS {hgvs} could not be parsed.")
+    variant_set = set(variant_lst)
+    if len(variant_lst) != len(variant_set):
+        print(hgvs)
+    return variant_set
 
 # Get the reference sequence relevant for the (current) gene of interest
 reference_sequence = reference_get()
-
 
 # List genes as symbols in Pharmvar
 genes = pharmvar_get("genes/list") 
@@ -87,28 +99,29 @@ gene = pharmvar_get("genes/CYP2D6")
 # Group suballeles by core alleles and index by the star-allele notation of the core allele
 corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
 suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
-# All information associated with the (current) allele of interest
-coreallele = corealleles["CYP2D6*3"]
-suballele = suballeles["CYP2D6*3"]
-# Get the variants contained in the sub- and core allele of interest as HGVS notation
-coreallele_variants = [variant["hgvs"] for variant in coreallele["variants"]]
-for suballele in suballele:
-    suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
-    # Convert HGVS notation to sequence notation
-    s_coreallele_variants = []
-    for variant in coreallele_variants:
-        s_coreallele_variants += va.variants.parse_hgvs(variant) 
-    s_suballele_variants = []
-    for variant in suballele_variants:
-        s_suballele_variants += va.variants.parse_hgvs(variant) 
-    # Find relation between core and suballeles
-    # TODO should you find the relation between the individual variants or the alleles? (right now the 2nd)
-    relation = va.compare(reference_sequence, s_coreallele_variants, s_suballele_variants)
-    # Expect containment or equivalence
-    if relation not in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED):
-        print(coreallele["alleleName"], coreallele_variants)
-        print(suballele["alleleName"], suballele_variants)
-        raise ValueError(f"Unexpected relationship between core allele {coreallele['alleleName']} and suballele {suballele['alleleName']}: {relation}")
+for coreallele_name, suballeles in suballeles.items():
+    # All information associated with the allele
+    coreallele = corealleles[coreallele_name]
+    print(coreallele_name)
+    # Get the variants contained in the sub- and core allele as HGVS notation
+    coreallele_variants = [variant["hgvs"] for variant in coreallele["variants"]]
+    for suballele in suballeles:
+        print(suballele["alleleName"])
+        suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
+        # Convert HGVS notation to sequence notation
+        s_coreallele_variants = parse_multi_hgvs(coreallele_variants, reference_sequence)
+        s_suballele_variants = parse_multi_hgvs(suballele_variants, reference_sequence)
+        # Find relation between core and suballeles
+        # TODO should you find the relation between the individual variants or the alleles? (right now the 2nd)
+        try:
+            relation = va.compare(reference_sequence, s_coreallele_variants, s_suballele_variants)
+        except:
+            raise ValueError(f"Could not parse variants {coreallele_variants} + {suballele_variants}")
+        # Expect containment or equivalence
+        if relation not in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED):
+            print(coreallele["alleleName"], coreallele_variants)
+            print(suballele["alleleName"], suballele_variants)
+            raise ValueError(f"Unexpected relationship between core allele {coreallele['alleleName']} and suballele {suballele['alleleName']}: {relation}")
 
 # TODO what is a variant group
 # TODO Check if names follow a logical format
