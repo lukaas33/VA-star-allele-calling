@@ -72,10 +72,14 @@ for coreallele_name, suballeles in suballeles.items():
             # print(suballele["alleleName"], suballele_variants)
             print(f"Unexpected relationship between core allele {coreallele['alleleName']} and suballele {suballele['alleleName']}: {relation}")
 
-# TODO what is a variant group
-# TODO Check if names follow a logical format
+# QUESTION what is a variant group
+# QUESTION why doesn't name match position
+# QUESTION is an equivalence between a sub and core allele wrong
+
+# TODO! fix error on 19.002
+
 # TODO Check if core allele equivalent or contained in each suballele
-# TODO equivalent is also wrong since it would not be a suballele?
 # TODO check if HGVS name describes position field (not always the case)
+# TODO Check if names follow a logical format
 # TODO check if position is a valid HGVS string
 # TODO check relations between star-alleles
