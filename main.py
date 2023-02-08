@@ -1,8 +1,10 @@
+from itertools import chain, combinations
+
 from modules.data import reference_get, pharmvar_get
 import algebra as va
 
 def parse_multi_hgvs(hgvs_lst, reference):
-    """Wrapper for parsing a list of hgvs variants and combining them into a set of variants.
+    """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
     """        
     variant_lst = []
     for hgvs in hgvs_lst:
@@ -11,10 +13,9 @@ def parse_multi_hgvs(hgvs_lst, reference):
             variant_lst += va.variants.parse_hgvs(hgvs, reference=reference) # Reference needed to handle insertions
         except: 
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
-        
     variant_set = set(variant_lst)
-    if len(variant_set) != len(variant_lst):
-        raise ValueError(f"Double variants contained in {hgvs_lst}")
+    if len(variant_set) != len(variant_lst): # TODO remove this after testing for equivalence
+        raise ValueError(f"Double variant positions contained in {hgvs_lst}")
     return variant_set
 
 def fix_hgvs_position(hgvs):
@@ -35,26 +36,88 @@ def fix_hgvs_position(hgvs):
             hgvs = hgvs.replace(position, range)
     return hgvs
 
+def va_generate_subsets(variants):
+    """Generate all subsets (superset) of a variant set"""
+    superset = chain.from_iterable(combinations(variants, r) for r in range(1, len(variants)+1))
+    return superset
+
+def va_variants_independent(reference, variants):
+    """Test if variants within an allele are independent
+    
+    Variants should be independent since they could be expressed as one variant otherwise. 
+    """
+    # if len(variants) == 1:
+    #     return 0
+    # variants = list(variants)
+    # print(variants)
+    # for pivot in range(1, len(variants)):
+    #     lhs = variants[:pivot]
+    #     rhs = variants[pivot:]
+    #     relation = va.compare(reference, lhs, rhs)
+    #     if relation != va.Relation.DISJOINT:
+    #         print(f"{relation}: {lhs}; {rhs}")
+
 def va_characterize_overlap(reference, lhs, rhs):
     """For a pair of variants characterize the elements of the overlap.
     
     This extends the variant algebra which detects but does not characterize the overlap.
-    Overlap cannot always be explained by shared variant positions.
+    Overlap cannot always be explained by shared variant positions (simple set overlap).
     """
-    # TODO integrate change in va?
-    # TODO make more efficient?
-    # DOESNT WORK
-    # Get all atomic operations
-    # operations_lhs = [set(operations) for variant in lhs for operations in variant.atomics()]
-    # operations_rhs = [set(operations) for variant in rhs for operations in variant.atomics()]
-    # # Find membership
-    # for var1 in operations_lhs:
-    #     for var2 in operations_rhs:
-    #         pass
-    # shared = operations_lhs | operations_rhs # Operations in both sets
-    # only_left = operations_lhs - shared # Operations only in left set
-    # only_right = operations_rhs - shared # Operations only in right set
-    # return only_left, shared, only_right
+    # TODO integrate in va?
+    # TODO make more efficient using set operations on minimal repr set?
+    # Find largest subset of lhs that is disjoint with the rhs 
+    # These are the elements that cause the relation to be overlap instead of containment
+    # Alternatively find the largest subset that is contained
+    for l_subset in va_generate_subsets(lhs):
+        relation = va.compare(reference, l_subset, rhs)
+        if relation == va.Relation.DISJOINT:
+            print(l_subset)
+            # return l_subset
+
+    # Find the smallest subset of lts that is disjoint with rhs,
+    # This explains why the lhs is not contained in the rhs
+    # disjoint = []
+    # for l_variant in lhs: 
+    #     for l_repr in l_variant.atomics():
+    #         relation = va.compare(reference, l_repr, rhs)
+    #         if relation == va.Relation.DISJOINT: # Variant found which is not in the right hand side
+    #             disjoint.append(l_variant)
+    # if len(disjoint) == 0:
+    #     raise Exception("No disjoint items found that characterizes the overlap")
+    # corrected_lhs = [variant for variant in lhs if variant not in disjoint]
+    # assert va.compare(reference, corrected_lhs, rhs) == va.Relation.IS_CONTAINED
+    # return disjoint
+
+    # va_overlap = []
+    # for side in (lhs, rhs):
+    #     other = lhs if side is rhs else rhs
+    #     overlap = list(side)
+    #     i = 0
+    #     while i < len(overlap):
+    #         removed = overlap.pop(i) # Remove variant to test overlap
+    #         relation = va.compare(reference, overlap, other)
+    #         if relation != va.Relation.OVERLAP: # There is no overlap anymore
+    #             overlap.insert(i, removed) # Variant should be in the overlap
+    #             i += 1
+    #     va_overlap.append(overlap)
+    # # return va_overlap
+    # contained = list()
+    # overlap = list(lhs)
+    # i = 0
+    # # while i < len(overlap):
+    #     moved = overlap[i] # Try to move to contained
+    #     contained.append(moved)
+    #     relation = va.compare(reference, contained, rhs)
+    #     if relation != va.Relation.IS_CONTAINED: # Set is no longer contained
+    #         contained.pop() # Don't move element to contained
+    #         i += 1 # Go to next element
+    #     else: 
+    #         overlap.pop(i) # Move element from overlap to contained 
+    # assert va.compare(reference, contained, rhs) == va.Relation.IS_CONTAINED
+    # assert va.compare(reference, overlap, rhs) == va.Relation.OVERLAP
+    # print(contained)
+    # print(overlap)
+    # return overlap
 
 
 # Get the reference sequence relevant for the (current) gene of interest
@@ -89,14 +152,17 @@ for coreallele_name, suballeles in suballeles.items():
         # Expect containment or equivalence
         if relation not in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED):
             # For unexpected relationships the overlap should be characterized
-            # only_core, shared, only_sub = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
             print(f"{coreallele['alleleName']}: Unexpected relationship {relation} with suballele {suballele['alleleName']}:")
-            print(f"Core: {coreallele_variants}")
-            print(f"sub: {suballele_variants}")
+            only_core = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
+            print(f"\t{only_core} is found in the core but not in the suballele")
+            # for hgvs in coreallele_variants:
+            #     variant = va.variants.parse_hgvs(hgvs)
+            #     print(f"\t{hgvs}: {variant}")
 
 # QUESTION what is a variant group
 # QUESTION why doesn't name match position
 # QUESTION is an equivalence between a sub and core allele wrong
+# QUESTION why is an empty allele not a subset of all others?
 
 # TODO! Check if core allele equivalent or contained in each suballele
 # TODO check if HGVS name describes position field (not always the case)
