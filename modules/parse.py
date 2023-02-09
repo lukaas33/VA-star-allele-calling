@@ -1,8 +1,13 @@
+import algebra as va
+import warnings
+
 def parse_multi_hgvs(hgvs_lst, reference):
     """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
 
     Also includes preprocessing of data which involves fixing HGVS position notation and checking for wrong sets of variants.
     """        
+    # TODO parse as one set of variants (allele) to avoid problems with non-disjoint relations
+    #       see combine_variants
     variant_lst = []
     for hgvs in hgvs_lst:
         hgvs = fix_hgvs_position(hgvs) # HGVS preprocessing
@@ -12,10 +17,10 @@ def parse_multi_hgvs(hgvs_lst, reference):
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
     variant_set = set(variant_lst)
     # Test if any variants were equivalent
-    if len(variant_set) != len(variant_lst): # TODO remove this after testing for equivalence
+    if len(variant_set) != len(variant_lst): 
         raise ValueError(f"Double variant positions in {hgvs_lst}")
     variant_set = fix_variant_overlapping(variant_lst) # Variant preprocessing
-    return variant_set
+    return variant_set  
 
 def fix_hgvs_position(hgvs):
     """Fix HGVS notation problems with the position notation 
@@ -42,7 +47,7 @@ def fix_variant_overlapping(variants):
     
     This is needed since overlapping variants cannot be ordered and thus not compared.
     """
-    # TODO Consider adjacent (>=) as overlapping? Is HGVS proof but doesn't cause va problems.
+    # TODO Consider adjacent (>=) as overlapping? Adjacent HGVS-proof but doesn't cause va problems.
     sorted_variants = sorted(list(variants), key=lambda v: v.start)
     for i in range(0, len(sorted_variants)-1):
         if sorted_variants[i].end > sorted_variants[i+1].start:
@@ -55,3 +60,23 @@ def fix_variant_overlapping(variants):
 
     non_overlapping_variants = set([var for var in sorted_variants if var is not None])
     return non_overlapping_variants
+
+def combine_variants(variants, reference_sequence):
+    """ Combine multiple variants into one larger variant (allele)
+    
+    This should avoid issues with non-disjoint variants.
+    """
+    # QUESTION: is this a correct method?
+    # TODO make representation more minimal
+    # Apply variants to reference_sequence to get the observed sequence
+    min_start = float('inf')
+    max_end = -float('inf')
+    observed_sequence = va.variants.patch(reference_sequence, variants)
+    for operation in variants:
+        if operation.start < min_start:
+            min_start = operation.start
+        elif operation.end > max_end:
+            max_end = operation.end
+    # Find difference and output
+    allele = va.Variant(min_start, max_end, observed_sequence[min_start-1:max_end-1])
+    return allele
