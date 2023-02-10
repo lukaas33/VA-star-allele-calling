@@ -44,7 +44,8 @@ def va_characterize_overlap(reference_sequence, lhs, rhs):
     Overlap cannot always be explained by shared variant positions (simple set overlap).
     """
     # TODO integrate in va?
-    # TODO make more efficient
+    # TODO make more efficient, runtime/memory usage is too high
+    # QUESTION is the atomics of the allele equal to the (combination of) atomics of all variants
     # Combine variants into allele
     lhs_allele = combine_variants(lhs, reference_sequence)
     rhs_allele = combine_variants(rhs, reference_sequence)
@@ -133,13 +134,12 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
             # For unexpected relationships the overlap should be characterized
             # QUESTION is an equivalence between a sub and core allele inconsistent?
             print(f"{coreallele['alleleName']}: Unexpected relationship {relation} with suballele {suballele['alleleName']}:")
-            only_core, shared, only_sub = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
-            print(f"\t{only_core} is found in the core but not in the suballele")
+            # only_core, shared, only_sub = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
+            # print(f"\t{only_core} is found in the core but not in the suballele")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
-
     # List genes as symbols in Pharmvar
     genes = pharmvar_get("genes/list") 
     # All information associated with the (current) gene of interest
@@ -157,10 +157,11 @@ def main():
             continue
         test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
-# QUESTION why can't unorderable variants be compared?
-
 # TODO check if HGVS name describes position field (not always the case)
 # TODO check if position is a valid HGVS string (not always the case)
 # TODO Check if names follow a logical format
 # TODO check relations between star-alleles
 # TODO check if variants within suballele are disjoint (not always the case) and solve this
+
+if __name__ == "__main__":
+    main()

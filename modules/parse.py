@@ -47,6 +47,7 @@ def fix_variant_overlapping(variants):
     
     This is needed since overlapping variants cannot be ordered and thus not compared.
     """
+    # QUESTION why can't unorderable variants be compared?
     # TODO Consider adjacent (>=) as overlapping? Adjacent HGVS-proof but doesn't cause va problems.
     sorted_variants = sorted(list(variants), key=lambda v: v.start)
     for i in range(0, len(sorted_variants)-1):
@@ -68,6 +69,7 @@ def combine_variants(variants, reference_sequence):
     """
     # QUESTION: is this a correct method?
     # TODO make representation more minimal
+    #       using supremal representation gives a longer sequence
     # Apply variants to reference_sequence to get the observed sequence
     min_start = float('inf')
     max_end = -float('inf')
