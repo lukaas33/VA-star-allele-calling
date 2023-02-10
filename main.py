@@ -53,7 +53,7 @@ def va_characterize_overlap(reference_sequence, lhs, rhs):
     l_minset = set([tuple(minrep) for minrep in lhs_allele.atomics()])
     r_minset = set([tuple(minrep) for minrep in rhs_allele.atomics()])
     # Characterize the overlap
-    shared = l_minset | r_minset # Set union
+    shared = l_minset & r_minset # Set intersection
     l_only = l_minset - shared # Set minus
     r_only = r_minset - shared
     return l_only, shared, r_only
