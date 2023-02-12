@@ -6,8 +6,6 @@ def parse_multi_hgvs(hgvs_lst, reference):
 
     Also includes preprocessing of data which involves fixing HGVS position notation and checking for wrong sets of variants.
     """        
-    # TODO parse as one set of variants (allele) to avoid problems with non-disjoint relations
-    #       see combine_variants
     variant_lst = []
     for hgvs in hgvs_lst:
         hgvs = fix_hgvs_position(hgvs) # HGVS preprocessing
@@ -65,11 +63,12 @@ def fix_variant_overlapping(variants):
 def combine_variants(variants, reference_sequence):
     """ Combine multiple variants into one larger variant (allele)
     
-    This should avoid issues with non-disjoint variants.
+    WARNING: this is redundant for comparing since the compare function already patches the variants
     """
     # QUESTION: is this a correct method?
     # TODO make representation more minimal
     #       using supremal representation gives a longer sequence
+    # TODO replace this function with calls to the va library (see compare method for the proper calls)
     # Apply variants to reference_sequence to get the observed sequence
     min_start = float('inf')
     max_end = -float('inf')
@@ -80,5 +79,5 @@ def combine_variants(variants, reference_sequence):
         elif operation.end > max_end:
             max_end = operation.end
     # Find difference and output
-    allele = va.Variant(min_start, max_end, observed_sequence[min_start-1:max_end-1])
+    allele = va.Variant(min_start, max_end, observed_sequence[min_start:max_end])
     return allele

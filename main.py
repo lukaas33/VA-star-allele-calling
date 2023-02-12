@@ -25,17 +25,40 @@ def va_variants_independent(reference, variants):
     
     Variants should be independent since they could be expressed as one variant otherwise. 
     """
-    # TODO is it enough to test if each is disjoint with the rest?
-    # if len(variants) == 1:
-    #     return 0
-    # variants = list(variants)
-    # print(variants)
-    # for pivot in range(1, len(variants)):
-    #     lhs = variants[:pivot]
-    #     rhs = variants[pivot:]
-    #     relation = va.compare(reference, lhs, rhs)
-    #     if relation != va.Relation.DISJOINT:
-    #         print(f"{relation}: {lhs}; {rhs}")
+    # TODO implement
+    # QUESTION is it enough to test if each is disjoint with the rest?
+
+def va_minimal_overlapping_allele(reference_sequence, lhs_allele, rhs_allele):
+    """Minimize the size of overlapping alleles in order to make characterization more manageable.
+    
+    Uses top-down linear search.
+
+    WARNING: worse case complexity is not good
+    """
+    # QUESTION is it valid to have both sequences be the same length
+    # QUESTION binary search possible instead of linear search?
+    # Find minimal slice of left allele still overlapping with right allele
+    if lhs_allele.start != rhs_allele.start or lhs_allele.end != rhs_allele.end:
+        # TODO solve for lengths not being equal
+        raise Exception("Lengths not the same")
+    min_variant_l, min_variant_r = None, None
+    for slice_r in range(1, lhs_allele.end - lhs_allele.start):
+        subsequence_l, subsequence_r = lhs_allele.sequence[:slice_r], rhs_allele.sequence[:slice_r]
+        sub_variant_l, sub_variant_r = va.Variant(lhs_allele.start, lhs_allele.start + slice_r, subsequence_l), va.Variant(lhs_allele.start, lhs_allele.start + slice_r, subsequence_r)
+        relation = va.compare(reference_sequence, {sub_variant_l}, {sub_variant_r})
+        if relation == va.Relation.OVERLAP:
+            min_variant_l, min_variant_r =  sub_variant_l, sub_variant_r
+            break
+    lhs_allele, rhs_allele = min_variant_l, min_variant_r
+    for slice_l in range(0, lhs_allele.end - lhs_allele.start):
+        subsequence_l, subsequence_r = lhs_allele.sequence[slice_l:], rhs_allele.sequence[slice_l:]
+        sub_variant_l, sub_variant_r = va.Variant(lhs_allele.start + slice_l, lhs_allele.end, subsequence_l), va.Variant(lhs_allele.start + slice_l, lhs_allele.end, subsequence_r)
+        relation = va.compare(reference_sequence, {sub_variant_l}, {sub_variant_r})
+        if relation == va.Relation.OVERLAP:
+            min_variant_l, min_variant_r =  sub_variant_l, sub_variant_r
+            break
+    lhs_allele, rhs_allele = min_variant_l, min_variant_r
+    return lhs_allele, rhs_allele
 
 def va_characterize_overlap(reference_sequence, lhs, rhs):
     """For a pair of variants characterize the elements of the overlap.
@@ -44,11 +67,15 @@ def va_characterize_overlap(reference_sequence, lhs, rhs):
     Overlap cannot always be explained by shared variant positions (simple set overlap).
     """
     # TODO integrate in va?
-    # TODO make more efficient, runtime/memory usage is too high
+    # BUG: not efficient enough, memory error
     # QUESTION is the atomics of the allele equal to the (combination of) atomics of all variants
     # Combine variants into allele
     lhs_allele = combine_variants(lhs, reference_sequence)
     rhs_allele = combine_variants(rhs, reference_sequence)
+    # Reduce allele size to the minimal size with overlap to make the atomics more manageable
+    lhs_allele, rhs_allele = va_minimal_overlapping_allele(reference_sequence, lhs_allele, rhs_allele)
+    print(lhs_allele, rhs_allele)
+    exit()
     # Find the set of minimal representations of both alleles
     l_minset = set([tuple(minrep) for minrep in lhs_allele.atomics()])
     r_minset = set([tuple(minrep) for minrep in rhs_allele.atomics()])
@@ -57,60 +84,6 @@ def va_characterize_overlap(reference_sequence, lhs, rhs):
     l_only = l_minset - shared # Set minus
     r_only = r_minset - shared
     return l_only, shared, r_only
-
-    # Find largest subset of lhs that is disjoint with the rhs 
-    # These are the elements that cause the relation to be overlap instead of containment
-    # Alternatively find the largest subset that is contained
-    # for l_subset in va_generate_subsets(lhs):
-    #     relation = va.compare(reference, l_subset, rhs)
-    #     if relation == va.Relation.DISJOINT:
-    #         print(l_subset)
-    #         # return l_subset
-
-    # Find the smallest subset of lts that is disjoint with rhs,
-    # This explains why the lhs is not contained in the rhs
-    # disjoint = []
-    # for l_variant in lhs: 
-    #     for l_repr in l_variant.atomics():
-    #         relation = va.compare(reference, l_repr, rhs)
-    #         if relation == va.Relation.DISJOINT: # Variant found which is not in the right hand side
-    #             disjoint.append(l_variant)
-    # if len(disjoint) == 0:
-    #     raise Exception("No disjoint items found that characterizes the overlap")
-    # corrected_lhs = [variant for variant in lhs if variant not in disjoint]
-    # assert va.compare(reference, corrected_lhs, rhs) == va.Relation.IS_CONTAINED
-    # return disjoint
-
-    # va_overlap = []
-    # for side in (lhs, rhs):
-    #     other = lhs if side is rhs else rhs
-    #     overlap = list(side)
-    #     i = 0
-    #     while i < len(overlap):
-    #         removed = overlap.pop(i) # Remove variant to test overlap
-    #         relation = va.compare(reference, overlap, other)
-    #         if relation != va.Relation.OVERLAP: # There is no overlap anymore
-    #             overlap.insert(i, removed) # Variant should be in the overlap
-    #             i += 1
-    #     va_overlap.append(overlap)
-    # # return va_overlap
-    # contained = list()
-    # overlap = list(lhs)
-    # i = 0
-    # # while i < len(overlap):
-    #     moved = overlap[i] # Try to move to contained
-    #     contained.append(moved)
-    #     relation = va.compare(reference, contained, rhs)
-    #     if relation != va.Relation.IS_CONTAINED: # Set is no longer contained
-    #         contained.pop() # Don't move element to contained
-    #         i += 1 # Go to next element
-    #     else: 
-    #         overlap.pop(i) # Move element from overlap to contained 
-    # assert va.compare(reference, contained, rhs) == va.Relation.IS_CONTAINED
-    # assert va.compare(reference, overlap, rhs) == va.Relation.OVERLAP
-    # print(contained)
-    # print(overlap)
-    # return overlap
 
 def test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name):
     """Test if the coreallele is contained in each suballele."""
@@ -134,8 +107,8 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
             # For unexpected relationships the overlap should be characterized
             # QUESTION is an equivalence between a sub and core allele inconsistent?
             print(f"{coreallele['alleleName']}: Unexpected relationship {relation} with suballele {suballele['alleleName']}:")
-            # only_core, shared, only_sub = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
-            # print(f"\t{only_core} is found in the core but not in the suballele")
+            only_core, shared, only_sub = va_characterize_overlap(reference_sequence, s_coreallele_variants, s_suballele_variants)
+            print(f"\t{only_core} is found in the core but not in the suballele")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -157,11 +130,11 @@ def main():
             continue
         test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
-# TODO check if HGVS name describes position field (not always the case)
-# TODO check if position is a valid HGVS string (not always the case)
-# TODO Check if names follow a logical format
-# TODO check relations between star-alleles
-# TODO check if variants within suballele are disjoint (not always the case) and solve this
+    # TODO check if HGVS name describes position field (not always the case)
+    # TODO check if position is a valid HGVS string (not always the case)
+    # TODO Check if names follow a logical format
+    # TODO check relations between star-alleles
+    # TODO check if variants within suballele are disjoint (not always the case) and solve this
 
 if __name__ == "__main__":
     main()
