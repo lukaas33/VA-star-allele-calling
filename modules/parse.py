@@ -16,8 +16,8 @@ def parse_multi_hgvs(hgvs_lst, reference):
     variant_set = set(variant_lst)
     # Test if any variants were equivalent
     if len(variant_set) != len(variant_lst): 
-        raise ValueError(f"Double variant positions in {hgvs_lst}")
-    variant_set = fix_variant_overlapping(variant_lst) # Variant preprocessing
+        warnings.warn(f"Double variant positions in {hgvs_lst}")
+    variant_set = fix_variant_overlapping(variant_set) # Variant preprocessing
     return variant_set  
 
 def fix_hgvs_position(hgvs):
@@ -46,6 +46,7 @@ def fix_variant_overlapping(variants):
     This is needed since overlapping variants cannot be ordered and thus not compared.
     """
     # QUESTION why can't unorderable variants be compared?
+    # TODO fix range: '42128763:42128772/" and "42128770:42128771/C" overlap. Combining into "42128763:42128771/"' should be until 72
     # TODO Consider adjacent (>=) as overlapping? Adjacent HGVS-proof but doesn't cause va problems.
     sorted_variants = sorted(list(variants), key=lambda v: v.start)
     for i in range(0, len(sorted_variants)-1):
@@ -66,8 +67,6 @@ def combine_variants(variants, reference_sequence):
     WARNING: this is redundant for comparing since the compare function already patches the variants
     """
     # QUESTION: is this a correct method?
-    # TODO make representation more minimal
-    #       using supremal representation gives a longer sequence
     # TODO replace this function with calls to the va library (see compare method for the proper calls)
     # Apply variants to reference_sequence to get the observed sequence
     min_start = float('inf')
