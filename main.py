@@ -3,6 +3,27 @@ from modules.data import reference_get, pharmvar_get
 from modules.parse import parse_multi_hgvs
 import algebra as va
 
+def test_naming(corealleles, suballeles):
+    """Naming test, useful for checking if the data is complete."""
+    numbers = []
+    for coreallele_name in corealleles.keys():
+        for suballele in suballeles[coreallele_name]:
+            if coreallele_name not in suballele["alleleName"]:
+                warnings.warn(f"{coreallele_name}: naming of {suballele['alleleName']} inconsistent.")
+        number = int(coreallele_name.split("*")[1])
+        numbers.append(number)
+    if len(numbers) != len(set(numbers)):
+        warnings.warn("There are double core alleles in the data")
+    all_numbers = set(range(1, max(numbers)+1))
+    if all_numbers != set(numbers):
+        # QUESTION why are some numbers skipped?
+        # TODO detect proper skips
+        # *1 is wildtype
+        # *5 is full gene deletion 
+        # *13, etc. There are hybrid genes which 
+        # *16, etc.
+        warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
+        
 def test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name):
     """Test if the coreallele is contained in each suballele.
     
@@ -81,25 +102,7 @@ def main():
     suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
 
     # TEST 0: test if naming is consistent
-    numbers = []
-    for coreallele_name in corealleles.keys():
-        for suballele in suballeles[coreallele_name]:
-            if coreallele_name not in suballele["alleleName"]:
-                warnings.warn(f"{coreallele_name}: naming of {suballele['alleleName']} inconsistent.")
-        number = int(coreallele_name.split("*")[1])
-        numbers.append(number)
-    if len(numbers) != len(set(numbers)):
-        warnings.warn("There are double core alleles in the data")
-    all_numbers = set(range(1, max(numbers)+1))
-    if all_numbers != set(numbers):
-        # QUESTION why are some numbers skipped?
-        # TODO detect proper skips
-        # *1 is wildtype
-        # *5 is full gene deletion 
-        # *13, etc. There are hybrid genes which 
-        # *16, etc.
-        warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
-        
+    test_naming(corealleles, suballeles)
 
     # TEST 1: test if all corealleles are contained in their suballeles
     for coreallele_name, suballeles in suballeles.items():
