@@ -4,20 +4,18 @@ import warnings
 def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
     """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
 
-    Also includes preprocessing of data which involves fixing HGVS position notation and checking for wrong sets of variants.
+    Sometimes variants have the same hgvs representation but a different position value,
+    this is because there a multiple ways to optimally place the variant which have the same hgvs representation
+    For variant algebra this is not relevant so these are removed by using a set.
     """        
-    variant_lst = []
+    variants = set()
     for hgvs in hgvs_lst:
         try:
-            variant_lst += va.variants.parse_hgvs(hgvs, reference=reference_sequence) # Reference needed to handle insertions
+            for variant in va.variants.parse_hgvs(hgvs, reference=reference_sequence): # Reference needed to handle insertions
+                variants.add(variant)
         except: 
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
-    # Make into set to remove double variants
-    # Sometimes variants have the same hgvs representation but a different position value,
-    # this is because there a multiple ways to optimally place the variant which have the same hgvs representation
-    # For variant algebra this is not relevant
-    variant_set = set(variant_lst)
-    return variant_set  
+    return variants
 
 def combine_variants(variants, reference_sequence):
     """ Combine multiple variants into one larger variant (allele) in the supremal representation
