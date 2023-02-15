@@ -3,26 +3,6 @@ from modules.data import reference_get, pharmvar_get
 from modules.parse import parse_multi_hgvs
 import algebra as va
 
-def test_variant_overlapping(variants, allele_name, reference_sequence):
-    """Test overlapping variants in an variant list.
-    
-    This is needed since overlapping variants cannot be ordered and thus not compared.
-    Because they are not interpretable without more context no relation can be determined.
-
-    Adjacent variants are not a problem although they are strictly not HGVS proof if variants are not independent.
-    """
-    # TODO replace function by listening to certain error
-    # TODO document in thesis and report to pharmvar
-    correct = True
-    sorted_variants = sorted(list(variants), key=lambda v: v.start)
-    for i in range(0, len(sorted_variants)-1):
-        if sorted_variants[i].end == sorted_variants[i+1].start: # Adjacency
-            continue # Ignore
-        elif sorted_variants[i].end > sorted_variants[i+1].start: # Overlap
-            warnings.warn(f"{allele_name}: Variants {va.variants.to_hgvs([sorted_variants[i]], reference='NC000022.11', sequence_prefix=True)} and {va.variants.to_hgvs([sorted_variants[i+1]], reference='NC000022.11', sequence_prefix=True)} overlap. Cannot interpret, ignoring current allele.")
-            correct = False
-    return correct
-
 def test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name):
     """Test if the coreallele is contained in each suballele.
     
@@ -44,14 +24,16 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
         suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
         s_coreallele_variants = parse_multi_hgvs(coreallele_variants, reference_sequence, coreallele_name)
         s_suballele_variants = parse_multi_hgvs(suballele_variants, reference_sequence, suballele_name)
-        # Skip uninterpretable variants
-        if not test_variant_overlapping(s_coreallele_variants, coreallele_name, reference_sequence) or \
-                not test_variant_overlapping(s_suballele_variants, suballele_name, reference_sequence):
-            continue 
         # Find relation between core and suballeles
         try:
             relation = va.compare(reference_sequence, s_coreallele_variants, s_suballele_variants)
         except Exception as e:
+            if "unorderable variant" in str(e): 
+                # This happens when variants overlap, 
+                # in this case the observed sequence cannot be derived and the variants are not interpretable
+                warnings.warn(f"{coreallele_name}: Some variants overlap. Cannot interpret, ignoring current allele.")
+                # Skip uninterpretable variants 
+                continue
             raise ValueError(f"{coreallele_name}: Could not compare variants with {suballele_name} ({coreallele_variants} and {suballele_variants})")
         # Expect containment or equivalence for core and suballele
         # QUESTION is an equivalence between a sub and core allele inconsistent?
