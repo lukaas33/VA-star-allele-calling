@@ -1,25 +1,25 @@
 import algebra as va
 import warnings
 
-def parse_multi_hgvs(hgvs_lst, reference, coreallele_name):
+def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
     """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
 
     Also includes preprocessing of data which involves fixing HGVS position notation and checking for wrong sets of variants.
     """        
     variant_lst = []
     for hgvs in hgvs_lst:
-        hgvs = fix_hgvs_position(hgvs, coreallele_name) # HGVS preprocessing
+        hgvs = fix_hgvs_position(hgvs, allele_name) # HGVS preprocessing
         try:
-            variant_lst += va.variants.parse_hgvs(hgvs, reference=reference) # Reference needed to handle insertions
+            variant_lst += va.variants.parse_hgvs(hgvs, reference=reference_sequence) # Reference needed to handle insertions
         except: 
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
     variant_set = set(variant_lst)
     # Test if any variants were equivalent
     if len(variant_set) != len(variant_lst): 
-        warnings.warn(f"{coreallele_name}: Double variant positions in {hgvs_lst}")
+        warnings.warn(f"{allele_name}: Double variant hgvs: {[{va.variants.to_hgvs([var], reference='NC000022.11', sequence_prefix=True)} for var in variant_lst if variant_lst.count(var) > 1]}")
     return variant_set  
 
-def fix_hgvs_position(hgvs, coreallele_name):
+def fix_hgvs_position(hgvs, allele_name):
     """Fix HGVS notation problems with the position notation 
     
     Problems occur for deletions where a range is not specified but the (normally redundant) deleted area is.
@@ -35,7 +35,7 @@ def fix_hgvs_position(hgvs, coreallele_name):
         if len(area) > 1 and '_' not in position:
             range = f"{position}_{int(position)+len(area)-1}"
             corrected_hgvs = hgvs.replace(position, range)
-            warnings.warn(f"{coreallele_name}: Illegal but interpretable HGVS notation used '{corrected_hgvs}'. Correcting and continuing.")
+            warnings.warn(f"{allele_name}: Illegal but interpretable HGVS notation used '{corrected_hgvs}'. Correcting and continuing.")
             return corrected_hgvs
     return hgvs
 

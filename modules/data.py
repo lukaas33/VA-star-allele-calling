@@ -17,9 +17,8 @@ def api_get(url, params={}):
 
 def reference_get():
     """ Get reference sequence
-
-    TODO find proper API, is now hardcoded on web request
     """
+    # TODO find proper API, is now hardcoded on web request
     url = "https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file&log$=seqview&db=nuccore&report=fasta&id=568815576&&ncbi_phid=null"
     foldername = "data"
     filename = f"{foldername}/NC000022.11.fasta"
@@ -41,6 +40,7 @@ def pharmvar_api_get(target):
     More information can be found here:
     https://www.pharmvar.org/documentation
     """
+    # TODO take version number into account
     baseurl = "https://www.pharmvar.org/api-service/"
     url = baseurl + target
     default_params = {
