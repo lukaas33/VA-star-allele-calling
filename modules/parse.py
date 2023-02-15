@@ -1,14 +1,14 @@
 import algebra as va
 import warnings
 
-def parse_multi_hgvs(hgvs_lst, reference):
+def parse_multi_hgvs(hgvs_lst, reference, coreallele_name):
     """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
 
     Also includes preprocessing of data which involves fixing HGVS position notation and checking for wrong sets of variants.
     """        
     variant_lst = []
     for hgvs in hgvs_lst:
-        hgvs = fix_hgvs_position(hgvs) # HGVS preprocessing
+        hgvs = fix_hgvs_position(hgvs, coreallele_name) # HGVS preprocessing
         try:
             variant_lst += va.variants.parse_hgvs(hgvs, reference=reference) # Reference needed to handle insertions
         except: 
@@ -16,11 +16,10 @@ def parse_multi_hgvs(hgvs_lst, reference):
     variant_set = set(variant_lst)
     # Test if any variants were equivalent
     if len(variant_set) != len(variant_lst): 
-        warnings.warn(f"Double variant positions in {hgvs_lst}")
-    variant_set = fix_variant_overlapping(variant_set) # Variant preprocessing
+        warnings.warn(f"{coreallele_name}: Double variant positions in {hgvs_lst}")
     return variant_set  
 
-def fix_hgvs_position(hgvs):
+def fix_hgvs_position(hgvs, coreallele_name):
     """Fix HGVS notation problems with the position notation 
     
     Problems occur for deletions where a range is not specified but the (normally redundant) deleted area is.
@@ -29,44 +28,22 @@ def fix_hgvs_position(hgvs):
     https://varnomen.hgvs.org/recommendations/DNA/variant/deletion/
     But they are present in the Pharmvar database so they are preprocessed here.
     """
-    # TODO integrate change in va parser?
+    # TODO remove since position field is not hgvs
     if "del" in hgvs:
         area = hgvs.split("del")[1]
         position = hgvs.split("del")[0].split('.')[-1]
         if len(area) > 1 and '_' not in position:
             range = f"{position}_{int(position)+len(area)-1}"
             corrected_hgvs = hgvs.replace(position, range)
-            warnings.warn(f"Illegal but interpretable HGVS notation used '{corrected_hgvs}'. Correcting and continuing.")
+            warnings.warn(f"{coreallele_name}: Illegal but interpretable HGVS notation used '{corrected_hgvs}'. Correcting and continuing.")
             return corrected_hgvs
     return hgvs
 
-def fix_variant_overlapping(variants):
-    """Fix overlapping variants in an variant list.
-    
-    This is needed since overlapping variants cannot be ordered and thus not compared.
-    """
-    # QUESTION why can't unorderable variants be compared?
-    # TODO fix range: '42128763:42128772/" and "42128770:42128771/C" overlap. Combining into "42128763:42128771/"' should be until 72
-    # TODO Consider adjacent (>=) as overlapping? Adjacent HGVS-proof but doesn't cause va problems.
-    sorted_variants = sorted(list(variants), key=lambda v: v.start)
-    for i in range(0, len(sorted_variants)-1):
-        if sorted_variants[i].end > sorted_variants[i+1].start:
-            combined_sequence = sorted_variants[i].sequence[:(1 + sorted_variants[i+1].start - sorted_variants[i].start)]
-            combined_sequence += sorted_variants[i+1].sequence[(sorted_variants[i].end - sorted_variants[i+1].start):]
-            combined_variant = va.Variant(sorted_variants[i].start, sorted_variants[i+1].end, combined_sequence)
-            warnings.warn(f"Variants {sorted_variants[i]} and {sorted_variants[i+1]} overlap. Combining into {combined_variant} and continuing.")
-            sorted_variants[i] = None
-            sorted_variants[i+1] = combined_variant
-
-    non_overlapping_variants = set([var for var in sorted_variants if var is not None])
-    return non_overlapping_variants
-
 def combine_variants(variants, reference_sequence):
-    """ Combine multiple variants into one larger variant (allele)
+    """ Combine multiple variants into one larger variant (allele) in the supremal representation
     
     WARNING: this is redundant for comparing since the compare function already patches the variants
     """
-    # QUESTION: is this a correct method?
     # TODO replace this function with calls to the va library (see compare method for the proper calls)
     # Apply variants to reference_sequence to get the observed sequence
     min_start = float('inf')
