@@ -17,9 +17,6 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
     coreallele_variants = [variant["hgvs"] for variant in coreallele["variants"]]
     for suballele in suballeles:
         suballele_name = suballele["alleleName"]
-        # Check if name logical
-        if coreallele_name not in suballele_name:
-            warnings.warn(f"{coreallele_name}: naming of {suballele_name} inconsistent.")
         # Convert HGVS notation to sequence notation
         suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
         s_coreallele_variants = parse_multi_hgvs(coreallele_variants, reference_sequence, coreallele_name)
@@ -80,9 +77,29 @@ def main():
     # QUESTION what is a variant group in pharmvar
     # QUESTION is an empty allele always a subset of any allele
     # QUESTION should variants within a suballele be disjoint?
-    #   TODO test this with empty alleles like *1
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
     suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
+
+    # TEST 0: test if naming is consistent
+    numbers = []
+    for coreallele_name in corealleles.keys():
+        for suballele in suballeles[coreallele_name]:
+            if coreallele_name not in suballele["alleleName"]:
+                warnings.warn(f"{coreallele_name}: naming of {suballele['alleleName']} inconsistent.")
+        number = int(coreallele_name.split("*")[1])
+        numbers.append(number)
+    if len(numbers) != len(set(numbers)):
+        warnings.warn("There are double core alleles in the data")
+    all_numbers = set(range(1, max(numbers)+1))
+    if all_numbers != set(numbers):
+        # QUESTION why are some numbers skipped?
+        # TODO detect proper skips
+        # *1 is wildtype
+        # *5 is full gene deletion 
+        # *13, etc. There are hybrid genes which 
+        # *16, etc.
+        warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
+        
 
     # TEST 1: test if all corealleles are contained in their suballeles
     for coreallele_name, suballeles in suballeles.items():
