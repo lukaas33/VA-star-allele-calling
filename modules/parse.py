@@ -8,7 +8,6 @@ def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
     """        
     variant_lst = []
     for hgvs in hgvs_lst:
-        hgvs = fix_hgvs_position(hgvs, allele_name) # HGVS preprocessing
         try:
             variant_lst += va.variants.parse_hgvs(hgvs, reference=reference_sequence) # Reference needed to handle insertions
         except: 
@@ -19,26 +18,6 @@ def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
     # For variant algebra this is not relevant
     variant_set = set(variant_lst)
     return variant_set  
-
-def fix_hgvs_position(hgvs, allele_name):
-    """Fix HGVS notation problems with the position notation 
-    
-    Problems occur for deletions where a range is not specified but the (normally redundant) deleted area is.
-
-    These notations is not HGVS compliant: 
-    https://varnomen.hgvs.org/recommendations/DNA/variant/deletion/
-    But they are present in the Pharmvar database so they are preprocessed here.
-    """
-    # TODO remove since position field is not hgvs
-    if "del" in hgvs:
-        area = hgvs.split("del")[1]
-        position = hgvs.split("del")[0].split('.')[-1]
-        if len(area) > 1 and '_' not in position:
-            range = f"{position}_{int(position)+len(area)-1}"
-            corrected_hgvs = hgvs.replace(position, range)
-            warnings.warn(f"{allele_name}: Illegal but interpretable HGVS notation used '{corrected_hgvs}'. Correcting and continuing.")
-            return corrected_hgvs
-    return hgvs
 
 def combine_variants(variants, reference_sequence):
     """ Combine multiple variants into one larger variant (allele) in the supremal representation
