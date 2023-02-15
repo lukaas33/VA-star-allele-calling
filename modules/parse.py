@@ -13,10 +13,11 @@ def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
             variant_lst += va.variants.parse_hgvs(hgvs, reference=reference_sequence) # Reference needed to handle insertions
         except: 
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
+    # Make into set to remove double variants
+    # Sometimes variants have the same hgvs representation but a different position value,
+    # this is because there a multiple ways to optimally place the variant which have the same hgvs representation
+    # For variant algebra this is not relevant
     variant_set = set(variant_lst)
-    # Test if any variants were equivalent
-    if len(variant_set) != len(variant_lst): 
-        warnings.warn(f"{allele_name}: Double variant hgvs: {[{va.variants.to_hgvs([var], reference='NC000022.11', sequence_prefix=True)} for var in variant_lst if variant_lst.count(var) > 1]}")
     return variant_set  
 
 def fix_hgvs_position(hgvs, allele_name):
