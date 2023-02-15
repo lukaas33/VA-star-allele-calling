@@ -1,5 +1,4 @@
 import algebra as va
-from .parse import combine_variants
 import difflib
 from itertools import chain, combinations
 
@@ -8,9 +7,10 @@ def va_minimal_overlapping_allele(reference_sequence, lhs_allele, rhs_allele):
     
     Uses top-down linear search.
 
-    WARNING: worse case complexity is not good for bigger variants.
+    WARNING: only finds one area, if there are more the leftmost area is found.
+    WARNING: complexity is limiting for bigger variants.
     """
-    # QUESTION is it valid to have both sequences be the same length
+    # QUESTION is it valid to only have both sequences be the same length
     # QUESTION binary search possible instead of linear search?
     # TODO change approach to work for more downstream overlapping variants (since area would now get large for no reason)
     #       use sliding and extending window?
@@ -61,6 +61,25 @@ def va_characterize_overlap(reference_sequence, lhs, rhs):
     l_only = l_min_set - shared # Set minus
     r_only = r_min_set - shared
     return l_only, shared, r_only
+
+def combine_variants(variants, reference_sequence):
+    """ Combine multiple variants into one larger variant (allele) in the supremal representation
+    
+    WARNING: this is redundant for comparing since the compare function already patches the variants
+    """
+    # TODO replace this function with calls to the va library (see compare method for the proper calls)
+    # Apply variants to reference_sequence to get the observed sequence
+    min_start = float('inf')
+    max_end = -float('inf')
+    observed_sequence = va.variants.patch(reference_sequence, variants)
+    for operation in variants:
+        if operation.start < min_start:
+            min_start = operation.start
+        elif operation.end > max_end:
+            max_end = operation.end
+    # Find difference and output
+    allele = va.Variant(min_start, max_end, observed_sequence[min_start:max_end])
+    return allele
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
