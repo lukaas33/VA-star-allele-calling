@@ -1,6 +1,7 @@
 import warnings
 from modules.data import reference_get, pharmvar_get
 from modules.parse import parse_multi_hgvs
+from modules.graph import find_relations, display_graph
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -18,7 +19,7 @@ def test_naming(corealleles, suballeles):
     if all_numbers != set(numbers):
         # QUESTION why are some numbers skipped?
         # TODO detect proper skips
-        # *1 is wildtype
+        # *1 is wild type
         # *5 is full gene deletion 
         # *13, etc. There are hybrid genes which 
         # *16, etc.
@@ -59,34 +60,6 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
             # Not characterizing overlap since this is hard
             warnings.warn(f"{coreallele_name}: Unexpected relationship {relation} with suballele {suballele_name}")
 
-def find_relations(corealleles, reference_sequence):
-    """Find the relation between all corealleles and generate a graph structure.
-    
-    The graph structure should contain the relations in a minimal way, 
-    e.g. removing redundant symmetric or transitive relations.
-
-    This graph structure should later be visualized.
-    """
-    # Find relation for each pair of corealleles directionally
-    # TODO is it needed to do the inverse test for containment?
-    coreallele_names = list(corealleles.keys())
-    relations = {
-        coreallele: {
-            coreallele2: None 
-            for coreallele2 in coreallele_names
-        } 
-        for coreallele in coreallele_names
-    }
-    for i, left_coreallele in enumerate(coreallele_names):
-        for right_coreallele in coreallele_names[i+1:]:
-            left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
-            left_variants = parse_multi_hgvs(left_hgvs, reference_sequence)
-            right_hgvs = [variant["hgvs"] for variant in corealleles[right_coreallele]["variants"]]
-            right_variants = parse_multi_hgvs(right_hgvs, reference_sequence)
-            relation = va.compare(reference_sequence, left_variants, right_variants)
-            relations[left_coreallele][right_coreallele] = relation
-            print(left_coreallele, right_coreallele, relation)
-
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
@@ -102,14 +75,15 @@ def main():
     suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
 
     # TEST 0: test if naming is consistent
-    test_naming(corealleles, suballeles)
+    # test_naming(corealleles, suballeles)
 
     # TEST 1: test if all corealleles are contained in their suballeles
-    for coreallele_name, suballeles in suballeles.items():
-        test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
+    # for coreallele_name, suballeles in suballeles.items():
+        # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles
-    # find_relations(corealleles, reference_sequence)
+    alleles, relations = find_relations(corealleles, reference_sequence)
+    display_graph(alleles, relations)
 
 if __name__ == "__main__":
     main()

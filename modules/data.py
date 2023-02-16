@@ -53,22 +53,36 @@ def pharmvar_api_get(target):
     }    
     return api_get(url, default_params)
 
+def cache_set(data, name):
+    """Store data to avoid generating/retrieving it too often."""
+    foldername = "temp"
+    filename = f"{foldername}/{name}.pkl"
+    if not os.path.exists(foldername):
+        os.mkdir(foldername)
+    with open(filename, 'wb') as file:
+        pickle.dump(data, file)
+
+def cache_get(name):
+    """Get stored data"""
+    # TODO implement some retention method.
+    foldername = "temp"
+    filename = f"{foldername}/{name}.pkl"
+    if os.path.isfile(filename):
+        with open(filename, 'rb') as file:
+            return pickle.load(file)
+    raise ValueError("Cached file not found")
+
 def pharmvar_get(target):
     """ Get data from api and save it unless it is already stored.
 
     Reduces waiting time when experimenting.
     Stores it by target and the output shouldn't change that often.
-    TODO implement some retention method.
     """
-    foldername = "temp"
-    filename = f"{foldername}/{target.replace('/', '_').replace('*', '')}.pkl"
-    if os.path.isfile(filename):
-        with open(filename, 'rb') as file:
-            return pickle.load(file)
-    else:
+    name = target.replace('/', '_').replace('*', '')
+    try: 
+        return cache_get(name)
+    except:
         data = pharmvar_api_get(target)
-        if not os.path.exists(foldername):
-            os.mkdir(foldername)
-        with open(filename, 'wb') as file:
-            pickle.dump(data, file)
+        cache_set(data, name)
         return data
+

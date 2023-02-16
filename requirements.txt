@@ -1,2 +1,3 @@
 mutalyzer-algebra
 requests
+dash-cytoscape
