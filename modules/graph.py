@@ -1,7 +1,7 @@
 import algebra as va
 from dash import Dash, html
 import dash_cytoscape as cyto
-from modules.data import cache_get, cache_set
+from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
 
 def find_relations(corealleles, reference_sequence):
@@ -60,10 +60,12 @@ def prune_relations(allele_names, relations):
     """
     nodes = []
     for allele_name in allele_names:
-        nodes.append({"data": {
-            "id": allele_name, 
-            "label": allele_name
-        }})
+        nodes.append({
+            "data": {
+                "id": allele_name, 
+                "label": allele_name.split("CYP2D6")[1]
+            }
+        })
     edges = []
     check_symmetric = set() # Used to check if a reflexive relation was present already
     for node in allele_names:
@@ -86,12 +88,13 @@ def prune_relations(allele_names, relations):
                 check_symmetric.add(pair)
                 check_symmetric.add(inv_pair)
             # TODO prune transitive
-            edges.append({"data": {
-                "source": node,
-                "target": other,
-                "label": str(relation),
-                "classes": str(relation)
-            }})
+            edges.append({
+                "data": {
+                    "source": node,
+                    "target": other
+                },
+                "classes": str(relation).split('.')[1]
+            })
     print(len(nodes), len(edges))
     return nodes, edges
 
@@ -107,49 +110,50 @@ def display_graph(nodes, edges):
     app.layout = html.Div([
         cyto.Cytoscape(
             # TODO highlight connected edges for selected node
+            # TODO add filters
             id='graph',
             layout={'name': 'cose'},
-            # TODO make fullscreen
-            style={},
+            # TODO make full screen
             # TODO make stylesheet external
-            # TODO use colours and add legend 
+            # TODO use colors/sumbols and add legend 
+            style = {
+                "width": "100%",
+                "height": "400px"
+            },
             stylesheet = [
                 {
                     'selector': 'node',
                     'style': {
                         'content': 'data(label)'
                     }
-                },
-                {
+                }, {
                     'selector': 'edge',
                     'style': {
-                        # 'content': 'data(label)',
-                        'curve-style': 'bezier',
-                        'target-arrow-shape': 'none',
-                        'source-arrow-shape': 'none',
+                        'curve-style': 'bezier'
                     }
-                },
-                {
-                    'selector': '.Relation.EQUIVALENT',
+                }, {
+                    'selector': '.EQUIVALENT',
                     'style': {
+                        'line-color': 'lightgrey'
                     }
-                },
-                {
-                    'selector': '.Relation.CONTAINS',
+                }, {
+                    'selector': '.CONTAINS',
                     'style': {
-                        'target-arrow-shape': 'triangle'
-
+                        'target-arrow-shape': 'triangle',
+                        'target-arrow-color': 'grey',
+                        'line-color': 'grey'
                     }
-                },
-                {
-                    'selector': '.Relation.IS_CONTAINED',
+                }, {
+                    'selector': '.IS_CONTAINED',
                     'style': {
-                        'source-arrow-shape': 'triangle'
+                        'target-arrow-shape': 'triangle',
+                        'target-arrow-color': 'grey',
+                        'line-color': 'grey'
                     }
-                },
-                {
-                    'selector': '.Relation.OVERLAP',
+                }, {
+                    'selector': '.OVERLAP',
                     'style': {
+                        'line-color': 'black'
                     }
                 }
             ],
