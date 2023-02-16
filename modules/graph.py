@@ -52,22 +52,16 @@ def prune_relations(allele_names, relations):
 
     Useful for displaying as a graph.
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
-    Reflexive relations (equivalence to self) should not be displayed.
-    Transitive relations can be reduced by using a tree structure (equivalence, containment).
+    Reflexive relations should not be displayed (equivalence to self).
+    Transitive relations can be reduced to a tree structure (equivalence, containment).
     Disjoint relation can be left out.
 
     returns list of nodes and edges.
     """
-    nodes = []
-    for allele_name in allele_names:
-        nodes.append({
-            "data": {
-                "id": allele_name, 
-                "label": allele_name.split("CYP2D6")[1]
-            }
-        })
+    nodes = allele_names[:]
     edges = []
-    check_symmetric = set() # Used to check if a reflexive relation was present already
+    check_symmetric = set() 
+    check_transitivity = {r: [] for r in va.Relation}
     for node in allele_names:
         for other in relations[node].keys():
             relation = relations[node][other]
@@ -76,25 +70,23 @@ def prune_relations(allele_names, relations):
                 continue
             if relation is None:
                 raise ValueError("Relation data is incomplete")
-            # Don't display disjointness explicitly
+            # Don't display disjointedness explicitly
             if relation == va.Relation.DISJOINT: 
                 continue
             # Don't display symmetric relations twice
-            if relation == va.Relation.EQUIVALENT or relation == va.Relation.OVERLAP:
+            if relation in (va.Relation.EQUIVALENT, va.Relation.OVERLAP):
                 pair = (node, other)
                 inv_pair = (other, node)
                 if pair in check_symmetric or inv_pair in check_symmetric: 
                     continue
                 check_symmetric.add(pair)
                 check_symmetric.add(inv_pair)
-            # TODO prune transitive
-            edges.append({
-                "data": {
-                    "source": node,
-                    "target": other
-                },
-                "classes": str(relation).split('.')[1]
-            })
+            # Store transitive relations to prune and add later
+            if relation in (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED):
+                check_transitivity[relation].append((node, other))
+                continue
+            edges.append((node, other, relation))
+
     print(len(nodes), len(edges))
     return nodes, edges
 
@@ -106,20 +98,41 @@ def display_graph(nodes, edges):
     The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
     https://dash.plotly.com/cytoscape
     """
+    # Convert to proper format
+    elements = []
+    for node in nodes:
+        elements.append({            
+            "data": {
+                "id": node, 
+                "label": node.split("CYP2D6")[1]
+            }
+        })
+    for node, other, relation in edges:
+        elements.append({
+            "data": {
+                "source": node,
+                "target": other
+            },
+            "classes": str(relation).split('.')[1]
+        })
+    # Start webpage
+    cyto.load_extra_layouts()
     app = Dash(__name__)
     app.layout = html.Div([
         cyto.Cytoscape(
             # TODO highlight connected edges for selected node
-            # TODO add filters
+            # TODO add filters 
+            # TODO filter out hubs?
             id='graph',
-            layout={'name': 'cose'},
+            # TODO find layout concentric, breadthfirst
+            layout={'name': 'concentric'}, 
             # TODO make full screen
-            # TODO make stylesheet external
-            # TODO use colors/sumbols and add legend 
             style = {
                 "width": "100%",
                 "height": "400px"
             },
+            # TODO make stylesheet external
+            # TODO use colors/symbols and add legend 
             stylesheet = [
                 {
                     'selector': 'node',
@@ -134,7 +147,7 @@ def display_graph(nodes, edges):
                 }, {
                     'selector': '.EQUIVALENT',
                     'style': {
-                        'line-color': 'lightgrey'
+                        'line-color': 'black'
                     }
                 }, {
                     'selector': '.CONTAINS',
@@ -153,11 +166,11 @@ def display_graph(nodes, edges):
                 }, {
                     'selector': '.OVERLAP',
                     'style': {
-                        'line-color': 'black'
+                        'line-color': 'lightgrey'
                     }
                 }
             ],
-            elements=(nodes + edges)
+            elements=elements
         )
     ])
     app.run_server(debug=True)
