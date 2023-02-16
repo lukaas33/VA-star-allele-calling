@@ -1,8 +1,10 @@
 import algebra as va
-from dash import Dash, html
+import json
+from dash import Dash, html, dcc, Input, Output
 import dash_cytoscape as cyto
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
+from .assets.graph_styles import default_stylesheet, selection_stylesheet
 
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
@@ -98,7 +100,9 @@ def display_graph(nodes, edges):
     The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
     https://dash.plotly.com/cytoscape
     """
+    # TODO switch to js for a more extensive app
     # Convert to proper format
+    # TODO add more info?
     elements = []
     for node in nodes:
         elements.append({            
@@ -115,62 +119,56 @@ def display_graph(nodes, edges):
             },
             "classes": str(relation).split('.')[1]
         })
-    # Start webpage
+    # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)
+    default_layout = 'concentric' # TODO find best
     app.layout = html.Div([
+        html.Button('Reset view', id='reset-view'),
+        html.Button('Reset selection', id='reset-selection'),
         cyto.Cytoscape(
-            # TODO highlight connected edges for selected node
-            # TODO add filters 
-            # TODO filter out hubs?
             id='graph',
-            # TODO find layout concentric, breadthfirst
-            layout={'name': 'concentric'}, 
-            # TODO make full screen
             style = {
                 "width": "100%",
-                "height": "400px"
+                "height": "75vh"
             },
-            # TODO make stylesheet external
-            # TODO use colors/symbols and add legend 
-            stylesheet = [
-                {
-                    'selector': 'node',
-                    'style': {
-                        'content': 'data(label)'
-                    }
-                }, {
-                    'selector': 'edge',
-                    'style': {
-                        'curve-style': 'bezier'
-                    }
-                }, {
-                    'selector': '.EQUIVALENT',
-                    'style': {
-                        'line-color': 'black'
-                    }
-                }, {
-                    'selector': '.CONTAINS',
-                    'style': {
-                        'target-arrow-shape': 'triangle',
-                        'target-arrow-color': 'grey',
-                        'line-color': 'grey'
-                    }
-                }, {
-                    'selector': '.IS_CONTAINED',
-                    'style': {
-                        'target-arrow-shape': 'triangle',
-                        'target-arrow-color': 'grey',
-                        'line-color': 'grey'
-                    }
-                }, {
-                    'selector': '.OVERLAP',
-                    'style': {
-                        'line-color': 'lightgrey'
-                    }
-                }
-            ],
-            elements=elements
-        )
+            layout = {"name": default_layout},
+            stylesheet = default_stylesheet,
+            elements = elements
+        ),
+        dcc.Dropdown(
+            id='change-layout',
+            value=default_layout,
+            clearable=False,
+            options=[
+                # Layouts which load efficiently enough
+                {'label': name.capitalize(), 'value': name}
+                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst']
+            ]
+        ),
+        html.Pre(id='data'),
     ])
+    # TODO add filters 
+    #    TODO filter out hubs?
+    # TODO make expanding?
+    # Add interactive component callbacks 
+    # Change layout
+    @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
+    def update_layout(layout):
+        return {'name': layout}
+    # Display information about selection
+    @app.callback(Output('data', 'children'), Input('graph', 'tapNodeData'))
+    def displayTapNodeData(data):
+        return json.dumps(data, indent=2)
+    # Display connections of selected
+    @app.callback([Output('graph', 'stylesheet'), Output('reset-selection', 'n_clicks')], [Input('graph', 'tapNode'), Input('reset-selection', 'n_clicks')])
+    def generate_stylesheet(node, n_clicks):
+        if not node or n_clicks == 1: # No input or resetting
+            return [default_stylesheet, None]
+        return [selection_stylesheet(node), None]
+    # Reset view
+    @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
+    def reset_layout(n_clicks):
+        return [1, elements]
+    # Start webpage
     app.run_server(debug=True)
