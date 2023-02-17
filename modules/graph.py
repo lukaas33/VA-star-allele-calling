@@ -49,6 +49,15 @@ def find_relations(corealleles, reference_sequence):
     pruned = prune_relations(coreallele_names, relations)
     return pruned
 
+def spanning_tree(nodes, edges):
+    """Find spanning tree given a graph.
+    
+    Can be used to minimize graph structure with transitive relations.
+    """
+    # TODO implement
+    #   TODO can be done for all relations at the same time?
+    return edges
+
 def prune_relations(allele_names, relations):
     """Prune relations which are redundant.
 
@@ -63,7 +72,8 @@ def prune_relations(allele_names, relations):
     nodes = allele_names[:]
     edges = []
     check_symmetric = set() 
-    check_transitivity = {r: [] for r in va.Relation}
+    transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
+    check_transitivity = {r: [] for r in transitive}
     for node in allele_names:
         for other in relations[node].keys():
             relation = relations[node][other]
@@ -84,12 +94,14 @@ def prune_relations(allele_names, relations):
                 check_symmetric.add(pair)
                 check_symmetric.add(inv_pair)
             # Store transitive relations to prune and add later
-            if relation in (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED):
-                check_transitivity[relation].append((node, other))
+            if relation in transitive:
+                check_transitivity[relation].append((node, other, relation))
                 continue
             edges.append((node, other, relation))
 
-    print(len(nodes), len(edges))
+    for relation, trans in check_transitivity.items():
+        edges += spanning_tree(nodes, trans)
+    print(len(edges) - 4439)
     return nodes, edges
 
 
