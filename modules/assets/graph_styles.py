@@ -1,10 +1,10 @@
 # Define styles
-# TODO use colors/symbols and add legend 
 default_stylesheet = [
     {
         'selector': 'node',
         'style': {
-            'content': 'data(label)'
+            'content': 'data(label)',
+            'background-color': '#455A64' # Blue gray 700
         }
     }, {
         'selector': 'edge',
@@ -14,34 +14,31 @@ default_stylesheet = [
     }, {
         'selector': '.EQUIVALENT',
         'style': {
-            'line-color': 'black'
+            'line-color': '#607D8B', # Blue gray 500
+            'width': '3'
         }
     }, {
-        'selector': '.CONTAINS',
+        'selector': '.IS_CONTAINED, .CONTAINS',
         'style': {
             'target-arrow-shape': 'triangle',
-            'target-arrow-color': 'grey',
-            'line-color': 'grey'
-        }
-    }, {
-        'selector': '.IS_CONTAINED',
-        'style': {
-            'target-arrow-shape': 'triangle',
-            'target-arrow-color': 'grey',
-            'line-color': 'grey'
+            'target-arrow-color': '#78909C', # Blue gray 400
+            'line-color': '#78909C',
+            'width': '2'
         }
     }, {
         'selector': '.OVERLAP',
         'style': {
-            'line-color': 'lightgrey'
+            'line-color': '#90A4AE', # Blue gray 300
+            'width': '1'
         }
     }
 ]
 
 
 def selection_stylesheet(node):
-    selection_color = 'purple'
-    connected_color = 'red'
+    selection_color = '#B71C1C' # Red 900
+    connected_color = '#D32F2F' # Red 700
+    edge_color = '#E57373' # Red 300
     stylesheet = default_stylesheet.copy()
     stylesheet += [
         {
@@ -72,15 +69,15 @@ def selection_stylesheet(node):
                 "style": {
                     'background-color': connected_color,
                     "color": connected_color,
-                    'opacity': 0.9
+                    'opacity': 1
                 }
             })
             stylesheet.append({
                 "selector": f"edge[id = '{edge['id']}']",
                 "style": {
-                    "line-color": connected_color,
-                    'target-arrow-color': connected_color,
-                    'opacity': 0.9,
+                    "line-color": edge_color,
+                    'target-arrow-color': edge_color,
+                    'opacity': 1,
                     'z-index': 5000
                 }
             })
@@ -90,15 +87,15 @@ def selection_stylesheet(node):
                 "style": {
                     'background-color': connected_color,
                     "color": connected_color,
-                    'opacity': 0.9,
+                    'opacity': 1,
                     'z-index': 9999
                 }
             })
             stylesheet.append({
                 "selector": f"edge[id = '{edge['id']}']",
-                "style": {
-                    "line-color": connected_color,
-                    'target-arrow-color': connected_color,
+                "style": { # TODO make DRY
+                    "line-color": edge_color,
+                    'target-arrow-color': edge_color,
                     'opacity': 1,
                     'z-index': 5000
                 }

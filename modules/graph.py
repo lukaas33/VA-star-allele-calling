@@ -153,7 +153,6 @@ def prune_relations(allele_names, relations):
     # Reduce transitive graph to tree and add
     for relation, subset_edges in check_transitivity.items():
         edges += spanning_tree(nodes, subset_edges)
-    print(len(relations) - len(edges))
     return nodes, edges
 
 
@@ -186,7 +185,7 @@ def display_graph(nodes, edges):
     # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)
-    default_layout = 'concentric' # TODO find best
+    default_layout = 'cose-bilkent' # TODO find best
     app.layout = html.Div([
         html.Button('Reset view', id='reset-view'),
         html.Button('Reset selection', id='reset-selection'),
@@ -196,7 +195,6 @@ def display_graph(nodes, edges):
                 "width": "100%",
                 "height": "75vh"
             },
-            layout = {"name": default_layout},
             stylesheet = default_stylesheet,
             elements = elements
         ),
@@ -207,20 +205,26 @@ def display_graph(nodes, edges):
             options=[
                 # Layouts which load efficiently enough
                 {'label': name.capitalize(), 'value': name}
-                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst']
+                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
             ]
         ),
         html.Pre(id='data'),
     ])
-    # TODO only display contains and not is_contained
     # TODO add filters 
     #    TODO filter out hubs?
+    #    TODO filter only some relations
     # TODO make expanding?
     # Add interactive component callbacks 
     # Change layout
     @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
     def update_layout(layout):
-        return {'name': layout}
+        settings = {"name": layout}
+        settings["nodeDimensionsIncludeLabels"] = True
+        if layout == 'cose-bilkent' or layout == 'cose':
+            settings["idealEdgeLength"] = 400
+            settings["tile"] = False
+            settings["animate"] = False
+        return settings
     # Display information about selection
     @app.callback(Output('data', 'children'), Input('graph', 'tapNodeData'))
     def displayTapNodeData(data):
