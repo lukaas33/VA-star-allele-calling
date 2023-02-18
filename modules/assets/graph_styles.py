@@ -35,10 +35,30 @@ default_stylesheet = [
 ]
 
 
-def selection_stylesheet(node):
-    selection_color = '#B71C1C' # Red 900
+def connected_styles(edge, direction):
     connected_color = '#D32F2F' # Red 700
     edge_color = '#E57373' # Red 300
+    return [
+        {
+            "selector": f"node[id = '{edge[direction]}']",
+            "style": {
+                'background-color': connected_color,
+                "color": connected_color,
+                'opacity': 1
+            }
+        }, {
+            "selector": f"edge[id = '{edge['id']}']",
+            "style": {
+                "line-color": edge_color,
+                'target-arrow-color': edge_color,
+                'opacity': 1,
+                'z-index': 5000
+            }
+        }
+    ]
+
+def selection_stylesheet(node):
+    selection_color = '#B71C1C' # Red 900
     stylesheet = default_stylesheet.copy()
     stylesheet += [
         {
@@ -62,42 +82,10 @@ def selection_stylesheet(node):
             }
         }
     ]
+
     for edge in node['edgesData']:
         if edge['source'] == node['data']['id']:
-            stylesheet.append({
-                "selector": f"node[id = '{edge['target']}']",
-                "style": {
-                    'background-color': connected_color,
-                    "color": connected_color,
-                    'opacity': 1
-                }
-            })
-            stylesheet.append({
-                "selector": f"edge[id = '{edge['id']}']",
-                "style": {
-                    "line-color": edge_color,
-                    'target-arrow-color': edge_color,
-                    'opacity': 1,
-                    'z-index': 5000
-                }
-            })
+            stylesheet += connected_styles(edge, 'target')
         if edge['target'] == node['data']['id']:
-            stylesheet.append({
-                "selector": f"node[id = '{edge['source']}']",
-                "style": {
-                    'background-color': connected_color,
-                    "color": connected_color,
-                    'opacity': 1,
-                    'z-index': 9999
-                }
-            })
-            stylesheet.append({
-                "selector": f"edge[id = '{edge['id']}']",
-                "style": { # TODO make DRY
-                    "line-color": edge_color,
-                    'target-arrow-color': edge_color,
-                    'opacity': 1,
-                    'z-index': 5000
-                }
-            })
+            stylesheet += connected_styles(edge, 'source')
     return stylesheet

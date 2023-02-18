@@ -83,7 +83,7 @@ def main():
 
     # TEST 2: find the relation between all corealleles
     alleles, relations = find_relations(corealleles, reference_sequence)
-    display_graph(alleles, relations)
+    display_graph(alleles, relations, corealleles)
 
 if __name__ == "__main__":
     main()

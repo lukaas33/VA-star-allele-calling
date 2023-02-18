@@ -156,22 +156,22 @@ def prune_relations(allele_names, relations):
     return nodes, edges
 
 
-def display_graph(nodes, edges):
+def display_graph(nodes, edges, data):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
     The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
     https://dash.plotly.com/cytoscape
     """
-    # TODO switch to js for a more extensive app
+    # TODO switch to js for a more extensive app (filtering, searching, expanding, etc.)
     # Convert to proper format
-    # TODO add more info?
     elements = []
     for node in nodes:
         elements.append({            
             "data": {
                 "id": node, 
-                "label": node.split("CYP2D6")[1]
+                "label": node.split("CYP2D6")[1],
+                "data": data[node]
             }
         })
     for node, other, relation in edges:
@@ -210,10 +210,6 @@ def display_graph(nodes, edges):
         ),
         html.Pre(id='data'),
     ])
-    # TODO add filters 
-    #    TODO filter out hubs?
-    #    TODO filter only some relations
-    # TODO make expanding?
     # Add interactive component callbacks 
     # Change layout
     @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
