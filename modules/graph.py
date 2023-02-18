@@ -6,18 +6,20 @@ from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 
+# TODO use OOP graph class for everything?
+
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
 
     Relations are cached since they take a long time to generate.
 
-    Returns nodes and edges.
+    Returns list of edges.
     """
     # Find relation for each pair of corealleles directionally
     coreallele_names = list(corealleles.keys())
     name = "relations"
     try:
-        relations = cache_get(name)
+        edges = cache_get(name)
     except:
         relations = {
             coreallele: {
@@ -28,7 +30,7 @@ def find_relations(corealleles, reference_sequence):
         }
         for i, left_coreallele in enumerate(coreallele_names):
             # TODO change loop to remove all none values
-            for right_coreallele in coreallele_names[i+1:]: # Only check each pair once
+            for right_coreallele in coreallele_names[i:]: # Only check each pair once
                 # Parse allele
                 left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
                 left_variants = parse_multi_hgvs(left_hgvs, reference_sequence, left_coreallele)
@@ -45,9 +47,12 @@ def find_relations(corealleles, reference_sequence):
                 else:
                     inv_relation = relation
                 relations[right_coreallele][left_coreallele] = inv_relation
-        cache_set(relations, name) # TODO cache later
-    pruned = prune_relations(coreallele_names, relations)
-    return pruned
+        edges = []
+        for l_node in corealleles:
+            for r_node in corealleles:
+                edges.append((l_node, r_node, relations[l_node][r_node]))
+        cache_set(edges, name) # Cache
+    return edges
 
 class Graph():
     def __init__(self, nodes):
@@ -106,57 +111,53 @@ def spanning_tree(nodes, edges):
         min_edges.append(edge)
     return min_edges
 
-def prune_relations(allele_names, relations):
-    """Prune relations which are redundant.
+def prune_relations(nodes, relations):
+    """Prune relations which are redundant for displaying.
 
-    Useful for displaying as a graph.
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
     Reflexive relations should not be displayed (equivalence to self).
     Transitive relations can be reduced to a tree structure (equivalence, containment).
     Disjoint relation can be left out.
 
-    returns list of nodes and edges.
+    returns list of edges.
     """
     transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
     symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
-    nodes = allele_names[:]
     edges = []
     check_symmetric = set() 
     check_transitivity = {r: [] for r in transitive}
-    for node in allele_names:
-        for other in relations[node].keys():
-            relation = relations[node][other]
-            # Skip trivial self equivalence (reflexivity)
-            if node == other: 
+    for node, other, relation in relations:
+        # Skip trivial self equivalence (reflexivity)
+        if node == other: 
+            continue
+        if relation is None:
+            raise ValueError("Relation data is incomplete")
+        # Don't display disjointedness explicitly
+        if relation == va.Relation.DISJOINT: 
+            continue
+        # Only show one (arbitrary) direction of containment 
+        if relation == va.Relation.IS_CONTAINED:
+            continue
+        # Don't display symmetric relations twice
+        if relation in symmetric:
+            pair = (node, other)
+            inv_pair = (other, node)
+            if pair in check_symmetric or inv_pair in check_symmetric: 
                 continue
-            if relation is None:
-                raise ValueError("Relation data is incomplete")
-            # Don't display disjointedness explicitly
-            if relation == va.Relation.DISJOINT: 
-                continue
-            # Only show one (arbitrary) direction of containment 
-            if relation == va.Relation.IS_CONTAINED:
-                continue
-            # Don't display symmetric relations twice
-            if relation in symmetric:
-                pair = (node, other)
-                inv_pair = (other, node)
-                if pair in check_symmetric or inv_pair in check_symmetric: 
-                    continue
-                check_symmetric.add(pair)
-                check_symmetric.add(inv_pair)
-            # Store transitive relations to prune and add later
-            if relation in transitive:
-                check_transitivity[relation].append((node, other, relation))
-                continue
-            edges.append((node, other, relation))
+            check_symmetric.add(pair)
+            check_symmetric.add(inv_pair)
+        # Store transitive relations to prune and add later
+        if relation in transitive:
+            check_transitivity[relation].append((node, other, relation))
+            continue
+        edges.append((node, other, relation))
     # Reduce transitive graph to tree and add
     for relation, subset_edges in check_transitivity.items():
         edges += spanning_tree(nodes, subset_edges)
-    return nodes, edges
+    return edges
 
 
-def display_graph(nodes, edges, data):
+def display_graph(nodes, relations, data):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -164,6 +165,8 @@ def display_graph(nodes, edges, data):
     https://dash.plotly.com/cytoscape
     """
     # TODO switch to js for a more extensive app (filtering, searching, expanding, etc.)
+    # Prune redundant relations
+    edges = prune_relations(nodes, relations)
     # Convert to proper format
     elements = []
     for node in nodes:
@@ -178,7 +181,7 @@ def display_graph(nodes, edges, data):
         elements.append({
             "data": {
                 "source": node,
-                "target": other
+                "target": other,
             },
             "classes": str(relation).split('.')[1]
         })
@@ -189,15 +192,6 @@ def display_graph(nodes, edges, data):
     app.layout = html.Div([
         html.Button('Reset view', id='reset-view'),
         html.Button('Reset selection', id='reset-selection'),
-        cyto.Cytoscape(
-            id='graph',
-            style = {
-                "width": "100%",
-                "height": "75vh"
-            },
-            stylesheet = default_stylesheet,
-            elements = elements
-        ),
         dcc.Dropdown(
             id='change-layout',
             value=default_layout,
@@ -207,6 +201,15 @@ def display_graph(nodes, edges, data):
                 {'label': name.capitalize(), 'value': name}
                 for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
             ]
+        ),
+        cyto.Cytoscape(
+            id='graph',
+            style = {
+                "width": "100%",
+                "height": "75vh"
+            },
+            stylesheet = default_stylesheet,
+            elements = elements
         ),
         html.Pre(id='data'),
     ])
