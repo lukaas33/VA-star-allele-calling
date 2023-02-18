@@ -79,6 +79,7 @@ def selection_stylesheet(node):
                 "selector": f"edge[id = '{edge['id']}']",
                 "style": {
                     "line-color": connected_color,
+                    'target-arrow-color': connected_color,
                     'opacity': 0.9,
                     'z-index': 5000
                 }
@@ -97,6 +98,7 @@ def selection_stylesheet(node):
                 "selector": f"edge[id = '{edge['id']}']",
                 "style": {
                     "line-color": connected_color,
+                    'target-arrow-color': connected_color,
                     'opacity': 1,
                     'z-index': 5000
                 }

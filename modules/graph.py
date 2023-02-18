@@ -49,14 +49,62 @@ def find_relations(corealleles, reference_sequence):
     pruned = prune_relations(coreallele_names, relations)
     return pruned
 
+class Graph():
+    def __init__(self, nodes):
+        self.nodes = nodes
+        self.graph = {node: [] for node in nodes}
+ 
+    def addEdge(self, node, edge):
+        self.graph[node].append(edge)
+
+    def removeEdge(self, node, edge):
+        self.graph[node].remove(edge)
+ 
+    def isCyclicUtil(self, v, visited, stack):
+        # Mark current node as visited and
+        # adds to recursion stack
+        visited[v] = True
+        stack[v] = True
+ 
+        # Recur for all neighbours
+        # if any neighbour is visited and in
+        # stack then graph is cyclic
+        for neighbour in self.graph[v]:
+            if visited[neighbour] == False:
+                if self.isCyclicUtil(neighbour, visited, stack) == True:
+                    return True
+            elif stack[neighbour] == True:
+                return True
+ 
+        # The node needs to be popped from
+        # recursion stack before function ends
+        stack[v] = False
+        return False
+ 
+    # Returns true if graph is cyclic else false
+    def isCyclic(self):
+        visited = {node: False for node in self.nodes}
+        stack = {node: False for node in self.nodes}
+        for node in self.nodes:
+            if visited[node] == False:
+                if self.isCyclicUtil(node, visited, stack) == True:
+                    return True
+        return False
+
 def spanning_tree(nodes, edges):
     """Find spanning tree given a graph.
     
     Can be used to minimize graph structure with transitive relations.
     """
-    # TODO implement
-    #   TODO can be done for all relations at the same time?
-    return edges
+    min_edges = []
+    tree = Graph(nodes)
+    for edge in edges:
+        tree.addEdge(edge[0], edge[1])
+        if tree.isCyclic():
+            tree.removeEdge(edge[0], edge[1])
+            continue
+        min_edges.append(edge)
+    return min_edges
 
 def prune_relations(allele_names, relations):
     """Prune relations which are redundant.
@@ -69,10 +117,11 @@ def prune_relations(allele_names, relations):
 
     returns list of nodes and edges.
     """
+    transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
+    symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
     nodes = allele_names[:]
     edges = []
     check_symmetric = set() 
-    transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
     check_transitivity = {r: [] for r in transitive}
     for node in allele_names:
         for other in relations[node].keys():
@@ -85,8 +134,11 @@ def prune_relations(allele_names, relations):
             # Don't display disjointedness explicitly
             if relation == va.Relation.DISJOINT: 
                 continue
+            # Only show one (arbitrary) direction of containment 
+            if relation == va.Relation.IS_CONTAINED:
+                continue
             # Don't display symmetric relations twice
-            if relation in (va.Relation.EQUIVALENT, va.Relation.OVERLAP):
+            if relation in symmetric:
                 pair = (node, other)
                 inv_pair = (other, node)
                 if pair in check_symmetric or inv_pair in check_symmetric: 
@@ -98,10 +150,10 @@ def prune_relations(allele_names, relations):
                 check_transitivity[relation].append((node, other, relation))
                 continue
             edges.append((node, other, relation))
-
-    for relation, trans in check_transitivity.items():
-        edges += spanning_tree(nodes, trans)
-    print(len(edges) - 4439)
+    # Reduce transitive graph to tree and add
+    for relation, subset_edges in check_transitivity.items():
+        edges += spanning_tree(nodes, subset_edges)
+    print(len(relations) - len(edges))
     return nodes, edges
 
 
