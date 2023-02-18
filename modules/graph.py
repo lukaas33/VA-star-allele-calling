@@ -212,6 +212,7 @@ def display_graph(nodes, edges):
         ),
         html.Pre(id='data'),
     ])
+    # TODO only display contains and not is_contained
     # TODO add filters 
     #    TODO filter out hubs?
     # TODO make expanding?
