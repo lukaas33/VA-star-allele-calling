@@ -26,6 +26,13 @@ default_stylesheet = [
             'width': '2'
         }
     }, {
+        'selector': '.IS_CONTAINED',  
+        'style': {
+            # Only display one arbitrary direction of containment, 
+            # the other direction follows
+            'display': 'none'
+        }     
+    }, {
         'selector': '.OVERLAP',
         'style': {
             'line-color': '#90A4AE', # Blue gray 300

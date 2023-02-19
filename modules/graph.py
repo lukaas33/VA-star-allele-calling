@@ -2,8 +2,11 @@ import algebra as va
 import json
 from dash import Dash, html, dcc, Input, Output
 import dash_cytoscape as cyto
+import plotly.express as px
+from pandas import DataFrame as df
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
+from .analyse import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 
 # TODO use OOP graph class for everything?
@@ -112,7 +115,7 @@ def spanning_tree(nodes, edges):
     return min_edges
 
 def prune_relations(nodes, relations):
-    """Prune relations which are redundant for displaying.
+    """Prune relations which are redundant.
 
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
     Reflexive relations should not be displayed (equivalence to self).
@@ -127,18 +130,16 @@ def prune_relations(nodes, relations):
     check_symmetric = set() 
     check_transitivity = {r: [] for r in transitive}
     for node, other, relation in relations:
+        if relation is None:
+            raise ValueError("Relation data is incomplete")
         # Skip trivial self equivalence (reflexivity)
         if node == other: 
             continue
-        if relation is None:
-            raise ValueError("Relation data is incomplete")
-        # Don't display disjointedness explicitly
+        # Don't represent disjointedness explicitly, 
+        # it can be seen as 'no relation'
         if relation == va.Relation.DISJOINT: 
             continue
-        # Only show one (arbitrary) direction of containment 
-        if relation == va.Relation.IS_CONTAINED:
-            continue
-        # Don't display symmetric relations twice
+        # Don't represent symmetric relations twice
         if relation in symmetric:
             pair = (node, other)
             inv_pair = (other, node)
@@ -156,6 +157,22 @@ def prune_relations(nodes, relations):
         edges += spanning_tree(nodes, subset_edges)
     return edges
 
+def plot_arity(nodes, relations):
+    """Create a plot of the arity values"""
+    arities = count_arity(nodes, relations)
+    # Covert data to pandas dataframe
+    data = {"allele": [], "relation": [], "arity": []}
+    for rel in va.Relation:
+        for node in nodes:
+            data["allele"].append(node)
+            data["relation"].append(str(rel).split('.')[1])
+            data["arity"].append(arities[node][rel])
+    data = df(data)
+    # Display
+    figure = px.bar(df(data), x="allele", y="arity", color="relation", title="Pruned relationships")
+    figure.update_layout(barmode='stack', xaxis={'categoryorder': 'total ascending'})
+    return figure
+
 
 def display_graph(nodes, relations, data):
     """Display relations as a graph
@@ -164,9 +181,17 @@ def display_graph(nodes, relations, data):
     The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
     https://dash.plotly.com/cytoscape
     """
+    # print(f"All {len(relations)} relationships:")
+    count_all = count_relations(relations)
+    # for relationType, count in count_all.items():
+    #     print(f"  {count} {relationType}")
     # TODO switch to js for a more extensive app (filtering, searching, expanding, etc.)
     # Prune redundant relations
     edges = prune_relations(nodes, relations)
+    # print(f"Pruned {len(edges)} relationships for graph:")
+    count_pruned = count_relations(edges)
+    # for relationType, count in count_pruned.items():
+    #     print(f"  {count} {relationType}")
     # Convert to proper format
     elements = []
     for node in nodes:
@@ -188,30 +213,44 @@ def display_graph(nodes, relations, data):
     # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)
-    default_layout = 'cose-bilkent' # TODO find best
+    default_layout = 'cose-bilkent' 
     app.layout = html.Div([
-        html.Button('Reset view', id='reset-view'),
-        html.Button('Reset selection', id='reset-selection'),
-        dcc.Dropdown(
-            id='change-layout',
-            value=default_layout,
-            clearable=False,
-            options=[
-                # Layouts which load efficiently enough
-                {'label': name.capitalize(), 'value': name}
-                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
-            ]
-        ),
-        cyto.Cytoscape(
-            id='graph',
-            style = {
-                "width": "100%",
-                "height": "75vh"
-            },
-            stylesheet = default_stylesheet,
-            elements = elements
-        ),
-        html.Pre(id='data'),
+        dcc.Location(id='url', refresh=False), # Page load
+        dcc.Tabs([
+            dcc.Tab(
+                label="Network",
+                children=[
+                    cyto.Cytoscape(
+                        id='graph',
+                        style = {
+                            "width": "100%",
+                            "height": "75vh"
+                        },
+                        stylesheet = default_stylesheet,
+                        elements = elements
+                    ),
+                    html.Button('Reset view', id='reset-view'),
+                    html.Button('Reset selection', id='reset-selection'),
+                    dcc.Dropdown(
+                        id='change-layout',
+                        value=default_layout,
+                        clearable=False,
+                        options=[
+                            # Layouts which load efficiently enough
+                            {'label': name.capitalize(), 'value': name}
+                            for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
+                        ]
+                    ),
+                    html.Pre(id='data'),
+                ]
+            ),
+            dcc.Tab(
+                label="Statistics",
+                children=[
+                    dcc.Graph(id="plot-arity")
+                ]
+            )
+        ])        
     ])
     # Add interactive component callbacks 
     # Change layout
@@ -238,5 +277,9 @@ def display_graph(nodes, relations, data):
     @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
     def reset_layout(n_clicks):
         return [1, elements]
+    # Show plots
+    @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
+    def show_arity_plot(_):
+        return plot_arity(nodes, edges)
     # Start webpage
     app.run_server(debug=True)

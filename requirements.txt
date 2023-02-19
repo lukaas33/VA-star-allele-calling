@@ -2,3 +2,5 @@ mutalyzer-algebra
 requests
 # TODO replace with dash-cytoscape when a new release is made
 git+https://github.com/plotly/dash-cytoscape
+plotly
+pandas
