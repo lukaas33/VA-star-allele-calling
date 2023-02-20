@@ -1,6 +1,6 @@
 import algebra as va
 import json
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, ctx
 import dash_cytoscape as cyto
 import plotly.express as px
 from pandas import DataFrame as df
@@ -10,6 +10,7 @@ from .analyse import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 
 # TODO use OOP graph class for everything?
+# TODO split into more files
 
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
@@ -104,6 +105,8 @@ def spanning_tree(nodes, edges):
     
     Can be used to minimize graph structure with transitive relations.
     """
+    # TODO delete, NOT a correct approach
+    # TODO use existing algorithms
     min_edges = []
     tree = Graph(nodes)
     for edge in edges:
@@ -231,6 +234,7 @@ def display_graph(nodes, relations, data):
                     ),
                     html.Button('Reset view', id='reset-view'),
                     html.Button('Reset selection', id='reset-selection'),
+                    html.Button("Export image", id="image-svg"),
                     dcc.Dropdown(
                         id='change-layout',
                         value=default_layout,
@@ -281,5 +285,21 @@ def display_graph(nodes, relations, data):
     @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
     def show_arity_plot(_):
         return plot_arity(nodes, edges)
+    # Export image
+    @app.callback(
+        Output("graph", "generateImage"),
+        [
+            Input("image-svg", "n_clicks"),
+        ])
+    def get_image(n_clicks):
+        if n_clicks is None:
+            return { # TODO why needed?
+                'type': 'png',
+                'action': 'store'
+            }
+        return {
+            'type': 'svg',
+            'action': 'download'
+            }
     # Start webpage
     app.run_server(debug=True)
