@@ -7,7 +7,7 @@ def count_relations(relations):
     return counts
 
 def count_arity(nodes, relations):
-    arities = {node: {relationType: 0 for relationType in va.Relation} for node in nodes}
+    arity = {node: {relationType: 0 for relationType in va.Relation} for node in nodes}
     for relation in relations:
-        arities[relation[0]][relation[2]] += 1
-    return arities
+        arity[relation[0]][relation[2]] += 1
+    return arity
