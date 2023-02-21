@@ -1,7 +1,8 @@
 import warnings
 from modules.data import reference_get, pharmvar_get
 from modules.parse import parse_multi_hgvs
-from modules.graph import find_relations, display_graph
+from modules.graph import display_graph
+from modules.relations import find_relations
 import algebra as va
 
 def test_naming(corealleles, suballeles):
