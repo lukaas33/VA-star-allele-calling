@@ -40,7 +40,13 @@ default_stylesheet = [
         'selector': '.OVERLAP',
         'style': {
             'line-color': '#90A4AE', # Blue gray 300
-            'width': '1'
+            'width': '1',
+            'line-style': 'dashed'
+        }
+    }, {
+        'selector': '.DISJOINT',
+        'style': {
+            'display': 'none'
         }
     }
 ]
@@ -87,7 +93,6 @@ def selection_stylesheet(node):
                 'background-color': selection_color,
                 "border-color": selection_color,
                 "opacity": 1,
-                "color": selection_color,
                 'z-index': 9999
             }
         }

@@ -1,4 +1,5 @@
 import algebra as va
+import igraph as ig
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
 from .analyze import count_relations
@@ -8,7 +9,7 @@ def find_relations(corealleles, reference_sequence):
 
     Relations are cached since they take a long time to generate.
 
-    Returns list of edges.
+    Returns edge list.
     """
     # Find relation for each pair of corealleles directionally
     coreallele_names = list(corealleles.keys())
@@ -54,46 +55,64 @@ def prune_relations(nodes, relations):
 
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
     Reflexive relations should not be displayed (equivalence to self).
-    Transitive relations can be reduced to a tree structure (equivalence, containment).
+    Transitive relations can be reduced (equivalence, containment).
+    A combination of containment and overlap can be used to filter out some relations:
+    - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
+    - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
     Disjoint relation can be left out.
+    One direction of the containment relation can be left out.
 
     returns list of edges.
     """
     for relation, count in count_relations(relations).items():
         print(relation, count)
-    transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
-    symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
-    edges = []
-    check_symmetric = set() 
-    check_transitivity = {r: [] for r in transitive}
-    for node, other, relation in relations:
-        if relation is None:
-            raise ValueError("Relation data is incomplete")
-        # Skip trivial self equivalence (reflexivity)
-        if node == other: 
-            continue
-        # Don't represent disjointedness explicitly, 
-        # it can be seen as 'no relation'
-        if relation == va.Relation.DISJOINT: 
-            continue
-        # Don't represent symmetric relations twice
-        if relation in symmetric:
-            pair = (node, other)
-            inv_pair = (other, node)
-            if pair in check_symmetric or inv_pair in check_symmetric: 
-                continue
-            check_symmetric.add(pair)
-            check_symmetric.add(inv_pair)
-        # Store transitive relations to prune and add later
-        if relation in transitive:
-            check_transitivity[relation].append((node, other, relation))
-            continue
-        edges.append((node, other, relation))
-    # Reduce transitive relations: 
-    # - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
-    # - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
+    # Construct graph object from edge list
+    graph = ig.Graph(
+        n=len(nodes), 
+        vertex_attrs={
+            "name": [node for node in nodes]
+        },
+        edges=[(nodes.index(relation[0]), nodes.index(relation[1])) for relation in relations], 
+        edge_attrs={
+            "relation": [relation[2] for relation in relations],
+        },
+        directed=True
+    )    
+
     # TODO implement pruning
-    print()
+    
+    # transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
+    # symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
+    # edges = []
+    # check_symmetric = set() 
+    # check_transitivity = {r: [] for r in transitive}
+    # for node, other, relation in relations:
+    #     if relation is None:
+    #         raise ValueError("Relation data is incomplete")
+    #     # Skip trivial self equivalence (reflexivity)
+    #     if node == other: 
+    #         continue
+    #     # Don't represent disjointedness explicitly, 
+    #     # it can be seen as 'no relation'
+    #     if relation == va.Relation.DISJOINT: 
+    #         continue
+    #     # Don't represent symmetric relations twice
+    #     if relation in symmetric:
+    #         pair = (node, other)
+    #         inv_pair = (other, node)
+    #         if pair in check_symmetric or inv_pair in check_symmetric: 
+    #             continue
+    #         check_symmetric.add(pair)
+    #         check_symmetric.add(inv_pair)
+    #     # Store transitive relations to prune and add later
+    #     if relation in transitive:
+    #         check_transitivity[relation].append((node, other, relation))
+    #         continue
+    #     edges.append((node, other, relation))
+    
+
+    # Convert back to edge list to be used elsewhere
+    edges = [(nodes[e.source], nodes[e.target], e['relation']) for e in graph.es]
     for relation, count in count_relations(edges).items():
         print(relation, count)
     return edges
