@@ -1,6 +1,7 @@
 import algebra as va
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
+from .analyze import count_relations
 
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
@@ -23,7 +24,6 @@ def find_relations(corealleles, reference_sequence):
             for coreallele in coreallele_names
         }
         for i, left_coreallele in enumerate(coreallele_names):
-            # TODO change loop to remove all none values
             for right_coreallele in coreallele_names[i:]: # Only check each pair once
                 # Parse allele
                 left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
@@ -59,6 +59,8 @@ def prune_relations(nodes, relations):
 
     returns list of edges.
     """
+    for relation, count in count_relations(relations).items():
+        print(relation, count)
     transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
     symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
     edges = []
@@ -87,6 +89,11 @@ def prune_relations(nodes, relations):
             check_transitivity[relation].append((node, other, relation))
             continue
         edges.append((node, other, relation))
-    # Reduce transitive graph to tree and add
-    pass
+    # Reduce transitive relations: 
+    # - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
+    # - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
+    # TODO implement pruning
+    print()
+    for relation, count in count_relations(edges).items():
+        print(relation, count)
     return edges

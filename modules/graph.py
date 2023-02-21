@@ -33,6 +33,7 @@ def display_graph(nodes, relations, data):
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
     edges = prune_relations(nodes, relations)
+    return
     # Convert to proper format
     elements = []
     for node in nodes:
