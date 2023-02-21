@@ -26,7 +26,7 @@ default_stylesheet = [
             'width': '2'
         }
     }, {
-        'selector': '.IS_CONTAINED',  
+        'selector': '.CONTAINS',  
         'style': {
             # Only display one arbitrary direction of containment, 
             # the other direction follows
