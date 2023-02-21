@@ -4,7 +4,11 @@ default_stylesheet = [
         'selector': 'node',
         'style': {
             'content': 'data(label)',
-            'background-color': '#455A64' # Blue gray 700
+            'background-color': '#455A64',# Blue gray 700
+            "text-valign": "center",
+            "text-halign": "center",
+            "color": "white",
+            "font-size": "10px"
         }
     }, {
         'selector': 'edge',
@@ -50,7 +54,6 @@ def connected_styles(edge, direction):
             "selector": f"node[id = '{edge[direction]}']",
             "style": {
                 'background-color': connected_color,
-                "color": connected_color,
                 'opacity': 1
             }
         }, {
