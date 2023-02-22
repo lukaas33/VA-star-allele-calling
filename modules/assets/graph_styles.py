@@ -22,7 +22,7 @@ default_stylesheet = [
             'width': '3'
         }
     }, {
-        'selector': '.IS_CONTAINED, .CONTAINS',
+        'selector': '.IS_CONTAINED',
         'style': {
             'target-arrow-shape': 'triangle',
             'target-arrow-color': '#78909C', # Blue gray 400
@@ -41,7 +41,8 @@ default_stylesheet = [
         'style': {
             'line-color': '#90A4AE', # Blue gray 300
             'width': '1',
-            'line-style': 'dashed'
+            'line-style': 'dashed',
+            'display': 'none' # TODO remove
         }
     }, {
         'selector': '.DISJOINT',

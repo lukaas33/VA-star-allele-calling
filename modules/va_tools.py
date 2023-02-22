@@ -19,12 +19,16 @@ def va_generate_subsets(variants):
 
 def count_relations(relations):
     counts = {relationType.name: 0 for relationType in va.Relation}
-    for relation in relations:
-        counts[relation[2]] += 1
+    for _, _, relation in relations:
+        if isinstance(relation, va.Relation):
+            relation = relation.name
+        counts[relation] += 1
     return counts
 
 def count_arity(nodes, relations):
     arity = {node: {relationType.name: 0 for relationType in va.Relation} for node in nodes}
-    for relation in relations:
-        arity[relation[0]][relation[2]] += 1
+    for allele, _, relation in relations:
+        if  isinstance(relation, va.Relation):
+            relation = relation.name
+        arity[allele][relation] += 1
     return arity

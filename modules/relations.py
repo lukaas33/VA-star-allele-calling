@@ -1,8 +1,9 @@
 import algebra as va
 import igraph as ig
+import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
-from .analyze import count_relations
+from .va_tools import count_relations
 
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
@@ -59,11 +60,12 @@ def prune_relations(nodes, relations):
     A combination of containment and overlap can be used to filter out some relations:
     - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
     - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
-    Disjoint relation can be left out.
+    Disjoint relation can be left out since they are understood as 'no relation'.
     One direction of the containment relation can be left out.
 
     returns list of edges.
     """
+    # TODO use networkx as main library?
     for relation, count in count_relations(relations).items():
         print(relation, count)
     # Construct graph object from edge list
@@ -74,42 +76,30 @@ def prune_relations(nodes, relations):
         },
         edges=[(nodes.index(relation[0]), nodes.index(relation[1])) for relation in relations], 
         edge_attrs={
-            "relation": [relation[2] for relation in relations],
+            "relation": [relation[2].name for relation in relations],
         },
         directed=True
     )    
 
-    # TODO implement pruning
-    
-    # transitive = (va.Relation.EQUIVALENT, va.Relation.CONTAINS, va.Relation.IS_CONTAINED)
-    # symmetric = (va.Relation.EQUIVALENT, va.Relation.OVERLAP, va.Relation.DISJOINT)
-    # edges = []
-    # check_symmetric = set() 
-    # check_transitivity = {r: [] for r in transitive}
-    # for node, other, relation in relations:
-    #     if relation is None:
-    #         raise ValueError("Relation data is incomplete")
-    #     # Skip trivial self equivalence (reflexivity)
-    #     if node == other: 
-    #         continue
-    #     # Don't represent disjointedness explicitly, 
-    #     # it can be seen as 'no relation'
-    #     if relation == va.Relation.DISJOINT: 
-    #         continue
-    #     # Don't represent symmetric relations twice
-    #     if relation in symmetric:
-    #         pair = (node, other)
-    #         inv_pair = (other, node)
-    #         if pair in check_symmetric or inv_pair in check_symmetric: 
-    #             continue
-    #         check_symmetric.add(pair)
-    #         check_symmetric.add(inv_pair)
-    #     # Store transitive relations to prune and add later
-    #     if relation in transitive:
-    #         check_transitivity[relation].append((node, other, relation))
-    #         continue
-    #     edges.append((node, other, relation))
-    
+    # Remove reflexive self-loops
+    graph = graph.simplify(combine_edges="random")
+    # Remove one direction of containment
+    graph.delete_edges(relation_eq="CONTAINS")
+    # Remove disjoint relations (implicit)
+    graph.delete_edges(relation_eq="DISJOINT")
+
+    # Remove transitive redundancies TODO include equivalence
+    for relation in ("IS_CONTAINED"):
+        graph.delete_edges(relation_eq=relation) 
+        subgraph = nx.DiGraph([edge[:2] for edge in relations if edge[2].name == relation])
+        subgraph = nx.transitive_reduction(subgraph)
+        graph.add_edges(
+            [[nodes.index(node) for node in edge] for edge in subgraph.edges()], 
+            {"relation": [relation for _ in subgraph.edges()]}
+        )
+        
+    # Remove symmetric relations by treating graph as undirected
+    graph = graph.as_undirected(combine_edges="random")
 
     # Convert back to edge list to be used elsewhere
     edges = [(nodes[e.source], nodes[e.target], e['relation']) for e in graph.es]

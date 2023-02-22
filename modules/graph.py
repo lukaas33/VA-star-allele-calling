@@ -13,11 +13,11 @@ def plot_arity(nodes, relations):
     arity = count_arity(nodes, relations)
     # Covert data to pandas data frame
     data = {"allele": [], "relation": [], "arity": []}
-    for rel in va.Relation:
-        for node in nodes:
+    for node in nodes:
+        for rel in va.Relation:
             data["allele"].append(node)
-            data["relation"].append(str(rel).split('.')[1])
-            data["arity"].append(arity[node][rel])
+            data["relation"].append(rel.name)
+            data["arity"].append(arity[node][rel.name])
     data = df(data)
     # Display
     figure = px.bar(df(data), x="allele", y="arity", color="relation", title="Pruned relationships")
@@ -33,7 +33,6 @@ def display_graph(nodes, relations, data):
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
     edges = prune_relations(nodes, relations)
-    return
     # Convert to proper format
     elements = []
     for node in nodes:
