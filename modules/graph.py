@@ -4,7 +4,7 @@ from dash import Dash, html, dcc, Input, Output
 import dash_cytoscape as cyto
 import plotly.express as px
 from pandas import DataFrame as df
-from .analyze import count_arity
+from .va_tools import count_arity
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations
 
@@ -50,7 +50,7 @@ def display_graph(nodes, relations, data):
                 "source": node,
                 "target": other,
             },
-            "classes": relation.name
+            "classes": relation
         })
     # Setup graph webpage
     cyto.load_extra_layouts()

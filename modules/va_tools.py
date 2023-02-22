@@ -16,3 +16,15 @@ def va_generate_subsets(variants):
     """Generate all subsets (superset) of a variant set"""
     superset = chain.from_iterable(combinations(variants, r) for r in range(1, len(variants)+1))
     return superset
+
+def count_relations(relations):
+    counts = {relationType.name: 0 for relationType in va.Relation}
+    for relation in relations:
+        counts[relation[2]] += 1
+    return counts
+
+def count_arity(nodes, relations):
+    arity = {node: {relationType.name: 0 for relationType in va.Relation} for node in nodes}
+    for relation in relations:
+        arity[relation[0]][relation[2]] += 1
+    return arity
