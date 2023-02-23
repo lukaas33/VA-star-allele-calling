@@ -125,8 +125,7 @@ def prune_relations(nodes, relations):
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
     for s, t in subgraph_overlap.edges():
         if has_common_ancestor(subgraph_containment, s, t):
-            # graph.remove_edge(s, t)
-            break
+            graph.remove_edge(s, t)
 
     # Remove most specific redundancy
     # TODO
