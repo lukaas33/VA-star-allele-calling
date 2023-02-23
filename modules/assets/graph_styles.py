@@ -41,8 +41,7 @@ default_stylesheet = [
         'style': {
             'line-color': '#90A4AE', # Blue gray 300
             'width': '1',
-            'line-style': 'dashed',
-            'display': 'none' # TODO remove
+            'line-style': 'dashed'
         }
     }, {
         'selector': '.DISJOINT',

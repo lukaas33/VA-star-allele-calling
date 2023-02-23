@@ -12,6 +12,7 @@ def find_relations(corealleles, reference_sequence):
 
     Returns edge list.
     """
+    # TODO use name of enum
     # Find relation for each pair of corealleles directionally
     coreallele_names = list(corealleles.keys())
     name = "relations"
@@ -83,21 +84,20 @@ def prune_relations(nodes, relations):
 
     # Remove reflexive self-loops
     graph = graph.simplify(combine_edges="random")
+    # Remove disjoint relations (are implicit)
+    graph.delete_edges(relation_eq="DISJOINT")
+    # Remove common ancestor redundancy
     # Remove one direction of containment
     graph.delete_edges(relation_eq="CONTAINS")
-    # Remove disjoint relations (implicit)
-    graph.delete_edges(relation_eq="DISJOINT")
-
-    # Remove transitive redundancies TODO include equivalence
-    for relation in ("IS_CONTAINED"):
+    # Remove transitive redundancies for single relations TODO include equivalence
+    for relation in ("IS_CONTAINED",):
         graph.delete_edges(relation_eq=relation) 
         subgraph = nx.DiGraph([edge[:2] for edge in relations if edge[2].name == relation])
-        subgraph = nx.transitive_reduction(subgraph)
+        subgraph = nx.transitive_reduction(subgraph) # Reduce edges which are redundant due to transitivity of the same relation
         graph.add_edges(
             [[nodes.index(node) for node in edge] for edge in subgraph.edges()], 
             {"relation": [relation for _ in subgraph.edges()]}
         )
-        
     # Remove symmetric relations by treating graph as undirected
     graph = graph.as_undirected(combine_edges="random")
 
