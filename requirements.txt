@@ -4,5 +4,4 @@ requests
 git+https://github.com/plotly/dash-cytoscape
 plotly
 pandas
-igraph
 networkx

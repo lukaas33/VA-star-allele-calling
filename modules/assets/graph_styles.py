@@ -19,7 +19,7 @@ default_stylesheet = [
         'selector': '.EQUIVALENT',
         'style': {
             'line-color': '#607D8B', # Blue gray 500
-            'width': '3'
+            'width': '2'
         }
     }, {
         'selector': '.IS_CONTAINED',
@@ -27,7 +27,7 @@ default_stylesheet = [
             'target-arrow-shape': 'triangle',
             'target-arrow-color': '#78909C', # Blue gray 400
             'line-color': '#78909C',
-            'width': '2'
+            'width': '1'
         }
     }, {
         'selector': '.CONTAINS',  

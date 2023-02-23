@@ -1,5 +1,4 @@
 import algebra as va
-import igraph as ig
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
@@ -53,9 +52,25 @@ def find_relations(corealleles, reference_sequence):
 
 def has_common_ancestor(graph, node1, node2):
     """Check if two nodes have a common ancestor in a directed graph."""
-    print(node1, node2)
-    print(node1, list(graph[node1]))
-    exit()
+    if node1 not in graph.nodes() or node2 not in graph.nodes():
+        return False
+    # Do a parallel BFS on the directed graph and check if both have a node as a child
+    # TODO possible to not do a complete BFS the first time?
+    visited = {node: [False, False] for node in graph.nodes()}
+    for i, start_node in enumerate((node1, node2)):
+        queue = [start_node]
+        while len(queue) > 0:
+            current = queue.pop(0) # next node
+            if visited[current][i]: # Already visited from this start node
+                continue
+            print(start_node, current, list(graph[current]))
+            visited[current][i] = True
+            if all(visited[current]): # Visited from both start nodes
+                print(f"Overlap between {node1} and {node2} explained by both containing {current}")
+                return True
+            for neighbour in graph[current]:
+                queue.append(neighbour)
+    return False
 
 def prune_relations(nodes, relations):
     """Prune relations which are redundant.
@@ -73,10 +88,6 @@ def prune_relations(nodes, relations):
     """
     for relation, count in count_relations(relations).items():
         print(relation, count)
-    for relation in relations:
-        if relation[0] == "CYP2D6*157" and relation[1] == "CYP2D6*29" or \
-                relation[1] == "CYP2D6*157" and relation[0] == "CYP2D6*29":
-            print(relation)
     # Create edge list in proper format
     # Filter out disjoint relations
     edges = [
@@ -91,40 +102,36 @@ def prune_relations(nodes, relations):
 
     # Remove reflexive self-loops
     graph.remove_edges_from(nx.selfloop_edges(graph))
+    # Remove redundant symmetric relations 
+    for s, t, d in graph.edges(data=True):
+        if d["relation"].name not in ("OVERLAP", "EQUIVALENT"):
+            continue
+        try: # TODO do this nicer
+            graph.remove_edge(t, s)
+        except:
+            pass
+    # Remove transitive redundancies for single relations 
+    # TODO fix, method doesn't work?
+    # TODO include equivalence
+    # TODO change method to show hubs better?
+    # for relation in (va.Relation.IS_CONTAINED, va.Relation.CONTAINS):
+    #     subgraph = nx.DiGraph([(s, t, d) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
+    #     subgraph = nx.transitive_reduction(subgraph) # Reduce edges which are redundant due to transitivity of the same relation
+    #     graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
+    #     graph.add_edges_from([(s, t, {"relation": relation}) for s, t in subgraph.edges()])
+
     # Remove common ancestor redundancy
     subgraph_containment = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
-    test_common = set()
-    for s, t, d in graph.edges(data=True):
-        if d["relation"].name != "OVERLAP": # Overlap relation
-            continue
-        if not subgraph_containment.has_node(s) or not subgraph_containment.has_node(t):
-            continue
-        if (t, s) not in test_common:
-            test_common.add((s, t))
-    # for test in test_common:
-    #     has_common_ancestor(subgraph_containment, *test)
+    subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
+    for s, t in subgraph_overlap.edges():
+        if has_common_ancestor(subgraph_containment, s, t):
+            # graph.remove_edge(s, t)
+            break
 
     # Remove most specific redundancy
     # TODO
     # Remove one direction of containment
     graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
-    # Remove transitive redundancies for single relations 
-    # TODO include equivalence
-    # TODO change method to show hubs better?
-    # for relation in ("IS_CONTAINED",):
-    #     subgraph = nx.DiGraph([(s, t, d) for s, t, d in graph.edges(data=True) if d["relation"].name == relation])
-    #     subgraph = nx.transitive_reduction(subgraph) # Reduce edges which are redundant due to transitivity of the same relation
-    #     graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == relation])
-    #     graph.add_edges_from([(s, t, {"relation": va.Relation[relation]}) for s, t in subgraph.edges()])
-    # Remove redundant symmetric relations 
-    for s, t, d in graph.edges(data=True):
-        if d["relation"].name != "OVERLAP":
-            continue
-        try:
-            graph.remove_edge(t, s)
-        except:
-            pass
-
     # Convert back to edge list to be used elsewhere
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
 

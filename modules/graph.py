@@ -8,6 +8,8 @@ from .va_tools import count_arity
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations
 
+# TODO add search function
+
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
     arity = count_arity(nodes, relations)
