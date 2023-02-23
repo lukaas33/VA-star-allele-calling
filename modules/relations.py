@@ -66,43 +66,42 @@ def prune_relations(nodes, relations):
 
     returns list of edges.
     """
-    # TODO use networkx as main library?
     for relation, count in count_relations(relations).items():
         print(relation, count)
-    # Construct graph object from edge list
-    graph = ig.Graph(
-        n=len(nodes), 
-        vertex_attrs={
-            "name": [node for node in nodes]
-        },
-        edges=[(nodes.index(relation[0]), nodes.index(relation[1])) for relation in relations], 
-        edge_attrs={
-            "relation": [relation[2].name for relation in relations],
-        },
-        directed=True
-    )    
+
+    # Create edge list in proper format
+    # Filter out disjoint relations
+    edges = [
+        (edge[0], edge[1], {"relation": edge[2]}) 
+        for edge in relations 
+        if edge[2].name not in ("DISJOINT",)
+    ]
+    # Construct networkx graph object from edge list
+    graph = nx.DiGraph()
+    graph.add_nodes_from(nodes)
+    graph.add_edges_from(edges)
 
     # Remove reflexive self-loops
-    graph = graph.simplify(combine_edges="random")
-    # Remove disjoint relations (are implicit)
-    graph.delete_edges(relation_eq="DISJOINT")
+    graph.remove_edges_from(nx.selfloop_edges(graph))
     # Remove common ancestor redundancy
+    # TODO
+    # Remove most specific redundancy
+    # TODO
     # Remove one direction of containment
-    graph.delete_edges(relation_eq="CONTAINS")
+    graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     # Remove transitive redundancies for single relations TODO include equivalence
     for relation in ("IS_CONTAINED",):
-        graph.delete_edges(relation_eq=relation) 
-        subgraph = nx.DiGraph([edge[:2] for edge in relations if edge[2].name == relation])
+        subgraph = nx.DiGraph([(s, t, d) for s, t, d in graph.edges(data=True) if d["relation"].name == relation])
         subgraph = nx.transitive_reduction(subgraph) # Reduce edges which are redundant due to transitivity of the same relation
-        graph.add_edges(
-            [[nodes.index(node) for node in edge] for edge in subgraph.edges()], 
-            {"relation": [relation for _ in subgraph.edges()]}
-        )
+        graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == relation])
+        graph.add_edges_from([(s, t, {"relation": va.Relation[relation]}) for s, t in subgraph.edges()])
     # Remove symmetric relations by treating graph as undirected
-    graph = graph.as_undirected(combine_edges="random")
+    graph = graph.to_undirected()
 
     # Convert back to edge list to be used elsewhere
-    edges = [(nodes[e.source], nodes[e.target], e['relation']) for e in graph.es]
+    edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
+
+    print()
     for relation, count in count_relations(edges).items():
         print(relation, count)
     return edges
