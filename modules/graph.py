@@ -49,7 +49,7 @@ def display_graph(nodes, relations, data):
                 "source": node,
                 "target": other,
             },
-            "classes": relation
+            "classes": relation.name
         })
     # Setup graph webpage
     cyto.load_extra_layouts()

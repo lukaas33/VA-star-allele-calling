@@ -28,7 +28,7 @@ def count_relations(relations):
 def count_arity(nodes, relations):
     arity = {node: {relationType.name: 0 for relationType in va.Relation} for node in nodes}
     for allele, _, relation in relations:
-        if  isinstance(relation, va.Relation):
+        if isinstance(relation, va.Relation):
             relation = relation.name
         arity[allele][relation] += 1
     return arity
