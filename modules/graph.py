@@ -34,6 +34,7 @@ def display_graph(nodes, relations, data):
     https://dash.plotly.com/cytoscape
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
+    # TODO why does it call relation twice
     edges = prune_relations(nodes, relations)
     # Convert to proper format
     elements = []
@@ -103,7 +104,7 @@ def display_graph(nodes, relations, data):
         settings = {"name": layout}
         settings["nodeDimensionsIncludeLabels"] = True
         if layout == 'cose-bilkent' or layout == 'cose':
-            settings["idealEdgeLength"] = 200
+            settings["idealEdgeLength"] = 250
             settings["tile"] = False
             settings["animate"] = False
         return settings

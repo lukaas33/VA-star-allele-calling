@@ -11,7 +11,6 @@ def find_relations(corealleles, reference_sequence):
 
     Returns edge list.
     """
-    # TODO use name of enum
     # Find relation for each pair of corealleles directionally
     coreallele_names = list(corealleles.keys())
     name = "relations"
@@ -80,12 +79,11 @@ def prune_relations(nodes, relations):
     - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
     - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
     Disjoint relation can be left out since they are understood as 'no relation'.
-    One direction of the containment relation can be left out.
+    One direction of the containment relation can be left out since the inverse follows.
 
     returns list of edges.
     """
-    for relation, count in count_relations(relations).items():
-        print(relation, count)
+    # TODO give each step own function
     # Create edge list in proper format
     # Filter out disjoint relations
     edges = [
@@ -100,14 +98,6 @@ def prune_relations(nodes, relations):
 
     # Remove reflexive self-loops
     graph.remove_edges_from(nx.selfloop_edges(graph))
-    # Remove redundant symmetric relations 
-    for s, t, d in graph.edges(data=True):
-        if d["relation"].name not in ("OVERLAP", "EQUIVALENT"):
-            continue
-        try: # TODO do this nicer
-            graph.remove_edge(t, s)
-        except:
-            pass
     # Remove common ancestor redundancy
     subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
@@ -116,27 +106,48 @@ def prune_relations(nodes, relations):
         if has_common_ancestor(subgraph_contains, s, t):
             to_remove.append((s, t))
     graph.remove_edges_from(to_remove)
-
-    # Remove most specific redundancy
-    # TODO
     # Remove one direction of containment
-    graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
+    graph.remove_edges_from(list(subgraph_contains.edges()))
     # Remove transitive redundancies for single relations 
-    # TODO include equivalence
     for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
-        subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
-        subgraph_contained_reduced = nx.transitive_reduction(subgraph_contained)
+        subgraph = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
+        subgraph_reduced = nx.transitive_reduction(subgraph)
         to_remove = [
             (s, t, d) 
-            for s, t, d in subgraph_contained.edges(data=True) 
-            if not subgraph_contained_reduced.has_edge(s, t)
+            for s, t, d in subgraph.edges(data=True) 
+            if not subgraph_reduced.has_edge(s, t)
         ]
         graph.remove_edges_from(to_remove)
-    
+    # Remove most specific redundancy
+    subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
+    to_remove = []
+    for start_node in nx.topological_sort(subgraph_contained):
+        # Do BFS from start of topological ordering
+        # store overlapping, if already found the new one is less specific and can be removed
+        # TODO don't repeat already visited nodes
+        overlapping = set()
+        queue = [start_node] 
+        while len(queue) > 0:
+            current = queue.pop(0)
+            if current in subgraph_overlap.nodes():
+                overlaps = [edge for edge in subgraph_overlap[current]] # Find overlap of current node 
+                for target in overlaps:
+                    if target in overlapping: # More specific overlap was known
+                        to_remove.append((current, target))
+                        to_remove.append((target, current))
+                    else: # Add since this is a new overlap
+                        overlapping.add(target)
+            for neighbour in subgraph_contained[current]:
+                queue.append(neighbour)
+    graph.remove_edges_from(to_remove)
+    # Remove redundant symmetric relations 
+    for s, t, d in graph.edges(data=True):
+        if d["relation"].name not in ("OVERLAP", "EQUIVALENT"):
+            continue
+        try: # TODO do this nicer
+            graph.remove_edge(t, s)
+        except:
+            pass
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-
-    print()
-    for relation, count in count_relations(edges).items():
-        print(relation, count)
     return edges
