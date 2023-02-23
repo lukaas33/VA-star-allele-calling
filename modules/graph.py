@@ -103,7 +103,7 @@ def display_graph(nodes, relations, data):
         settings = {"name": layout}
         settings["nodeDimensionsIncludeLabels"] = True
         if layout == 'cose-bilkent' or layout == 'cose':
-            settings["idealEdgeLength"] = 400
+            settings["idealEdgeLength"] = 200
             settings["tile"] = False
             settings["animate"] = False
         return settings

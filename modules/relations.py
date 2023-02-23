@@ -123,20 +123,17 @@ def prune_relations(nodes, relations):
     graph.remove_edges_from([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     # Remove transitive redundancies for single relations 
     # TODO include equivalence
-    subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
-    to_remove = []
-    for x in subgraph_contained.nodes():
-        for y in subgraph_contained.nodes():
-            if x != y and nx.has_path(subgraph_contained, x, y):
-                for z in subgraph_contained.nodes():
-                    if x == z or y == z:
-                        continue
-                    if (x, y) != (y, z) != (x, z):
-                        continue
-                    if nx.has_path(subgraph_contained, y, z) and \
-                            nx.has_path(subgraph_contained, x, z):
-                        to_remove.append((x, z)) # TODO which to remove
-    graph.remove_edges_from(to_remove)
+    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
+        subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
+        subgraph_contained_reduced = nx.transitive_reduction(subgraph_contained)
+        to_remove = [
+            (s, t, d) 
+            for s, t, d in subgraph_contained.edges(data=True) 
+            if not subgraph_contained_reduced.has_edge(s, t)
+        ]
+        graph.remove_edges_from(to_remove)
+    
+    # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
 
     print()
