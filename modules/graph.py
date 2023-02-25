@@ -26,39 +26,9 @@ def plot_arity(nodes, relations):
     figure.update_layout(barmode='stack', xaxis={'categoryorder': 'total ascending'})
     return figure
 
-def display_graph(nodes, relations, data):
-    """Display relations as a graph
-
-    Uses dash Cytoscape which creates a localhost website.
-    The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
-    https://dash.plotly.com/cytoscape
-    This framework should not be used to make a complete visualization since it is limited in functionality.
-    """
-    # TODO why does it call relation twice
-    edges = prune_relations(nodes, relations)
-    # Convert to proper format
-    elements = []
-    for node in nodes:
-        elements.append({            
-            "data": {
-                "id": node, 
-                "label": node.split("CYP2D6")[1],
-                "data": data[node]
-            }
-        })
-    for node, other, relation in edges:
-        elements.append({
-            "data": {
-                "source": node,
-                "target": other,
-            },
-            "classes": relation.name
-        })
-    # Setup graph webpage
-    cyto.load_extra_layouts()
-    app = Dash(__name__)
-    default_layout = 'cose-bilkent' 
-    app.layout = html.Div([
+def layout_graph(elements, default_layout):
+    """Returns the layout for the Dash graph"""
+    return html.Div([
         dcc.Location(id='url', refresh=False), # Page load
         dcc.Tabs([
             dcc.Tab(
@@ -97,10 +67,12 @@ def display_graph(nodes, relations, data):
             )
         ])        
     ])
-    # Add interactive component callbacks 
-    # Change layout
+
+def interactive_graph(app, original_elements):
+    """Add interactive components to graph"""
     @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
     def update_layout(layout):
+        # Change layout
         settings = {"name": layout}
         settings["nodeDimensionsIncludeLabels"] = True
         if layout == 'cose-bilkent' or layout == 'cose':
@@ -108,24 +80,20 @@ def display_graph(nodes, relations, data):
             settings["tile"] = False
             settings["animate"] = False
         return settings
-    # Display information about selection
     @app.callback(Output('data', 'children'), Input('graph', 'tapNodeData'))
     def displayTapNodeData(data):
+        # Display information about selection
         return json.dumps(data, indent=2)
-    # Display connections of selected
     @app.callback([Output('graph', 'stylesheet'), Output('reset-selection', 'n_clicks')], [Input('graph', 'tapNode'), Input('reset-selection', 'n_clicks')])
     def generate_stylesheet(node, n_clicks):
+        # Display connections of selected
         if not node or n_clicks == 1: # No input or resetting
             return [default_stylesheet, None]
         return [selection_stylesheet(node), None]
-    # Reset view
     @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
     def reset_layout(n_clicks):
-        return [1, elements]
-    # Show plots
-    @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
-    def show_arity_plot(_):
-        return plot_arity(nodes, edges)
+        # Reset view
+        return [1, original_elements]
     # Export image
     @app.callback(
         Output("graph", "generateImage"),
@@ -142,5 +110,46 @@ def display_graph(nodes, relations, data):
             'type': 'svg',
             'action': 'download'
             }
+
+def display_graph(nodes, relations, data):
+    """Display relations as a graph
+
+    Uses dash Cytoscape which creates a localhost website.
+    The underlying framework is Cytoscape.js, a standard tool in biological network visualization.
+    https://dash.plotly.com/cytoscape
+    This framework should not be used to make a complete visualization since it is limited in functionality.
+    """
+    # TODO why does it call relation twice
+    edges = prune_relations(nodes, relations)
+    # Convert to proper format for cytoscape
+    elements = []
+    for node in nodes:
+        elements.append({            
+            "data": {
+                "id": node, 
+                "label": node.split("CYP2D6")[1],
+                "data": data[node]
+            }
+        })
+    for node, other, relation in edges:
+        elements.append({
+            "data": {
+                "source": node,
+                "target": other,
+            },
+            "classes": relation.name
+        })
+    # Setup graph webpage
+    cyto.load_extra_layouts()
+    app = Dash(__name__)
+    default_layout = 'cose-bilkent' 
+    # Show graph
+    app.layout = layout_graph(elements, default_layout)
+    # Add interactive component callbacks 
+    interactive_graph(app, elements)
+    # Show plots
+    @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
+    def show_arity_plot(_):
+        return plot_arity(nodes, edges)
     # Start webpage
     app.run_server(debug=True)

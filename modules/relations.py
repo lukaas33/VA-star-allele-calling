@@ -2,7 +2,6 @@ import algebra as va
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
-from .va_tools import count_relations
 
 def find_relations(corealleles, reference_sequence):
     """Find the relation between all corealleles.
@@ -69,57 +68,33 @@ def has_common_ancestor(graph, node1, node2):
                 queue.append(neighbour)
     return False
 
-def prune_relations(nodes, relations):
-    """Prune relations which are redundant.
+def redundant_reflexive(graph):
+    """Returns redundant reflexive relations"""
+    return nx.selfloop_edges(graph)
 
-    Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
-    Reflexive relations should not be displayed (equivalence to self).
-    Transitive relations can be reduced (equivalence, containment).
-    A combination of containment and overlap can be used to filter out some relations:
-    - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
-    - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
-    Disjoint relation can be left out since they are understood as 'no relation'.
-    One direction of the containment relation can be left out since the inverse follows.
-
-    returns list of edges.
-    """
-    # TODO give each step own function
-    # Create edge list in proper format
-    # Filter out disjoint relations
-    edges = [
-        (edge[0], edge[1], {"relation": edge[2]}) 
-        for edge in relations 
-        if edge[2].name not in ("DISJOINT",)
-    ]
-    # Construct networkx graph object from edge list
-    graph = nx.DiGraph()
-    graph.add_nodes_from(nodes)
-    graph.add_edges_from(edges)
-
-    # Remove reflexive self-loops
-    graph.remove_edges_from(nx.selfloop_edges(graph))
-    # Remove common ancestor redundancy
-    subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
-    subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
+def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
+    """Returns redundant overlap relations due to common ancestor"""
     to_remove = []
     for s, t in subgraph_overlap.edges():
         if has_common_ancestor(subgraph_contains, s, t):
             to_remove.append((s, t))
-    graph.remove_edges_from(to_remove)
-    # Remove one direction of containment
-    graph.remove_edges_from(list(subgraph_contains.edges()))
-    # Remove transitive redundancies for single relations 
+    return to_remove
+
+def redundant_transitive(graph):
+    """Return edges redundant due to transitivity."""
+    to_remove = []
     for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
         subgraph = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
         subgraph_reduced = nx.transitive_reduction(subgraph)
-        to_remove = [
+        to_remove += [
             (s, t, d) 
             for s, t, d in subgraph.edges(data=True) 
             if not subgraph_reduced.has_edge(s, t)
         ]
-        graph.remove_edges_from(to_remove)
-    # Remove most specific redundancy
-    subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
+    return to_remove
+
+def redundant_most_specific(subgraph_contained, subgraph_overlap):
+    """Returns redundant overlap relations due to most specific (smallest contained) overlap"""
     to_remove = []
     for start_node in nx.topological_sort(subgraph_contained):
         # Do BFS from start of topological ordering
@@ -139,15 +114,68 @@ def prune_relations(nodes, relations):
                         overlapping.add(target)
             for neighbour in subgraph_contained[current]:
                 queue.append(neighbour)
-    graph.remove_edges_from(to_remove)
-    # Remove redundant symmetric relations 
+    return to_remove
+
+def redundant_symmetric(graph):
+    """Return one direction of symmetric relations."""
+    to_remove = set()
     for s, t, d in graph.edges(data=True):
-        if d["relation"].name not in ("OVERLAP", "EQUIVALENT"):
+        if d["relation"].name not in ("OVERLAP", "EQUIVALENT"): # Only symmetric relations
             continue
-        try: # TODO do this nicer
-            graph.remove_edge(t, s)
-        except:
-            pass
+        if (s, t) in to_remove: # Already removing one direction
+            continue
+        to_remove.add((t, s)) # Remove other direction
+    return to_remove
+
+def prune_relations(nodes, relations):
+    """Prune relations which are redundant.
+
+    Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
+    Reflexive relations should not be displayed (equivalence to self).
+    Transitive relations can be reduced (equivalence, containment).
+    A combination of containment and overlap can be used to filter out some relations:
+    - Most specific: if A --> B and A -- C; B -- C then B -- C is redundant
+    - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
+    Disjoint relation can be left out since they are understood as 'no relation'.
+    One direction of the containment relation can be left out since the inverse follows.
+
+    returns list of edges.
+    """
+    # Create edge list in proper format for networkx
+    # Filter out disjoint relations
+    edges = [
+        (edge[0], edge[1], {"relation": edge[2]}) 
+        for edge in relations 
+        if edge[2].name not in ("DISJOINT",)
+    ]
+    # Construct networkx graph object from edge list
+    graph = nx.DiGraph()
+    graph.add_nodes_from(nodes)
+    graph.add_edges_from(edges)
+    # Create subgraphs for some reductions (are linked to graph)
+    subgraph_contains = graph.edge_subgraph(
+        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"]
+    )
+    subgraph_overlap = graph.edge_subgraph(
+        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"]
+    )
+    subgraph_contained = graph.edge_subgraph(
+        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"]
+    )
+
+    # Remove reflexive self-loops
+    graph.remove_edges_from(redundant_reflexive(graph))
+    # Remove common ancestor redundancy
+    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap))
+    # Remove one direction of containment
+    graph.remove_edges_from(list(subgraph_contains.edges()))
+    # Remove transitive redundancies for single relations 
+    graph.remove_edges_from(redundant_transitive(graph))
+    # Remove most specific redundancy
+    graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
+    # Remove redundant symmetric relations 
+    graph.remove_edges_from(redundant_symmetric(graph))
+
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
     return edges
