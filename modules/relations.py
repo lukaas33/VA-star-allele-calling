@@ -13,40 +13,67 @@ def find_relations(corealleles, reference_sequence):
     # Find relation for each pair of corealleles directionally
     coreallele_names = list(corealleles.keys())
     name = "relations"
+    # Test if already stored
     try:
-        edges = cache_get(name)
+        return cache_get(name)
     except:
-        relations = {
-            coreallele: {
-                coreallele2: None 
-                for coreallele2 in coreallele_names
-            } 
-            for coreallele in coreallele_names
-        }
-        for i, left_coreallele in enumerate(coreallele_names):
-            for right_coreallele in coreallele_names[i:]: # Only check each pair once
-                # Parse allele
-                left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
-                left_variants = parse_multi_hgvs(left_hgvs, reference_sequence, left_coreallele)
-                right_hgvs = [variant["hgvs"] for variant in corealleles[right_coreallele]["variants"]]
-                right_variants = parse_multi_hgvs(right_hgvs, reference_sequence, right_coreallele)
-                # Store relation
-                relation = va.compare(reference_sequence, left_variants, right_variants)
-                relations[left_coreallele][right_coreallele] = relation
-                # Store inverse relation (the same for most relations)
-                if relation == va.Relation.CONTAINS:
-                    inv_relation = va.Relation.IS_CONTAINED
-                elif relation == va.Relation.IS_CONTAINED:
-                    inv_relation = va.Relation.CONTAINS
-                else:
-                    inv_relation = relation
-                relations[right_coreallele][left_coreallele] = inv_relation
-        edges = []
-        for l_node in corealleles:
-            for r_node in corealleles:
-                edges.append((l_node, r_node, relations[l_node][r_node]))
-        cache_set(edges, name) # Cache
+        pass
+    # Generate
+    relations = {
+        coreallele: {
+            coreallele2: None 
+            for coreallele2 in coreallele_names
+        } 
+        for coreallele in coreallele_names
+    }
+    for i, left_coreallele in enumerate(coreallele_names):
+        for right_coreallele in coreallele_names[i:]: # Only check each pair once
+            # Parse allele
+            left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
+            left_variants = parse_multi_hgvs(left_hgvs, reference_sequence, left_coreallele)
+            right_hgvs = [variant["hgvs"] for variant in corealleles[right_coreallele]["variants"]]
+            right_variants = parse_multi_hgvs(right_hgvs, reference_sequence, right_coreallele)
+            # Store relation
+            relation = va.compare(reference_sequence, left_variants, right_variants)
+            relations[left_coreallele][right_coreallele] = relation
+            # Store inverse relation (the same for most relations)
+            if relation == va.Relation.CONTAINS:
+                inv_relation = va.Relation.IS_CONTAINED
+            elif relation == va.Relation.IS_CONTAINED:
+                inv_relation = va.Relation.CONTAINS
+            else:
+                inv_relation = relation
+            relations[right_coreallele][left_coreallele] = inv_relation
+    edges = []
+    for l_node in corealleles:
+        for r_node in corealleles:
+            edges.append((l_node, r_node, relations[l_node][r_node]))
+    cache_set(edges, name) # Cache       
     return edges
+
+def find_relations_all(corealleles, suballeles, reference_sequence):
+    """Find the relation between all corealleles, suballeles and variants.
+
+    Relations are cached since they take a long time to generate.
+
+    Returns edge list.
+    """
+    # TODO merge with find_relations?
+    # TODO run for all and cache
+    all_variants = {} # Store variants together since they may be shared
+    all_allele_variants = {} # Suballeles should be expressed by its variants
+    coreallele = "CYP2D6*3" # TEST with only one
+    for suballele in suballeles[coreallele]:
+        all_allele_variants[suballele["alleleName"]] = [] 
+        print(suballele["alleleName"])
+        for variant in suballele["variants"]:
+            print('\t', )
+            all_variants[variant["hgvs"]] = variant["hgvs"]
+            all_allele_variants[suballele["alleleName"]].append(variant["hgvs"])
+    print(all_variants)
+    print(all_allele_variants)
+    exit()
+
 
 def has_common_ancestor(graph, node1, node2):
     """Check if two nodes have a common ancestor in a directed graph."""

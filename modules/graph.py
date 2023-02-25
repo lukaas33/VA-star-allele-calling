@@ -119,7 +119,7 @@ def display_graph(nodes, relations, data):
     https://dash.plotly.com/cytoscape
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
-    # TODO why does it call relation twice
+    # TODO why does it call this function twice
     edges = prune_relations(nodes, relations)
     # Convert to proper format for cytoscape
     elements = []

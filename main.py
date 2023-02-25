@@ -2,7 +2,7 @@ import warnings
 from modules.data import reference_get, pharmvar_get
 from modules.parse import parse_multi_hgvs
 from modules.graph import display_graph
-from modules.relations import find_relations
+from modules.relations import find_relations_all
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -83,7 +83,7 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles and analyze
-    relations = find_relations(corealleles, reference_sequence)
+    relations = find_relations_all(corealleles, suballeles, reference_sequence)
     display_graph(list(corealleles.keys()), relations, corealleles)
 
 if __name__ == "__main__":
