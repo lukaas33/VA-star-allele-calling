@@ -4,7 +4,7 @@ from dash import Dash, html, dcc, Input, Output
 import dash_cytoscape as cyto
 import plotly.express as px
 import pandas
-from .va_tools import count_arity
+from .va_tools import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations
 
@@ -19,28 +19,39 @@ def plot_arity(nodes, relations):
     for node in nodes:
         if "*" not in node:
             continue
-        if sum(arity[node].values()) == 0:
-            continue
         for rel in va.Relation:
             data["allele"].append(node)
             data["relation"].append(rel.name)
             data["arity"].append(arity[node][rel.name])
     data = pandas.DataFrame(data)
     # Display
-    figure = px.bar(pandas.DataFrame(data), x="allele", y="arity", color="relation", title="Pruned relationships")
+    figure = px.bar(pandas.DataFrame(data), x="allele", y="arity", color="relation", title="Pruned relationships between all variants and alleles, per allele")
     figure.update_layout(barmode='stack', xaxis={'categoryorder': 'total ascending'})
     return figure
 
+def plot_relations(relations, pruned=False):
+    data = {"relation": [], "count": []}
+    counts = count_relations(relations)
+    for relation in counts.keys():
+        data["relation"].append(relation)
+        data['count'].append(counts[relation])
+    title = "Relationships between all variants and alleles"
+    if pruned: title = "Pruned " + title.lower()
+    figure = px.bar(pandas.DataFrame(data), x="relation", y="count", title=title, log_y=(not pruned))
+    return figure
+
+
 def plot_counts(elements):
-    data = {"category": ("core", "sub", "variant"), "count": [0, 0, 0]}
+    data = {"category": ["core", "sub", "variant"], "count": [0, 0, 0]}
     for element in elements:
         if element["classes"] in data["category"]:
             data["count"][data["category"].index(element["classes"])] += 1
-    figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Different types")
+    figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Amount of alleles and variants")
     return figure
 
-def layout_graph(elements, default_layout):
+def layout_graph(elements, nodes, edges, relations):
     """Returns the layout for the Dash graph"""
+    default_layout = 'cose-bilkent' 
     return html.Div([
         dcc.Location(id='url', refresh=False), # Page load
         dcc.Tabs([
@@ -75,8 +86,22 @@ def layout_graph(elements, default_layout):
             dcc.Tab(
                 label="Statistics",
                 children=[
-                    dcc.Graph(id="plot-arity"),
-                    html.Pre(id="counts")
+                    dcc.Graph(
+                        id="plot-arity",
+                        figure=plot_arity(nodes, edges)
+                    ),
+                    dcc.Graph(
+                        id="relation-counts",
+                        figure=plot_relations(relations)
+                    ),
+                    dcc.Graph(
+                        id="pruned-relation-counts",
+                        figure=plot_relations(edges, pruned=True)
+                    ),                    
+                    dcc.Graph(
+                        id="counts",
+                        figure=plot_counts(elements)
+                    )
                 ]
             )
         ])        
@@ -157,6 +182,7 @@ def display_graph(relations, data):
             },
             "classes": category
         })
+
     for node, other, relation in edges:
         elements.append({
             "data": {
@@ -168,18 +194,9 @@ def display_graph(relations, data):
     # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)
-    default_layout = 'cose-bilkent' 
     # Show graph
-    app.layout = layout_graph(elements, default_layout)
+    app.layout = layout_graph(elements, nodes, edges, relations)
     # Add interactive component callbacks 
     interactive_graph(app, elements)
-    # Show plots
-    @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
-    def show_arity_plot(_):
-        # Show arity plot on page load
-        return plot_arity(nodes, edges)
-    @app.callback(Output('counts', "children"), Input('url', 'pathname'))
-    def show_counts(_):
-        return plot_counts(elements)
     # Start webpage
     app.run_server(debug=True)

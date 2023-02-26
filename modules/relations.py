@@ -2,7 +2,6 @@ import algebra as va
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
-from .va_tools import count_relations
 import warnings
 
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
@@ -92,7 +91,7 @@ def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
 def redundant_transitive(graph):
     """Return edges redundant due to transitivity."""
     to_remove = []
-    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
+    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT, va.Relation.CONTAINS):
         subgraph = graph.edge_subgraph([edge for edge in graph.edges() if edge not in redundant_symmetric(graph)])
         subgraph = subgraph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
         subgraph_reduced = nx.transitive_reduction(subgraph)
@@ -198,8 +197,7 @@ def prune_relations(relations):
     graph.remove_edges_from(redundant_reflexive(graph))
     # Remove common ancestor redundancy
     graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap))
-    # Remove one direction of containment TODO don't display instead of filtering?
-    graph.remove_edges_from(list(subgraph_contains.edges()))
+    # Only one direction of containment will be displayed so it won't be filtered here
     # Remove transitive redundancies for single relations 
     graph.remove_edges_from(redundant_transitive(graph))
     # Remove most specific redundancy
