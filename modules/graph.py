@@ -16,6 +16,10 @@ def plot_arity(nodes, relations):
     # Covert data to pandas data frame
     data = {"allele": [], "relation": [], "arity": []}
     for node in nodes:
+        if "*" not in node:
+            continue
+        if sum(arity[node].values()) == 0:
+            continue
         for rel in va.Relation:
             data["allele"].append(node)
             data["relation"].append(rel.name)
@@ -131,7 +135,7 @@ def display_graph(relations, data):
             else:
                 category = "core"
         else:
-            label = node.split(':')[1]
+            label = node.split(':')[1].split('.')[1]
             category = "variant"
         elements.append({            
             "data": {

@@ -5,18 +5,18 @@ from .parse import parse_multi_hgvs
 from .va_tools import count_relations
 import warnings
 
-def find_relations_all(corealleles, suballeles, reference_sequence, sub=False):
+def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
 
     Relations are cached since they take a long time to generate.
 
     Returns edge list.
     """
-    name = "all_relations"
-    if sub: name += "_incl.sub"
+    cache_name = "all_relations"
+    if suballeles is not None: cache_name += "_incl.sub"
     # Test if already stored
     try:
-        return cache_get(name)
+        return cache_get(cache_name)
     except:
         pass
 
@@ -24,7 +24,7 @@ def find_relations_all(corealleles, suballeles, reference_sequence, sub=False):
     all_variants = {} # Store variants, sub- and corealleles as lists of HGVS
     for coreallele in corealleles.keys():
         alleles = [corealleles[coreallele]]
-        if sub: # Include sub
+        if suballeles is not None: # Include sub
             alleles += suballeles[coreallele]
         for allele in alleles:
             all_variants[allele["alleleName"]] = [] 
@@ -35,7 +35,6 @@ def find_relations_all(corealleles, suballeles, reference_sequence, sub=False):
     relations = []
     variant_names = list(all_variants.keys())
     for i, left in enumerate(variant_names):
-        print(i, len(variant_names))
         for right in variant_names[i:]: # Only check one direction
             # Find relation using algebra
             try:
@@ -54,7 +53,7 @@ def find_relations_all(corealleles, suballeles, reference_sequence, sub=False):
             relations.append((left, right, relation))
             relations.append((right, left, inv_relation))
 
-    cache_set(relations, name)
+    cache_set(relations, cache_name)
     return relations
 
 
@@ -138,6 +137,24 @@ def redundant_symmetric(graph):
         to_remove.add((t, s)) # Remove other direction
     return to_remove
 
+def redundant_equivalence(graph):
+    """Remove redundant relations due to equivalence"""
+    to_remove = []
+    for s, t, d in graph.edges(data=True):
+        if d["relation"].name != "EQUIVALENT":
+            continue
+        s_conn = set(graph[s])
+        t_conn = set(graph[t])
+        share_conn = s_conn & t_conn
+        for shared in share_conn:
+            if "*" in s: # Favour core
+                to_remove.append((t, shared))
+                to_remove.append((shared, t))
+            else:
+                to_remove.append((s, shared))
+                to_remove.append((shared, s))
+    return to_remove 
+
 def prune_relations(relations):
     """Prune relations which are redundant.
 
@@ -149,12 +166,18 @@ def prune_relations(relations):
     - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
     Disjoint relation can be left out since they are understood as 'no relation'.
     One direction of the containment relation can be left out since the inverse follows.
+    For equivalence one relation can be left out: A == B and A - C; B - C one is redundant. This is similar to most specific.
 
     returns list of edges and nodes.
     """
+    # Cache since it can take some time
+    cache_name = "pruned_relations"
+    try:
+        return cache_get(cache_name)
+    except:
+        pass
     # Create edge list in proper format for networkx
     # Filter out disjoint relations
-    print(count_relations(relations))
     nodes = set()
     edges = []
     for left, right, relation in relations:
@@ -168,16 +191,10 @@ def prune_relations(relations):
     graph.add_nodes_from(nodes)
     graph.add_edges_from(edges)
     # Create subgraphs for some reductions (are linked to graph)
-    subgraph_contains = graph.edge_subgraph(
-        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"]
-    )
-    subgraph_overlap = graph.edge_subgraph(
-        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"]
-    )
-    subgraph_contained = graph.edge_subgraph(
-        [(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"]
-    )
-
+    subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
+    subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
+    subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
+    # TODO remove redundant containment/overlap in the case of equivalence
     # Remove reflexive self-loops
     graph.remove_edges_from(redundant_reflexive(graph))
     # Remove common ancestor redundancy
@@ -188,10 +205,14 @@ def prune_relations(relations):
     graph.remove_edges_from(redundant_transitive(graph))
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
+    # Remove redundant relations due to equivalence
+    graph.remove_edges_from(redundant_equivalence(graph))
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
 
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    print(count_relations(edges))
+    cache_set((nodes, edges), cache_name)
+    # print(count_relations(relations))
+    # print(count_relations(edges))
     return nodes, edges

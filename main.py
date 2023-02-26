@@ -83,7 +83,7 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles and analyze
-    relations = find_relations_all(corealleles, suballeles, reference_sequence)
+    relations = find_relations_all(corealleles, reference_sequence)
     display_graph(relations, corealleles)
 
 if __name__ == "__main__":

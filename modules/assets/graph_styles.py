@@ -34,7 +34,7 @@ default_stylesheet = [
         "selector": ".variant",
         "style": {
             "font-size": "5px",
-            "width": "40px",
+            "width": "65px", 
             "height": "15px",
             "shape": "round-rectangle",
         }   
