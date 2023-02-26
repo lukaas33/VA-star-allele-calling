@@ -111,7 +111,7 @@ def interactive_graph(app, original_elements):
             'action': 'download'
             }
 
-def display_graph(nodes, relations, data):
+def display_graph(relations, data):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -120,16 +120,26 @@ def display_graph(nodes, relations, data):
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
     # TODO why does it call this function twice
-    edges = prune_relations(nodes, relations)
+    nodes, edges = prune_relations(relations)
     # Convert to proper format for cytoscape
     elements = []
     for node in nodes:
+        if "*" in node:
+            label = "*" + node.split("*")[1]
+            if "." in node:
+                category = "sub"
+            else:
+                category = "core"
+        else:
+            label = node.split(':')[1]
+            category = "variant"
         elements.append({            
             "data": {
                 "id": node, 
-                "label": node.split("CYP2D6")[1],
-                "data": data[node]
-            }
+                "label": label,
+                # "data": data[node]
+            },
+            "classes": category
         })
     for node, other, relation in edges:
         elements.append({

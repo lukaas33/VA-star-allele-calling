@@ -2,77 +2,60 @@ import algebra as va
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
+from .va_tools import count_relations
+import warnings
 
-def find_relations(corealleles, reference_sequence):
-    """Find the relation between all corealleles.
-
-    Relations are cached since they take a long time to generate.
-
-    Returns edge list.
-    """
-    # Find relation for each pair of corealleles directionally
-    coreallele_names = list(corealleles.keys())
-    name = "relations"
-    # Test if already stored
-    try:
-        return cache_get(name)
-    except:
-        pass
-    # Generate
-    relations = {
-        coreallele: {
-            coreallele2: None 
-            for coreallele2 in coreallele_names
-        } 
-        for coreallele in coreallele_names
-    }
-    for i, left_coreallele in enumerate(coreallele_names):
-        for right_coreallele in coreallele_names[i:]: # Only check each pair once
-            # Parse allele
-            left_hgvs = [variant["hgvs"] for variant in corealleles[left_coreallele]["variants"]]
-            left_variants = parse_multi_hgvs(left_hgvs, reference_sequence, left_coreallele)
-            right_hgvs = [variant["hgvs"] for variant in corealleles[right_coreallele]["variants"]]
-            right_variants = parse_multi_hgvs(right_hgvs, reference_sequence, right_coreallele)
-            # Store relation
-            relation = va.compare(reference_sequence, left_variants, right_variants)
-            relations[left_coreallele][right_coreallele] = relation
-            # Store inverse relation (the same for most relations)
-            if relation == va.Relation.CONTAINS:
-                inv_relation = va.Relation.IS_CONTAINED
-            elif relation == va.Relation.IS_CONTAINED:
-                inv_relation = va.Relation.CONTAINS
-            else:
-                inv_relation = relation
-            relations[right_coreallele][left_coreallele] = inv_relation
-    edges = []
-    for l_node in corealleles:
-        for r_node in corealleles:
-            edges.append((l_node, r_node, relations[l_node][r_node]))
-    cache_set(edges, name) # Cache       
-    return edges
-
-def find_relations_all(corealleles, suballeles, reference_sequence):
+def find_relations_all(corealleles, suballeles, reference_sequence, sub=False):
     """Find the relation between all corealleles, suballeles and variants.
 
     Relations are cached since they take a long time to generate.
 
     Returns edge list.
     """
-    # TODO merge with find_relations?
-    # TODO run for all and cache
-    all_variants = {} # Store variants together since they may be shared
-    all_allele_variants = {} # Suballeles should be expressed by its variants
-    coreallele = "CYP2D6*3" # TEST with only one
-    for suballele in suballeles[coreallele]:
-        all_allele_variants[suballele["alleleName"]] = [] 
-        print(suballele["alleleName"])
-        for variant in suballele["variants"]:
-            print('\t', )
-            all_variants[variant["hgvs"]] = variant["hgvs"]
-            all_allele_variants[suballele["alleleName"]].append(variant["hgvs"])
-    print(all_variants)
-    print(all_allele_variants)
-    exit()
+    name = "all_relations"
+    if sub: name += "_incl.sub"
+    # Test if already stored
+    try:
+        return cache_get(name)
+    except:
+        pass
+
+    # Get all variants as lists of HGVS strings
+    all_variants = {} # Store variants, sub- and corealleles as lists of HGVS
+    for coreallele in corealleles.keys():
+        alleles = [corealleles[coreallele]]
+        if sub: # Include sub
+            alleles += suballeles[coreallele]
+        for allele in alleles:
+            all_variants[allele["alleleName"]] = [] 
+            for variant in allele["variants"]:
+                all_variants[variant["hgvs"]] = [variant["hgvs"]]
+                all_variants[allele["alleleName"]].append(variant["hgvs"])
+    # Parse and get relations
+    relations = []
+    variant_names = list(all_variants.keys())
+    for i, left in enumerate(variant_names):
+        print(i, len(variant_names))
+        for right in variant_names[i:]: # Only check one direction
+            # Find relation using algebra
+            try:
+                left_parsed = parse_multi_hgvs(all_variants[left], reference_sequence)
+                right_parsed = parse_multi_hgvs(all_variants[right], reference_sequence)
+                relation = va.compare(reference_sequence, left_parsed, right_parsed)
+            except Exception as e: # TODO better handling
+                warnings.warn(e)
+            # Find inverse relation (the same for most relations)
+            if relation == va.Relation.CONTAINS:
+                inv_relation = va.Relation.IS_CONTAINED
+            elif relation == va.Relation.IS_CONTAINED:
+                inv_relation = va.Relation.CONTAINS
+            else:
+                inv_relation = relation
+            relations.append((left, right, relation))
+            relations.append((right, left, inv_relation))
+
+    cache_set(relations, name)
+    return relations
 
 
 def has_common_ancestor(graph, node1, node2):
@@ -111,7 +94,8 @@ def redundant_transitive(graph):
     """Return edges redundant due to transitivity."""
     to_remove = []
     for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
-        subgraph = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
+        subgraph = graph.edge_subgraph([edge for edge in graph.edges() if edge not in redundant_symmetric(graph)])
+        subgraph = subgraph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
         subgraph_reduced = nx.transitive_reduction(subgraph)
         to_remove += [
             (s, t, d) 
@@ -154,7 +138,7 @@ def redundant_symmetric(graph):
         to_remove.add((t, s)) # Remove other direction
     return to_remove
 
-def prune_relations(nodes, relations):
+def prune_relations(relations):
     """Prune relations which are redundant.
 
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
@@ -166,15 +150,19 @@ def prune_relations(nodes, relations):
     Disjoint relation can be left out since they are understood as 'no relation'.
     One direction of the containment relation can be left out since the inverse follows.
 
-    returns list of edges.
+    returns list of edges and nodes.
     """
     # Create edge list in proper format for networkx
     # Filter out disjoint relations
-    edges = [
-        (edge[0], edge[1], {"relation": edge[2]}) 
-        for edge in relations 
-        if edge[2].name not in ("DISJOINT",)
-    ]
+    print(count_relations(relations))
+    nodes = set()
+    edges = []
+    for left, right, relation in relations:
+        nodes.add(left)
+        nodes.add(right)
+        if relation.name == "DISJOINT":
+            continue
+        edges.append((left, right, {"relation": relation}))
     # Construct networkx graph object from edge list
     graph = nx.DiGraph()
     graph.add_nodes_from(nodes)
@@ -205,4 +193,5 @@ def prune_relations(nodes, relations):
 
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    return edges
+    print(count_relations(edges))
+    return nodes, edges

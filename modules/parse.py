@@ -1,6 +1,6 @@
 import algebra as va
 
-def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
+def parse_multi_hgvs(hgvs_lst, reference_sequence):
     """Wrapper for parsing a list of hgvs variants and combining them into a set of variants (allele).
 
     Sometimes variants have the same hgvs representation but a different position value,
@@ -14,5 +14,5 @@ def parse_multi_hgvs(hgvs_lst, reference_sequence, allele_name):
                 variants.add(variant)
         except: 
             raise ValueError(f"HGVS string '{hgvs}' could not be parsed.")
-    return variants
+    return list(variants)
 

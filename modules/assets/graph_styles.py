@@ -8,7 +8,6 @@ default_stylesheet = [
             "text-valign": "center",
             "text-halign": "center",
             "color": "white",
-            "font-size": "10px"
         }
     }, {
         'selector': 'edge',
@@ -16,10 +15,34 @@ default_stylesheet = [
             'curve-style': 'bezier'
         }
     }, {
+        "selector": ".core",
+        "style": {
+            "font-size": "15px",
+            "width": "40px",
+            "height": "40px",
+            "shape": "ellipse"
+        }
+    }, {
+        "selector": ".sub",
+        "style": {
+            "font-size": "5px",
+            "width": "25px",
+            "height": "25px",
+            "shape": "ellipse"
+        }
+    }, {
+        "selector": ".variant",
+        "style": {
+            "font-size": "5px",
+            "width": "40px",
+            "height": "15px",
+            "shape": "round-rectangle",
+        }   
+    }, {
         'selector': '.EQUIVALENT',
         'style': {
-            'line-color': '#607D8B', # Blue gray 500
-            'width': '2'
+            'line-color': '#37474F', # Blue gray 800
+            'width': '3'
         }
     }, {
         'selector': '.IS_CONTAINED',
