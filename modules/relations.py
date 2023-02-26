@@ -147,12 +147,12 @@ def redundant_equivalence(graph):
         t_conn = set(graph[t])
         share_conn = s_conn & t_conn
         for shared in share_conn:
-            if "*" in s: # Favour core
-                to_remove.append((t, shared))
-                to_remove.append((shared, t))
-            else:
+            if "*" in s: # Favour smallest (most specific)
                 to_remove.append((s, shared))
                 to_remove.append((shared, s))
+            else:
+                to_remove.append((t, shared))
+                to_remove.append((shared, t))
     return to_remove 
 
 def prune_relations(relations):
@@ -194,12 +194,11 @@ def prune_relations(relations):
     subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
     subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
-    # TODO remove redundant containment/overlap in the case of equivalence
     # Remove reflexive self-loops
     graph.remove_edges_from(redundant_reflexive(graph))
     # Remove common ancestor redundancy
     graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap))
-    # Remove one direction of containment
+    # Remove one direction of containment TODO don't display instead of filtering?
     graph.remove_edges_from(list(subgraph_contains.edges()))
     # Remove transitive redundancies for single relations 
     graph.remove_edges_from(redundant_transitive(graph))

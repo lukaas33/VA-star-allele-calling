@@ -3,12 +3,13 @@ import json
 from dash import Dash, html, dcc, Input, Output
 import dash_cytoscape as cyto
 import plotly.express as px
-from pandas import DataFrame as df
+import pandas
 from .va_tools import count_arity
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations
 
 # TODO add search function
+# TODO add subgraph function
 
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
@@ -24,10 +25,18 @@ def plot_arity(nodes, relations):
             data["allele"].append(node)
             data["relation"].append(rel.name)
             data["arity"].append(arity[node][rel.name])
-    data = df(data)
+    data = pandas.DataFrame(data)
     # Display
-    figure = px.bar(df(data), x="allele", y="arity", color="relation", title="Pruned relationships")
+    figure = px.bar(pandas.DataFrame(data), x="allele", y="arity", color="relation", title="Pruned relationships")
     figure.update_layout(barmode='stack', xaxis={'categoryorder': 'total ascending'})
+    return figure
+
+def plot_counts(elements):
+    data = {"category": ("core", "sub", "variant"), "count": [0, 0, 0]}
+    for element in elements:
+        if element["classes"] in data["category"]:
+            data["count"][data["category"].index(element["classes"])] += 1
+    figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Different types")
     return figure
 
 def layout_graph(elements, default_layout):
@@ -66,7 +75,8 @@ def layout_graph(elements, default_layout):
             dcc.Tab(
                 label="Statistics",
                 children=[
-                    dcc.Graph(id="plot-arity")
+                    dcc.Graph(id="plot-arity"),
+                    html.Pre(id="counts")
                 ]
             )
         ])        
@@ -98,13 +108,13 @@ def interactive_graph(app, original_elements):
     def reset_layout(n_clicks):
         # Reset view
         return [1, original_elements]
-    # Export image
     @app.callback(
         Output("graph", "generateImage"),
         [
             Input("image-svg", "n_clicks"),
         ])
     def get_image(n_clicks):
+        # Export image
         if n_clicks is None:
             return { # TODO why needed?
                 'type': 'png',
@@ -130,18 +140,20 @@ def display_graph(relations, data):
     for node in nodes:
         if "*" in node:
             label = "*" + node.split("*")[1]
+            info = data[node]
             if "." in node:
                 category = "sub"
             else:
                 category = "core"
         else:
             label = node.split(':')[1].split('.')[1]
+            info = None # TODO fix data for this type
             category = "variant"
         elements.append({            
             "data": {
                 "id": node, 
                 "label": label,
-                # "data": data[node] TODO fix data
+                "data": info
             },
             "classes": category
         })
@@ -164,6 +176,10 @@ def display_graph(relations, data):
     # Show plots
     @app.callback(Output('plot-arity', "figure"), Input('url', 'pathname'))
     def show_arity_plot(_):
+        # Show arity plot on page load
         return plot_arity(nodes, edges)
+    @app.callback(Output('counts', "children"), Input('url', 'pathname'))
+    def show_counts(_):
+        return plot_counts(elements)
     # Start webpage
     app.run_server(debug=True)
