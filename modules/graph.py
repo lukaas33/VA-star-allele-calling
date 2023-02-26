@@ -137,7 +137,7 @@ def display_graph(relations, data):
             "data": {
                 "id": node, 
                 "label": label,
-                # "data": data[node]
+                # "data": data[node] TODO fix data
             },
             "classes": category
         })
