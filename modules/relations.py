@@ -62,6 +62,8 @@ def has_common_ancestor(graph, node1, node2):
         return False
     # Do a parallel BFS on the directed graph and check if both have a node as a child
     # TODO possible to not do a complete BFS the first time?
+        # TODO can reduce for complete graph but doesn't work in all instances
+    # TODO use networkx ancestors
     visited = {node: [False, False] for node in graph.nodes()}
     for i, start_node in enumerate((node1, node2)):
         queue = [start_node]
@@ -109,6 +111,7 @@ def redundant_most_specific(subgraph_contained, subgraph_overlap):
         # Do BFS from start of topological ordering
         # store overlapping, if already found the new one is less specific and can be removed
         # TODO don't repeat already visited nodes
+        # TODO look at other solutions
         overlapping = set()
         queue = [start_node] 
         while len(queue) > 0:
@@ -138,6 +141,7 @@ def redundant_symmetric(graph):
 
 def redundant_equivalence(graph):
     """Remove redundant relations due to equivalence"""
+    # TODO extend for multiple equivalences
     to_remove = []
     for s, t, d in graph.edges(data=True):
         if d["relation"].name != "EQUIVALENT":
@@ -146,12 +150,12 @@ def redundant_equivalence(graph):
         t_conn = set(graph[t])
         share_conn = s_conn & t_conn
         for shared in share_conn:
-            if "*" in s: # Favour smallest (most specific)
-                to_remove.append((s, shared))
-                to_remove.append((shared, s))
-            else:
+            if "*" in s: # Favour allele relations (choice arbitrary)
                 to_remove.append((t, shared))
                 to_remove.append((shared, t))
+            else:
+                to_remove.append((s, shared))
+                to_remove.append((shared, s))
     return to_remove 
 
 def prune_relations(relations):
@@ -165,7 +169,7 @@ def prune_relations(relations):
     - Common ancestor: if A --> B; A --> C and B -- C then B -- C is redundant
     Disjoint relation can be left out since they are understood as 'no relation'.
     One direction of the containment relation can be left out since the inverse follows.
-    For equivalence one relation can be left out: A == B and A - C; B - C one is redundant. This is similar to most specific.
+    For equivalence one relation can be left out: A == B and A - C; B - C one is redundant. The choice of which is left out is partially arbitrary dependent on what is clearest in the context.
 
     returns list of edges and nodes.
     """
