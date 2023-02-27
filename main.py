@@ -69,7 +69,6 @@ def main():
     # All information associated with the (current) gene of interest
     gene = pharmvar_get("genes/CYP2D6") 
     # Group suballeles by core alleles and index by the star-allele notation of the core allele
-    # QUESTION what is a variant group in pharmvar
     # QUESTION is an empty allele always a subset of any allele
     # QUESTION should variants within a suballele be disjoint?
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
