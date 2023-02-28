@@ -2,6 +2,7 @@ import algebra as va
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_multi_hgvs
+from .va_tools import count_relations
 import warnings
 
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
@@ -104,28 +105,48 @@ def redundant_transitive(graph):
         ]
     return to_remove
 
+def dfs(subgraph_contained, subgraph_overlap, current, overlapping):
+    """Find if multiple edges in a path overlap with the same node and return the less specific."""
+    edges = []
+    if current not in subgraph_overlap.nodes():
+        return edges
+    for overlap in subgraph_overlap[current]: # Track overlapping at current depth
+        if overlap in overlapping: # Already found in this path, is redundant
+            edges.append((current, overlap))
+            edges.append((overlap, current))
+        else: # Newly found
+            overlapping.add(overlap)
+    # Go to next depth in containment relation
+    for overlap in subgraph_contained[current]:
+        edges += dfs(subgraph_contained, subgraph_overlap, overlap, overlapping)
+    # forget when taking other path
+    for overlap in subgraph_overlap[current]:
+        overlapping.remove(overlap)
+    return edges
+
 def redundant_most_specific(subgraph_contained, subgraph_overlap):
     """Returns redundant overlap relations due to most specific (smallest contained) overlap"""
     to_remove = []
     for start_node in nx.topological_sort(subgraph_contained):
-        # Do BFS from start of topological ordering
+        # Do DFS from start of topological ordering
         # store overlapping, if already found the new one is less specific and can be removed
-        # TODO don't repeat already visited nodes
-        # TODO look at other solutions
+        # TODO don't repeat already visited nodes (triangle approach)
         overlapping = set()
-        queue = [start_node] 
-        while len(queue) > 0:
-            current = queue.pop(0)
-            if current in subgraph_overlap.nodes():
-                overlaps = [edge for edge in subgraph_overlap[current]] # Find overlap of current node 
-                for target in overlaps:
-                    if target in overlapping: # More specific overlap was known
-                        to_remove.append((current, target))
-                        to_remove.append((target, current))
-                    else: # Add since this is a new overlap
-                        overlapping.add(target)
-            for neighbour in subgraph_contained[current]:
-                queue.append(neighbour)
+        to_remove += dfs(subgraph_contained, subgraph_overlap, start_node, overlapping)
+        # overlapping = set()
+        # queue = [start_node] 
+        # while len(queue) > 0:
+        #     current = queue.pop()
+        #     if current in subgraph_overlap.nodes():
+        #         overlaps = [edge for edge in subgraph_overlap[current]] # Find overlap of current node 
+        #         for target in overlaps:
+        #             if target in overlapping: # More specific overlap was known
+        #                 to_remove.append((current, target))
+        #                 to_remove.append((target, current))
+        #             else: # Add since this is a new overlap
+        #                 overlapping.add(target)
+        #     for neighbour in subgraph_contained[current]:
+        #         queue.append(neighbour)
     return to_remove
 
 def redundant_symmetric(graph):
@@ -213,7 +234,7 @@ def prune_relations(relations):
 
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    cache_set((nodes, edges), cache_name)
-    # print(count_relations(relations))
-    # print(count_relations(edges))
+    # cache_set((nodes, edges), cache_name)
+    print(count_relations(relations))
+    print(count_relations(edges))
     return nodes, edges
