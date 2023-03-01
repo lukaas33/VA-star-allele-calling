@@ -217,11 +217,7 @@ def prune_relations(relations):
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
 
-    # print(*subgraph_overlap.edges(), sep='\n')
-
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    # cache_set((nodes, edges), cache_name)
-    print(count_relations(relations))
-    print(count_relations(edges))
+    cache_set((nodes, edges), cache_name)
     return nodes, edges
