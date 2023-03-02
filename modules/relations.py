@@ -12,6 +12,8 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
 
     Returns edge list.
     """
+    # TODO variants don't have to be patched so supremal based can be used directly here
+    # TODO use itertools.combinations instead of nested for loops
     cache_name = "all_relations"
     if suballeles is not None: cache_name += "_incl.sub"
     # Test if already stored
@@ -85,6 +87,8 @@ def redundant_reflexive(graph):
 
 def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
     """Returns redundant overlap relations due to common ancestor"""
+    # TODO use ancestors function of nx instead and do all at once
+    # TODO can do this faster with lowest common ancestors function (but cannot use nx one)
     to_remove = []
     for s, t in subgraph_overlap.edges():
         if has_common_ancestor(subgraph_contains, s, t):
@@ -130,6 +134,7 @@ def redundant_most_specific(subgraph_contained, subgraph_overlap):
         # Do DFS from start of topological ordering
         # store overlapping, if already found the new one is less specific and can be removed
         # TODO don't repeat already visited nodes (triangle approach)
+        #       only have to check overlapping nodes where one has a containment and contains relation
         overlapping = dict()
         to_remove += dfs(subgraph_contained, subgraph_overlap, start_node, overlapping)
     return to_remove
@@ -148,6 +153,8 @@ def redundant_symmetric(graph):
 def redundant_equivalence(graph):
     """Remove redundant relations due to equivalence"""
     # TODO extend for multiple equivalences
+    #       can use contracted nodes method of nx 
+    #       can consider equivalent nodes as a component
     to_remove = []
     for s, t, d in graph.edges(data=True):
         if d["relation"].name != "EQUIVALENT":

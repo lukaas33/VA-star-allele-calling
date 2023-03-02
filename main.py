@@ -71,6 +71,7 @@ def main():
     # Group suballeles by core alleles and index by the star-allele notation of the core allele
     # QUESTION is an empty allele always a subset of any allele
     # QUESTION should variants within a suballele be disjoint?
+    # TODO use datastructure with less redundant information for consistency
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
     suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
 
