@@ -9,7 +9,6 @@ from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
 
 # TODO add search function
-# TODO add subgraph function
 
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
@@ -67,8 +66,7 @@ def layout_graph(elements, nodes, edges, relations):
                         stylesheet = default_stylesheet,
                         elements = elements
                     ),
-                    html.Button('Reset view', id='reset-view'),
-                    html.Button('Reset selection', id='reset-selection'),
+                    html.Button('Subgraph selection', id='subgraph'),
                     html.Button("Export image", id="image-svg"),
                     dcc.Dropdown(
                         id='change-layout',
@@ -110,7 +108,9 @@ def layout_graph(elements, nodes, edges, relations):
 def interactive_graph(app, original_elements, edges):
     """Add interactive components to graph"""
     # Change layout
-    @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
+    @app.callback(
+        Output('graph', 'layout'), 
+        Input('change-layout', 'value'))
     def update_layout(layout):
         settings = {"name": layout}
         settings["nodeDimensionsIncludeLabels"] = True
@@ -120,27 +120,24 @@ def interactive_graph(app, original_elements, edges):
             settings["animate"] = False
         return settings
     # Display information about selection
-    @app.callback(Output('data', 'children'), Input('graph', 'selectedNodeData'))
+    @app.callback(
+        Output('data', 'children'), 
+        Input('graph', 'selectedNodeData'))
     def displayTapNodeData(data):
         return json.dumps(data, indent=2)
     # Display connections of selected
-    @app.callback([Output('graph', 'stylesheet'), Output('reset-selection', 'n_clicks')], [Input('graph', 'selectedNodeData'), Input('reset-selection', 'n_clicks')])
-    def generate_stylesheet(nodes, n_clicks):
-        if not nodes or n_clicks == 1: # No input or resetting
-            return [default_stylesheet, None]
+    @app.callback(
+        Output('graph', 'stylesheet'), 
+        Input('graph', 'selectedNodeData'))
+    def generate_stylesheet(nodes):
+        # TODO don't zoom out when selecting
+        if not nodes: # No input or resetting
+            return default_stylesheet
         context = find_context(nodes, edges)
-        return [selection_stylesheet(context), None]
-    # Reset view
-    @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
-    def reset_layout(n_clicks):
-        return [1, original_elements]
-    # Export image
+        return selection_stylesheet(context)
     @app.callback(
         Output("graph", "generateImage"),
-        [
-            Input("image-svg", "n_clicks"),
-        ])
-    # Export image
+        Input("image-svg", "n_clicks"))
     def get_image(n_clicks):
         if n_clicks is None:
             return { # TODO why needed?
@@ -151,6 +148,24 @@ def interactive_graph(app, original_elements, edges):
             'type': 'svg',
             'action': 'download'
             }
+    # Subgraph selection
+    @app.callback(
+            [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
+            [Input('graph', 'selectedNodeData'), Input('subgraph', 'n_clicks')])
+    def subgraph(nodes, n_clicks):
+        if n_clicks is None or not nodes:
+            return [original_elements, None]
+        # Get context of selection
+        context = find_context(nodes, edges)
+        # Translate to elements
+        selected_elements = []
+        for element in original_elements:
+            if "id" in element["data"].keys() and element["data"]["id"] in context:
+                selected_elements.append(element)
+            elif "source" in element["data"].keys() and element["data"]["source"] in context and \
+                    "target" in element["data"].keys() and element["data"]["target"] in context:
+                selected_elements.append(element)
+        return [selected_elements, None]
 
 def display_graph(relations, data):
     """Display relations as a graph
@@ -181,7 +196,7 @@ def display_graph(relations, data):
             "data": {
                 "id": node, 
                 "label": label,
-                "data": info
+                # "data": info
             },
             "classes": category
         })
