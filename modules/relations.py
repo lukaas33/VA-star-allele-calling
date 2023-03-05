@@ -5,6 +5,17 @@ from .parse import parse_multi_hgvs
 from .va_tools import count_relations
 import warnings
 
+def find_context(nodes, edges):
+    """Find the context (connected nodes) for a given set of nodes based on an edgelist."""
+    # TODO do this based on a networkx graph
+    context = set()
+    for node in nodes:
+        for s, t, d in edges:
+            if s == node["id"] or t == node["id"]:
+                context.add(s)
+                context.add(t)
+    return context
+
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
 
@@ -183,7 +194,11 @@ def prune_relations(relations):
     One direction of the containment relation can be left out since the inverse follows.
     For equivalence one relation can be left out: A == B and A - C; B - C one is redundant. The choice of which is left out is partially arbitrary dependent on what is clearest in the context.
 
+    returns networkx graph object
     returns list of edges and nodes.
+    returns networkx graph object
+    returns list of edges and nodes.
+    returns networkx graph object
     """
     # Cache since it can take some time
     cache_name = "pruned_relations"
@@ -226,4 +241,4 @@ def prune_relations(relations):
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
     cache_set((nodes, edges), cache_name)
-    return nodes, edges
+    return nodes, edges    

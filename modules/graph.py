@@ -6,7 +6,7 @@ import plotly.express as px
 import pandas
 from .va_tools import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
-from .relations import prune_relations
+from .relations import prune_relations, find_context
 
 # TODO add search function
 # TODO add subgraph function
@@ -107,7 +107,7 @@ def layout_graph(elements, nodes, edges, relations):
         ])        
     ])
 
-def interactive_graph(app, original_elements):
+def interactive_graph(app, original_elements, edges):
     """Add interactive components to graph"""
     # Change layout
     @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
@@ -128,7 +128,8 @@ def interactive_graph(app, original_elements):
     def generate_stylesheet(nodes, n_clicks):
         if not nodes or n_clicks == 1: # No input or resetting
             return [default_stylesheet, None]
-        return [selection_stylesheet(nodes), None]
+        context = find_context(nodes, edges)
+        return [selection_stylesheet(context), None]
     # Reset view
     @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
     def reset_layout(n_clicks):
@@ -159,6 +160,7 @@ def display_graph(relations, data):
     https://dash.plotly.com/cytoscape
     This framework should not be used to make a complete visualization since it is limited in functionality.
     """
+    # TODO create js page
     # TODO why does it call this function twice
     nodes, edges = prune_relations(relations)
     # Convert to proper format for cytoscape
@@ -197,6 +199,6 @@ def display_graph(relations, data):
     # Show graph
     app.layout = layout_graph(elements, nodes, edges, relations)
     # Add interactive component callbacks 
-    interactive_graph(app, elements)
+    interactive_graph(app, elements, edges)
     # Start webpage
     app.run_server(debug=True)
