@@ -52,7 +52,6 @@ def layout_graph(elements, nodes, edges, relations):
     """Returns the layout for the Dash graph"""
     default_layout = 'cose-bilkent' 
     return html.Div([
-        # dcc.Location(id='url', refresh=False), # Page load
         dcc.Tabs([
             dcc.Tab(
                 label="Network",
@@ -61,13 +60,19 @@ def layout_graph(elements, nodes, edges, relations):
                         id='graph',
                         style = {
                             "width": "100%",
-                            "height": "80vh"
+                            "height": "85vh"
                         },
                         stylesheet = default_stylesheet,
                         elements = elements
                     ),
-                    html.Button('Subgraph selection', id='subgraph'),
                     html.Button("Export image", id="image-svg"),
+                    html.Button('Subgraph selection', id='subgraph'),
+                    dcc.Input(
+                        id="filter",
+                        placeholder="Filter by allele name...",
+                        type="text",
+                        debounce=True
+                    ),
                     dcc.Dropdown(
                         id='change-layout',
                         value=default_layout,
@@ -141,7 +146,8 @@ def interactive_graph(app, original_elements, edges):
     def generate_stylesheet(nodes):
         if not nodes: # No input or resetting
             return default_stylesheet
-        context = find_context(nodes, edges)
+        print("stylesheet")
+        context = find_context([node["id"] for node in nodes], edges)
         return selection_stylesheet(context)
     @app.callback(
         Output("graph", "generateImage"),
@@ -160,9 +166,10 @@ def interactive_graph(app, original_elements, edges):
     def subgraph(nodes, n_clicks):
         if n_clicks is None: # On initial load
             return [no_update, None]
-        if n_clicks >= 1 and nodes == []:
+        if n_clicks >= 1 and nodes == []: # Reset
+            # TODO fix resetting from filter
             return [original_elements, None]
-        context = find_context(nodes, edges)
+        context = find_context([node["id"] for node in nodes], edges)
         # Translate to elements
         selected_elements = []
         for element in original_elements:
@@ -172,6 +179,24 @@ def interactive_graph(app, original_elements, edges):
                     "target" in element["data"].keys() and element["data"]["target"] in context:
                 selected_elements.append(element)
         return [selected_elements, 1]
+    # Filter
+    @app.callback(
+        Output('graph', 'selectedNodeData'),
+        Input('filter', 'value'))
+    def filter(filterValues):
+        # TODO inexact selection
+        if not filterValues:
+            return no_update
+        filterValues = [filterValue.strip() for filterValue in filterValues.split(",")]
+        selection = []
+        for element in original_elements:
+            if "id" not in element["data"].keys():
+                continue
+            if any([filterValue == element["data"]["id"] for filterValue in filterValues]):
+                selection.append(element["data"])
+                print(element)
+        return selection
+
 def display_graph(relations, data):
     """Display relations as a graph
 

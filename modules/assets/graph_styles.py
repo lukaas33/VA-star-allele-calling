@@ -1,4 +1,8 @@
 # Define default style
+selection_color = "#6a1b9a" # Purple 800
+adj_color = '#B71C1C' # Red 900
+
+
 default_stylesheet = [
     {
         'selector': 'node',
@@ -13,6 +17,11 @@ default_stylesheet = [
         'selector': 'edge',
         'style': {
             'curve-style': 'bezier'
+        }
+    }, {
+        "selector": "node:selected",
+        "style": {
+            "background-color": selection_color,
         }
     }, {
         "selector": ".core",
@@ -76,10 +85,9 @@ default_stylesheet = [
 
 # Selection style
 def selection_stylesheet(nodes):
-    selection_color = '#B71C1C' # Red 900
     stylesheet = default_stylesheet.copy()
     stylesheet += [{
-        "selector": 'node',
+        "selector": 'node:unselected',
         'style': {
             'opacity': 0.3
         }
@@ -91,10 +99,9 @@ def selection_stylesheet(nodes):
     }]
     for node in nodes:
         stylesheet += [{
-            "selector": f"node[id = '{node}']",
+            "selector": f"node[id = '{node}']:unselected",
             "style": {
-                'background-color': selection_color,
-                "border-color": selection_color,
+                'background-color': adj_color,
                 "opacity": 1,
                 'z-index': 9999
             }
@@ -104,8 +111,8 @@ def selection_stylesheet(nodes):
             stylesheet += [{
                 "selector": f"edge[source = '{source}'][target = '{target}']",
                 "style": {
-                    "line-color": selection_color,
-                    'target-arrow-color': selection_color,
+                    "line-color": adj_color,
+                    'target-arrow-color': adj_color,
                     'opacity': 1,
                     'z-index': 5000
                 }

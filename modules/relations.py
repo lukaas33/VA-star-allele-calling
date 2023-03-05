@@ -11,7 +11,7 @@ def find_context(nodes, edges):
     context = set()
     for node in nodes:
         for s, t, d in edges:
-            if s == node["id"] or t == node["id"]:
+            if s == node or t == node:
                 context.add(s)
                 context.add(t)
     return context
