@@ -58,7 +58,6 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     cache_set(relations, cache_name)
     return relations
 
-
 def has_common_ancestor(graph, node1, node2):
     """Check if two nodes have a common ancestor in a directed graph."""
     if node1 not in graph.nodes() or node2 not in graph.nodes():

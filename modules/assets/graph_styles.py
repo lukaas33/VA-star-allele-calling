@@ -96,7 +96,7 @@ def connected_styles(edge, direction):
         }
     ]
 
-def selection_stylesheet(node):
+def selection_stylesheet(nodes):
     selection_color = '#B71C1C' # Red 900
     stylesheet = default_stylesheet.copy()
     stylesheet += [
@@ -110,16 +110,19 @@ def selection_stylesheet(node):
             'style': {
                 'opacity': 0.2
             }
-        }, {
-            "selector": f"node[id = '{node['data']['id']}']",
+        }
+    ]
+    for node in nodes:
+        stylesheet.append({
+            "selector": f"node[id = '{node['id']}']",
             "style": {
                 'background-color': selection_color,
                 "border-color": selection_color,
                 "opacity": 1,
                 'z-index': 9999
             }
-        }
-    ]
+        })
+    return stylesheet
 
     for edge in node['edgesData']:
         if edge['source'] == node['data']['id']:

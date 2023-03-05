@@ -53,7 +53,7 @@ def layout_graph(elements, nodes, edges, relations):
     """Returns the layout for the Dash graph"""
     default_layout = 'cose-bilkent' 
     return html.Div([
-        dcc.Location(id='url', refresh=False), # Page load
+        # dcc.Location(id='url', refresh=False), # Page load
         dcc.Tabs([
             dcc.Tab(
                 label="Network",
@@ -109,9 +109,9 @@ def layout_graph(elements, nodes, edges, relations):
 
 def interactive_graph(app, original_elements):
     """Add interactive components to graph"""
+    # Change layout
     @app.callback(Output('graph', 'layout'), Input('change-layout', 'value'))
     def update_layout(layout):
-        # Change layout
         settings = {"name": layout}
         settings["nodeDimensionsIncludeLabels"] = True
         if layout == 'cose-bilkent' or layout == 'cose':
@@ -119,27 +119,28 @@ def interactive_graph(app, original_elements):
             settings["tile"] = False
             settings["animate"] = False
         return settings
-    @app.callback(Output('data', 'children'), Input('graph', 'tapNodeData'))
+    # Display information about selection
+    @app.callback(Output('data', 'children'), Input('graph', 'selectedNodeData'))
     def displayTapNodeData(data):
-        # Display information about selection
         return json.dumps(data, indent=2)
-    @app.callback([Output('graph', 'stylesheet'), Output('reset-selection', 'n_clicks')], [Input('graph', 'tapNode'), Input('reset-selection', 'n_clicks')])
-    def generate_stylesheet(node, n_clicks):
-        # Display connections of selected
-        if not node or n_clicks == 1: # No input or resetting
+    # Display connections of selected
+    @app.callback([Output('graph', 'stylesheet'), Output('reset-selection', 'n_clicks')], [Input('graph', 'selectedNodeData'), Input('reset-selection', 'n_clicks')])
+    def generate_stylesheet(nodes, n_clicks):
+        if not nodes or n_clicks == 1: # No input or resetting
             return [default_stylesheet, None]
-        return [selection_stylesheet(node), None]
+        return [selection_stylesheet(nodes), None]
+    # Reset view
     @app.callback([Output('graph', 'zoom'), Output('graph', 'elements')], [Input('reset-view', 'n_clicks')])
     def reset_layout(n_clicks):
-        # Reset view
         return [1, original_elements]
+    # Export image
     @app.callback(
         Output("graph", "generateImage"),
         [
             Input("image-svg", "n_clicks"),
         ])
+    # Export image
     def get_image(n_clicks):
-        # Export image
         if n_clicks is None:
             return { # TODO why needed?
                 'type': 'png',
@@ -182,7 +183,6 @@ def display_graph(relations, data):
             },
             "classes": category
         })
-
     for node, other, relation in edges:
         elements.append({
             "data": {
