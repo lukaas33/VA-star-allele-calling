@@ -1,6 +1,6 @@
 import algebra as va
 import json
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, no_update
 import dash_cytoscape as cyto
 import plotly.express as px
 import pandas
@@ -61,7 +61,7 @@ def layout_graph(elements, nodes, edges, relations):
                         id='graph',
                         style = {
                             "width": "100%",
-                            "height": "75vh"
+                            "height": "80vh"
                         },
                         stylesheet = default_stylesheet,
                         elements = elements
@@ -77,8 +77,7 @@ def layout_graph(elements, nodes, edges, relations):
                             {'label': name.capitalize(), 'value': name}
                             for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
                         ]
-                    ),
-                    html.Pre(id='data'),
+                    )
                 ]
             ),
             dcc.Tab(
@@ -101,6 +100,12 @@ def layout_graph(elements, nodes, edges, relations):
                         figure=plot_counts(elements)
                     )
                 ]
+            ),
+            dcc.Tab(
+                label="Selection data",
+                children=[
+                    html.Pre(id='data')
+                ]
             )
         ])        
     ])
@@ -111,10 +116,12 @@ def interactive_graph(app, original_elements, edges):
     @app.callback(
         Output('graph', 'layout'), 
         Input('change-layout', 'value'))
-    def update_layout(layout):
-        settings = {"name": layout}
+    def update_layout(new_layout):
+        # TODO don't call at load?
+        settings = {}
+        settings["name"] = new_layout
         settings["nodeDimensionsIncludeLabels"] = True
-        if layout == 'cose-bilkent' or layout == 'cose':
+        if new_layout == 'cose-bilkent' or new_layout == 'cose':
             settings["idealEdgeLength"] = 250
             settings["tile"] = False
             settings["animate"] = False
@@ -124,13 +131,14 @@ def interactive_graph(app, original_elements, edges):
         Output('data', 'children'), 
         Input('graph', 'selectedNodeData'))
     def displayTapNodeData(data):
+        if not data:
+            return no_update
         return json.dumps(data, indent=2)
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
         Input('graph', 'selectedNodeData'))
     def generate_stylesheet(nodes):
-        # TODO don't zoom out when selecting
         if not nodes: # No input or resetting
             return default_stylesheet
         context = find_context(nodes, edges)
@@ -140,10 +148,7 @@ def interactive_graph(app, original_elements, edges):
         Input("image-svg", "n_clicks"))
     def get_image(n_clicks):
         if n_clicks is None:
-            return { # TODO why needed?
-                'type': 'png',
-                'action': 'store'
-            }
+            return no_update
         return {
             'type': 'svg',
             'action': 'download'
@@ -153,9 +158,10 @@ def interactive_graph(app, original_elements, edges):
             [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
             [Input('graph', 'selectedNodeData'), Input('subgraph', 'n_clicks')])
     def subgraph(nodes, n_clicks):
-        if n_clicks is None or not nodes:
+        if n_clicks is None: # On initial load
+            return [no_update, None]
+        if n_clicks >= 1 and nodes == []:
             return [original_elements, None]
-        # Get context of selection
         context = find_context(nodes, edges)
         # Translate to elements
         selected_elements = []
@@ -165,8 +171,7 @@ def interactive_graph(app, original_elements, edges):
             elif "source" in element["data"].keys() and element["data"]["source"] in context and \
                     "target" in element["data"].keys() and element["data"]["target"] in context:
                 selected_elements.append(element)
-        return [selected_elements, None]
-
+        return [selected_elements, 1]
 def display_graph(relations, data):
     """Display relations as a graph
 
