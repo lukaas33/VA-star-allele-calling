@@ -8,8 +8,6 @@ from .va_tools import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
 
-# TODO add search function
-
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
     arity = count_arity(nodes, relations)
@@ -39,7 +37,6 @@ def plot_relations(relations, pruned=False):
     figure = px.bar(pandas.DataFrame(data), x="relation", y="count", title=title, log_y=(not pruned))
     return figure
 
-
 def plot_counts(elements):
     data = {"category": ["core", "sub", "variant"], "count": [0, 0, 0]}
     for element in elements:
@@ -60,7 +57,7 @@ def layout_graph(elements, nodes, edges, relations):
                         id='graph',
                         style = {
                             "width": "100%",
-                            "height": "85vh"
+                            "height": "80vh"
                         },
                         stylesheet = default_stylesheet,
                         elements = elements
@@ -69,7 +66,7 @@ def layout_graph(elements, nodes, edges, relations):
                     html.Button('Subgraph selection', id='subgraph'),
                     dcc.Input(
                         id="filter",
-                        placeholder="Filter by allele name...",
+                        placeholder="Find allele or variant...",
                         type="text",
                         debounce=True
                     ),
@@ -146,7 +143,6 @@ def interactive_graph(app, original_elements, edges):
     def generate_stylesheet(nodes):
         if not nodes: # No input or resetting
             return default_stylesheet
-        print("stylesheet")
         context = find_context([node["id"] for node in nodes], edges)
         return selection_stylesheet(context)
     @app.callback(
@@ -194,7 +190,6 @@ def interactive_graph(app, original_elements, edges):
                 continue
             if any([filterValue == element["data"]["id"] for filterValue in filterValues]):
                 selection.append(element["data"])
-                print(element)
         return selection
 
 def display_graph(relations, data):
@@ -213,7 +208,7 @@ def display_graph(relations, data):
     for node in nodes:
         if "*" in node:
             label = "*" + node.split("*")[1]
-            info = data[node]
+            # info = data[node]
             if "." in node:
                 category = "sub"
             else:

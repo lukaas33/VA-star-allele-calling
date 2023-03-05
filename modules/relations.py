@@ -6,7 +6,7 @@ from .va_tools import count_relations
 import warnings
 
 def find_context(nodes, edges):
-    """Find the context (connected nodes) for a given set of nodes based on an edgelist."""
+    """Find the context (connected nodes) for a given set of nodes based on an edge list."""
     # TODO do this based on a networkx graph
     context = set()
     for node in nodes:
@@ -162,9 +162,8 @@ def redundant_symmetric(graph):
 
 def redundant_equivalence(graph):
     """Remove redundant relations due to equivalence"""
-    # TODO extend for multiple equivalences
-    #       can use contracted nodes method of nx 
-    #       can consider equivalent nodes as a component
+    # TODO can use contracted nodes method of nx 
+    # TODO can consider equivalent nodes as a component
     to_remove = []
     for s, t, d in graph.edges(data=True):
         if d["relation"].name != "EQUIVALENT":
