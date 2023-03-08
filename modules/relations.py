@@ -1,9 +1,9 @@
-import algebra as va
 import networkx as nx
 from .data import cache_get, cache_set
-from .parse import parse_multi_hgvs
-from .va_tools import count_relations
+from .parse import parse_hgvs_supremal
 import warnings
+import algebra as va
+
 
 def find_context(nodes, edges):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
@@ -25,6 +25,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """
     # TODO variants don't have to be patched so supremal based can be used directly here
     # TODO use itertools.combinations instead of nested for loops
+    # TODO parallelize
     cache_name = "all_relations"
     if suballeles is not None: cache_name += "_incl.sub"
     # Test if already stored
@@ -42,8 +43,14 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         for allele in alleles:
             all_variants[allele["alleleName"]] = [] 
             for variant in allele["variants"]:
-                all_variants[variant["hgvs"]] = [variant["hgvs"]]
+                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence)
                 all_variants[allele["alleleName"]].append(variant["hgvs"])
+            try:
+                all_variants[allele["alleleName"]] = parse_hgvs_supremal(all_variants[allele["alleleName"]], reference_sequence)
+            except ValueError as e:
+                print(f"{allele['alleleName']}: {e}")
+                del all_variants[allele["alleleName"]]
+                # TODO how to handle duplicates? And how to handle multiple variants at same position?
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
@@ -53,12 +60,9 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         for right in variant_names[i:]: # Only check one direction
             # Find relation using algebra
             try:
-                left_parsed = parse_multi_hgvs(all_variants[left], reference_sequence)
-                right_parsed = parse_multi_hgvs(all_variants[right], reference_sequence)
-                relation = va.compare(reference_sequence, left_parsed, right_parsed)
+                relation = va.relations.supremal_based.compare(reference_sequence, all_variants[left], all_variants[right])
             except Exception as e: # TODO better handling
-                error = f"{left} {right}: {str(e)}"
-                warnings.warn(error)
+                print(f"{left}, {right}: {str(e)}")
                 continue
             # Find inverse relation (the same for most relations)
             if relation == va.Relation.CONTAINS:
@@ -69,7 +73,6 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 inv_relation = relation
             relations.append((left, right, relation))
             relations.append((right, left, inv_relation))
-        
         print_count += 1
 
     cache_set(relations, cache_name)

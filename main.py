@@ -1,6 +1,5 @@
 import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
-from modules.parse import parse_multi_hgvs
 from modules.graph import display_graph
 from modules.relations import find_relations_all
 import algebra as va
@@ -33,6 +32,7 @@ def test_coreallele_containment(corealleles, suballeles, reference_sequence, cor
     If this is not the case there is an inconsistency.
     This is detected and then characterized.
     """
+    # TODO do this on main dataset
     # Get the variants contained in the sub- and core allele as HGVS notation
     # hgvs has been tested to be consistent with fasta files
     # QUESTION why doesn't name always match position
@@ -83,11 +83,11 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
-    # relations = find_relations_all(corealleles, reference_sequence, suballeles)
+    relations = find_relations_all(corealleles, reference_sequence, suballeles)
     # display_graph(relations, corealleles | suballeles)
 
     # TEST 3: parse samples
-    samples = parse_samples()
+    # samples = parse_samples()
 
 if __name__ == "__main__":
     main()
