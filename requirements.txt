@@ -5,3 +5,4 @@ git+https://github.com/plotly/dash-cytoscape
 plotly
 pandas
 networkx
+PyVCF 

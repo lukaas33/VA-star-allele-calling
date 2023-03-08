@@ -47,7 +47,9 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
+    print_count = 0
     for i, left in enumerate(variant_names):
+        print(left, ": ", print_count, "of", len(variant_names), "done")
         for right in variant_names[i:]: # Only check one direction
             # Find relation using algebra
             try:
@@ -55,7 +57,9 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 right_parsed = parse_multi_hgvs(all_variants[right], reference_sequence)
                 relation = va.compare(reference_sequence, left_parsed, right_parsed)
             except Exception as e: # TODO better handling
-                warnings.warn(e)
+                error = f"{left} {right}: {str(e)}"
+                warnings.warn(error)
+                continue
             # Find inverse relation (the same for most relations)
             if relation == va.Relation.CONTAINS:
                 inv_relation = va.Relation.IS_CONTAINED
@@ -65,6 +69,8 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 inv_relation = relation
             relations.append((left, right, relation))
             relations.append((right, left, inv_relation))
+        
+        print_count += 1
 
     cache_set(relations, cache_name)
     return relations

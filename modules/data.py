@@ -2,6 +2,8 @@ import requests
 import pickle
 import os
 import os.path
+import vcf
+import algebra as va
 
 def api_get(url, params={}):
     """ Wrapper for making API calls. 
@@ -86,3 +88,20 @@ def pharmvar_get(target):
         cache_set(data, name)
         return data
 
+def parse_samples():
+    """ Parse sample VCF files as variant objects."""
+    directory = "data/samples"
+    for filename in os.listdir(directory):
+        with open(os.path.join(directory, filename), 'r') as file:
+            reader = vcf.Reader(file)
+            # TODO validate input, on reference sequence?
+            # QUESTION: what are the filter, quality, format, info fields?
+            # QUESTION: what is the format of alt
+            for record in reader:
+                if len(record.ALT) > 1: # TODO handle different alt values
+                    raise ValueError("Multiple ALT alleles not supported")
+                # TODO check if positions are correct
+                print(record.CHROM, record.POS, record.REF, record.ALT)
+                variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
+                print(variant)
+        break # TODO remove

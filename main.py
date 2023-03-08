@@ -1,5 +1,5 @@
 import warnings
-from modules.data import reference_get, pharmvar_get
+from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.parse import parse_multi_hgvs
 from modules.graph import display_graph
 from modules.relations import find_relations_all
@@ -82,9 +82,12 @@ def main():
     # for coreallele_name, suballeles in suballeles.items():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
-    # TEST 2: find the relation between all corealleles and analyze
-    relations = find_relations_all(corealleles, reference_sequence)
-    display_graph(relations, corealleles | suballeles)
+    # TEST 2: find the relation between all corealleles, suballeles and the contained variants
+    # relations = find_relations_all(corealleles, reference_sequence, suballeles)
+    # display_graph(relations, corealleles | suballeles)
+
+    # TEST 3: parse samples
+    samples = parse_samples()
 
 if __name__ == "__main__":
     main()
