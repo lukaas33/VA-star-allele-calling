@@ -4,7 +4,7 @@ from dash import Dash, html, dcc, Input, Output, no_update
 import dash_cytoscape as cyto
 import plotly.express as px
 import pandas
-from .va_tools import count_arity, count_relations
+from .utils import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
 

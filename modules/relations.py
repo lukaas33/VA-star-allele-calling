@@ -1,9 +1,9 @@
 import networkx as nx
 from .data import cache_get, cache_set
 from .parse import parse_hgvs_supremal
+from .utils import printProgressBar
 import warnings
 import algebra as va
-
 
 def find_context(nodes, edges):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
@@ -15,27 +15,6 @@ def find_context(nodes, edges):
                 context.add(s)
                 context.add(t)
     return context
-
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
 
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
@@ -76,8 +55,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     relations = []
     variant_names = list(all_variants.keys())
     for i, left in enumerate(variant_names):
-        print_count = 0
-        for right in variant_names[i:]: # Only check one direction
+        for j, right in enumerate(variant_names[i:]): # Only check one direction
             # Find relation using algebra
             relation = va.relations.supremal_based.compare(reference_sequence, all_variants[left], all_variants[right])   
             # Find inverse relation (the same for most relations)
@@ -89,8 +67,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 inv_relation = relation
             relations.append((left, right, relation))
             relations.append((right, left, inv_relation))
-            print_count += 1
-            printProgressBar(print_count, len(variant_names), prefix=left)
+            printProgressBar(j+1, len(variant_names) - i, prefix=left, length=50)
 
     cache_set(relations, cache_name)
     return relations
