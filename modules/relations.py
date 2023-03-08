@@ -16,6 +16,27 @@ def find_context(nodes, edges):
                 context.add(t)
     return context
 
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
+
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
 
@@ -23,7 +44,6 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
 
     Returns edge list.
     """
-    # TODO variants don't have to be patched so supremal based can be used directly here
     # TODO use itertools.combinations instead of nested for loops
     # TODO parallelize
     cache_name = "all_relations"
@@ -34,7 +54,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     except:
         pass
 
-    # Get all variants as lists of HGVS strings
+    # Get all variants as a dictionaries of supremal strings
     all_variants = {} # Store variants, sub- and corealleles as lists of HGVS
     for coreallele in corealleles.keys():
         alleles = [corealleles[coreallele]]
@@ -42,28 +62,24 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
             alleles += suballeles[coreallele]
         for allele in alleles:
             all_variants[allele["alleleName"]] = [] 
-            for variant in allele["variants"]:
-                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence)
+            for variant in allele["variants"]: # Variants for allele
+                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence) # Store variant as supremal
                 all_variants[allele["alleleName"]].append(variant["hgvs"])
             try:
-                all_variants[allele["alleleName"]] = parse_hgvs_supremal(all_variants[allele["alleleName"]], reference_sequence)
-            except ValueError as e:
-                print(f"{allele['alleleName']}: {e}")
-                del all_variants[allele["alleleName"]]
+                all_variants[allele["alleleName"]] = parse_hgvs_supremal(all_variants[allele["alleleName"]], reference_sequence) # Store allele as supremal
+            except ValueError as e: # Fails for overlapping variants
                 # TODO how to handle duplicates? And how to handle multiple variants at same position?
+                error = f"{allele['alleleName']}: {e}"
+                warnings.warn(error)
+                del all_variants[allele["alleleName"]]
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
-    print_count = 0
     for i, left in enumerate(variant_names):
-        print(left, ": ", print_count, "of", len(variant_names), "done")
+        print_count = 0
         for right in variant_names[i:]: # Only check one direction
             # Find relation using algebra
-            try:
-                relation = va.relations.supremal_based.compare(reference_sequence, all_variants[left], all_variants[right])
-            except Exception as e: # TODO better handling
-                print(f"{left}, {right}: {str(e)}")
-                continue
+            relation = va.relations.supremal_based.compare(reference_sequence, all_variants[left], all_variants[right])   
             # Find inverse relation (the same for most relations)
             if relation == va.Relation.CONTAINS:
                 inv_relation = va.Relation.IS_CONTAINED
@@ -73,7 +89,8 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 inv_relation = relation
             relations.append((left, right, relation))
             relations.append((right, left, inv_relation))
-        print_count += 1
+            print_count += 1
+            printProgressBar(print_count, len(variant_names), prefix=left)
 
     cache_set(relations, cache_name)
     return relations
