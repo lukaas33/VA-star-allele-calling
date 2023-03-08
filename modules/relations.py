@@ -4,6 +4,8 @@ from .parse import parse_hgvs_supremal
 from .utils import printProgressBar
 import warnings
 import algebra as va
+import multiprocessing as mp
+from multiprocessing.managers import SharedMemoryManager
 
 def find_context(nodes, edges):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
@@ -16,6 +18,14 @@ def find_context(nodes, edges):
                 context.add(t)
     return context
 
+def find_relation(args):
+    """Worker for multiprocessing relations."""
+    left, right, reference, sequences = args
+    lhs = va.Variant(sequences[left*3], sequences[left*3+1], sequences[left*3+2])
+    rhs = va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
+    relation = va.relations.supremal_based.compare(reference, lhs, rhs)
+    return left, right, relation   
+
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
 
@@ -26,7 +36,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     # TODO use itertools.combinations instead of nested for loops
     # TODO parallelize
     cache_name = "all_relations"
-    if suballeles is not None: cache_name += "_incl.sub"
+    if suballeles is not None: cache_name += "_sub"
     # Test if already stored
     try:
         return cache_get(cache_name)
@@ -42,8 +52,10 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         for allele in alleles:
             all_variants[allele["alleleName"]] = [] 
             for variant in allele["variants"]: # Variants for allele
-                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence) # Store variant as supremal
                 all_variants[allele["alleleName"]].append(variant["hgvs"])
+                if variant["hgvs"] in all_variants.keys(): # Skip if already parsed
+                    continue
+                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence) # Store variant as supremal
             try:
                 all_variants[allele["alleleName"]] = parse_hgvs_supremal(all_variants[allele["alleleName"]], reference_sequence) # Store allele as supremal
             except ValueError as e: # Fails for overlapping variants
@@ -51,23 +63,39 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 error = f"{allele['alleleName']}: {e}"
                 warnings.warn(error)
                 del all_variants[allele["alleleName"]]
+
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
-    for i, left in enumerate(variant_names):
-        for j, right in enumerate(variant_names[i:]): # Only check one direction
-            # Find relation using algebra
-            relation = va.relations.supremal_based.compare(reference_sequence, all_variants[left], all_variants[right])   
-            # Find inverse relation (the same for most relations)
-            if relation == va.Relation.CONTAINS:
-                inv_relation = va.Relation.IS_CONTAINED
-            elif relation == va.Relation.IS_CONTAINED:
-                inv_relation = va.Relation.CONTAINS
-            else:
-                inv_relation = relation
-            relations.append((left, right, relation))
-            relations.append((right, left, inv_relation))
-            printProgressBar(j+1, len(variant_names) - i, prefix=left, length=50)
+    print(len(variant_names), "variants")
+    with SharedMemoryManager() as smn:
+        # Store data between processes
+        ref = smn.ShareableList(reference_sequence)
+        # Spread properties since variant can't be stored in shared memory
+        spread = [] 
+        for supremal in all_variants.values():
+            spread += [supremal.start, supremal.end, supremal.sequence]
+        seqs = smn.ShareableList(spread)
+        # Multiprocessing of relations
+        print("Finding relations...")
+        with mp.Pool(mp.cpu_count() - 2) as pool:
+            args = ((i, j, ref, seqs) 
+                for i in range(len(variant_names)) 
+                for j in range(i, len(variant_names))
+            )
+            relation_pairs = pool.map(find_relation, args)
+            # Store relations
+            for i, j, relation in relation_pairs:
+                left = variant_names[i]
+                right = variant_names[j]
+                if relation == va.Relation.CONTAINS:
+                    inv_relation = va.Relation.IS_CONTAINED
+                elif relation == va.Relation.IS_CONTAINED:
+                    inv_relation = va.Relation.CONTAINS
+                else:
+                    inv_relation = relation
+                relations.append((left, right, relation))
+                relations.append((right, left, inv_relation))
 
     cache_set(relations, cache_name)
     return relations
