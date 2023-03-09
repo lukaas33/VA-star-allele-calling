@@ -7,6 +7,8 @@ import algebra as va
 import multiprocessing as mp
 from multiprocessing.managers import SharedMemoryManager
 from textwrap import wrap
+from sys import getsizeof
+import math
 
 def find_context(nodes, edges):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
@@ -23,7 +25,7 @@ def find_relation(args):
     """Worker for multiprocessing relations."""
     # TODO don't explicitly output alleles
     # TODO possible to change function for single relation? TEST THIS
-    left, chunks, sequences = args
+    left, chunks, sequences, count = args
     reference = "".join(chunks)
     relations = []
     lhs = va.Variant(sequences[left*3], sequences[left*3+1], sequences[left*3+2])
@@ -31,6 +33,8 @@ def find_relation(args):
         rhs = va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
         relation = va.relations.supremal_based.compare(reference, lhs, rhs)
         relations.append((right, relation))
+    count[0] += 1
+    printProgressBar(count[0], len(sequences)//3, prefix = 'Finding relations:', length = 50)
     return left, relations
 
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
@@ -69,6 +73,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                 error = f"{allele['alleleName']}: {e}"
                 warnings.warn(error)
                 del all_variants[allele["alleleName"]]
+        break
 
     # Parse and get relations
     relations = []
@@ -78,22 +83,24 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         print("Set shared memory")
         # TODO is there a better way to do this?
         # Store data between processes
-        # Divide into chunks to allow storage in shared memory TODO make more general
-        chunks = wrap(reference_sequence, len(reference_sequence)//10)
+        # Divide into chunks to allow storage in shared memory (10MB max)
+        size = getsizeof(reference_sequence)   
+        chunks = wrap(reference_sequence, size // math.ceil(size / 10e6))
+        print(len(chunks))
         ref = smn.ShareableList(chunks)
         # Spread properties since variant can't be stored in shared memory
         spread = [] 
         for supremal in all_variants.values():
             spread += [supremal.start, supremal.end, supremal.sequence]
         seqs = smn.ShareableList(spread)
+        count = smn.ShareableList([0])
         # Multiprocessing of relations
         print("Finding relations...")
         with mp.Pool(mp.cpu_count() - 2) as pool:
-            args = ((i, ref, seqs) for i in range(len(variant_names)))
+            args = ((i, ref, seqs, count) for i in range(len(variant_names)))
             relation_pairs = pool.map(find_relation, args)
-            print("Found relations")
+            print(f"Found relations")
             # TODO store relations in shared memory
-            # TODO show progress
             # Store relations
             for i, pair in relation_pairs:
                 left = variant_names[i]
@@ -108,6 +115,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                     relations.append((left, right, relation))
                     relations.append((right, left, inv_relation))
 
+    exit()
     cache_set(relations, cache_name)
     return relations
 
