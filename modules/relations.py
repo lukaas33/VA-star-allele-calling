@@ -23,6 +23,8 @@ def find_context(nodes, edges):
 
 def find_relation(args):
     """Worker for multiprocessing relations."""
+    # TODO make faster
+    # TODO fix progress bar resetting (integer overflow?)
     left, right, ref_chunks, sequences, count = args
     # Find relation for reconstructed variants
     reference = "".join(ref_chunks)
@@ -76,7 +78,6 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     variant_names = list(all_variants.keys())
     print(len(variant_names), "variants")
     with SharedMemoryManager() as smn:
-        print("Set shared memory")
         # TODO is there a better way to do this?
         # Store data between processes
         # Divide into chunks to allow storage in shared memory (10MB max)
@@ -90,14 +91,13 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         seqs = smn.ShareableList(spread)
         count = smn.ShareableList([0])
         # Multiprocessing of relations
-        print("Finding relations...")
         with mp.Pool(mp.cpu_count()) as pool:
+            # TODO change to strings
             args = ((i, j, ref, seqs, count) for i in range(len(variant_names)) for j in range(i, len(variant_names)))
             relation_pairs = pool.map(find_relation, args)
-            print(f"Found relations")
-            # TODO store relations in shared memory
             # Store relations
             for left, right, relation in relation_pairs:
+                left, right = variant_names[left], variant_names[right]
                 if relation == va.Relation.CONTAINS:
                     inv_relation = va.Relation.IS_CONTAINED
                 elif relation == va.Relation.IS_CONTAINED:
@@ -234,12 +234,9 @@ def prune_relations(relations):
     One direction of the containment relation can be left out since the inverse follows.
     For equivalence one relation can be left out: A == B and A - C; B - C one is redundant. The choice of which is left out is partially arbitrary dependent on what is clearest in the context.
 
-    returns networkx graph object
     returns list of edges and nodes.
-    returns networkx graph object
-    returns list of edges and nodes.
-    returns networkx graph object
     """
+    # TODO make faster
     # Cache since it can take some time
     cache_name = "pruned_relations"
     try:

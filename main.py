@@ -84,7 +84,7 @@ def main():
 
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
     relations = find_relations_all(corealleles, reference_sequence, suballeles)
-    # display_graph(relations, corealleles | suballeles)
+    display_graph(relations, corealleles | suballeles)
 
     # TEST 3: parse samples
     # samples = parse_samples()
