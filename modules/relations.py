@@ -137,9 +137,13 @@ def redundant_reflexive(graph):
     return nx.selfloop_edges(graph)
 
 def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
-    """Returns redundant overlap relations due to common ancestor"""
+    """Returns redundant overlap relations due to common ancestor
+    
+    If the graph is full than the ancestor check is not needed since all relationships would exist.
+    But this function can be used more generally.
+    """
     # TODO use ancestors function of nx instead and do all at once
-    # TODO can do this faster with lowest common ancestors function (but cannot use nx one)
+    # TODO can do this faster with lowest common ancestors function (but cannot use nx implementation)
     to_remove = []
     for s, t in subgraph_overlap.edges():
         if has_common_ancestor(subgraph_contains, s, t):
@@ -243,6 +247,7 @@ def prune_relations(relations):
         return cache_get(cache_name)
     except:
         pass
+
     # Create edge list in proper format for networkx
     # Filter out disjoint relations
     nodes = set()
@@ -263,17 +268,23 @@ def prune_relations(relations):
     subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
     # Remove reflexive self-loops
     graph.remove_edges_from(redundant_reflexive(graph))
+    print("Reflexive removed")
     # Remove common ancestor redundancy
-    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap))
+    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap)) # Long running
+    print("Common ancestor removed")
     # Only one direction of containment will be displayed so it won't be filtered here
     # Remove transitive redundancies for single relations 
-    graph.remove_edges_from(redundant_transitive(graph))
+    graph.remove_edges_from(redundant_transitive(graph)) # Long running
+    print("Transitive removed")
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
-    # Remove redundant relations due to equivalence
-    graph.remove_edges_from(redundant_equivalence(graph))
+    print("Most specific removed")
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
+    print("Symmetric removed")
+    # Remove redundant relations due to equivalence
+    graph.remove_edges_from(redundant_equivalence(graph))
+    print("Equivalence removed")
 
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
