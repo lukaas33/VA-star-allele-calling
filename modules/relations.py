@@ -43,42 +43,17 @@ def find_relation(args):
     printProgressBar(count[1] - count[0], count[1], prefix = 'Comparing:', length = 50)
     return relations
 
-def find_relations_all(corealleles, reference_sequence, suballeles=None):
+def find_relations_all(reference_sequence, all_variants, cache_name=None):
     """Find the relation between all corealleles, suballeles and variants.
 
     Relations are cached since they take a long time to generate.
 
     Returns edge list.
     """
-    cache_name = "all_relations"
-    if suballeles is not None: cache_name += "_sub"
-    # Test if already stored
     try:
-        return cache_get(cache_name)
+        if cache_name: return cache_get(cache_name)
     except:
         pass
-
-    # Get all variants as a dictionaries of supremal strings
-    all_variants = {} # Store variants, sub- and corealleles as lists of HGVS
-    for coreallele in corealleles.keys():
-        alleles = [corealleles[coreallele]]
-        if suballeles is not None: # Include sub
-            alleles += suballeles[coreallele]
-        for allele in alleles:
-            all_variants[allele["alleleName"]] = [] 
-            for variant in allele["variants"]: # Variants for allele
-                all_variants[allele["alleleName"]].append(variant["hgvs"])
-                if variant["hgvs"] in all_variants.keys(): # Skip if already parsed
-                    continue
-                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence) # Store variant as supremal
-            try:
-                all_variants[allele["alleleName"]] = parse_hgvs_supremal(all_variants[allele["alleleName"]], reference_sequence) # Store allele as supremal
-            except ValueError as e: # Fails for overlapping variants
-                # TODO how to handle duplicates? And how to handle multiple variants at same position?
-                error = f"{allele['alleleName']}: {e}"
-                warnings.warn(error)
-                del all_variants[allele["alleleName"]]
-
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
@@ -113,7 +88,7 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
                     relations.append((left, right, relation))
                     relations.append((right, left, inv_relation))
 
-    cache_set(relations, cache_name)
+    if cache_name: cache_set(relations, cache_name)
     return relations
 
 def has_common_ancestor(graph, node1, node2):
@@ -241,7 +216,7 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
                     to_remove.append((other, node))		
     return to_remove 
 
-def prune_relations(relations):
+def prune_relations(relations, cache_name=None):
     """Prune relations which are redundant.
 
     Symmetric relations should not be displayed twice (disjoint, equivalent, overlap).
@@ -257,10 +232,8 @@ def prune_relations(relations):
     returns list of edges and nodes.
     """
     # TODO redo more efficiently by using directed graphs
-    # Cache since it can take some time
-    cache_name = "pruned_relations"
     try:
-        return cache_get(cache_name)
+        if cache_name: return cache_get(cache_name)
     except:
         pass
     # Create edge list in proper format for networkx
@@ -299,5 +272,5 @@ def prune_relations(relations):
 
     # Convert back to edge list
     edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    cache_set((nodes, edges), cache_name)
+    if cache_name: cache_set((nodes, edges), cache_name)
     return nodes, edges    

@@ -45,7 +45,7 @@ def plot_counts(elements):
     figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Amount of alleles and variants")
     return figure
 
-def layout_graph(elements, nodes, edges, relations):
+def layout_graph(elements, nodes, edges):
     """Returns the layout for the Dash graph"""
     default_layout = 'cose-bilkent' 
     return html.Div([
@@ -89,10 +89,11 @@ def layout_graph(elements, nodes, edges, relations):
                         id="plot-arity",
                         figure=plot_arity(nodes, edges)
                     ),
-                    dcc.Graph(
-                        id="relation-counts",
-                        figure=plot_relations(relations)
-                    ),
+                    # TODO fix?
+                    # dcc.Graph(
+                    #     id="relation-counts",
+                    #     figure=plot_relations(edges)
+                    # ),
                     dcc.Graph(
                         id="pruned-relation-counts",
                         figure=plot_relations(edges, pruned=True)
@@ -193,7 +194,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(relations, data):
+def display_graph(nodes, edges, data):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -203,7 +204,6 @@ def display_graph(relations, data):
     """
     # TODO create js page
     # TODO why does it call this function twice
-    nodes, edges = prune_relations(relations)
     # Convert to proper format for cytoscape
     elements = []
     for node in nodes:
@@ -236,7 +236,7 @@ def display_graph(relations, data):
     cyto.load_extra_layouts()
     app = Dash(__name__)
     # Show graph
-    app.layout = layout_graph(elements, nodes, edges, relations)
+    app.layout = layout_graph(elements, nodes, edges)
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges)
     # Start webpage

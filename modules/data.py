@@ -92,6 +92,7 @@ def parse_samples():
     """ Parse sample VCF files as variant objects."""
     directory = "data/samples"
     for filename in os.listdir(directory):
+        variants = []
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
             # TODO validate input, on reference sequence?
@@ -101,7 +102,6 @@ def parse_samples():
                 if len(record.ALT) > 1: # TODO handle different alt values
                     raise ValueError("Multiple ALT alleles not supported")
                 # TODO check if positions are correct
-                print(record.CHROM, record.POS, record.REF, record.ALT)
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
-                print(variant)
-        break # TODO remove
+                variants.append(variant)
+        yield variants

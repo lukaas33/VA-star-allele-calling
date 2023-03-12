@@ -1,7 +1,8 @@
 import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
-from modules.relations import find_relations_all, find_context
+from modules.relations import find_relations_all, prune_relations
+from modules.parse import extract_variants
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -87,11 +88,22 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
-    relations = find_relations_all(corealleles, reference_sequence)
-    display_graph(relations, data)
+    # TODO move caching to outside function?
+    supremal = extract_variants(reference_sequence, corealleles, cache_name="supremal")
+    supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
+    relations = find_relations_all(reference_sequence, supremal, cache_name="relations")
+    relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
+
 
     # TEST 3: parse samples
     # samples = parse_samples()
+    # for sample in samples:
+
+    #     break
+
+    # VISUALIZE
+    pruned = prune_relations(relations, cache_name="relations_pruned")
+    display_graph(*pruned, data)
 
 if __name__ == "__main__":
     main()
