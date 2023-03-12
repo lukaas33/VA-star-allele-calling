@@ -51,8 +51,8 @@ default_stylesheet = [
         "selector": ".sample",
         "style": {
             "font-size": "10px",
-            "width": "55px", 
-            "height": "55px",
+            "width": "75px", 
+            "height": "75px",
             "shape": "hexagon",
         }  
     }, {

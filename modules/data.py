@@ -93,10 +93,11 @@ def parse_samples():
     directory = "data/samples"
     samples = {}
     for filename in os.listdir(directory):
-        variants = []
+        name = filename.split('.')[0]
+        phased_allele = [[], []]
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
-            # TODO validate input, on reference sequence?
+            # TODO validate input, is on reference sequence?
             # QUESTION: what are the filter, quality, format, info fields?
             # QUESTION: what is the format of alt
             for record in reader:
@@ -104,8 +105,14 @@ def parse_samples():
                     raise ValueError("Multiple ALT alleles not supported")
                 # TODO check if positions are correct
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
-                variants.append(variant)
-        name = filename.split('.')[0]
-        samples[name] = variants 
+                if len(record.samples) > 1:
+                    raise ValueError("Multiple samples not supported (how to interpret this?))")
+                phasing = record.samples[0].data[0]
+                # Add to correct phased allele
+                for i, phase in enumerate(phasing.split('|')):
+                    if phase == '1':
+                        phased_allele[i].append(variant)
+        samples[name + "_A"] = phased_allele[0]
+        samples[name + "_B"] = phased_allele[1]
         break # TODO remove
     return samples

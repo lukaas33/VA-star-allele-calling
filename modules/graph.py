@@ -204,6 +204,7 @@ def display_graph(nodes, edges, data):
     """
     # TODO create js page
     # TODO why does it call this function twice
+    print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []
     for node in nodes:
