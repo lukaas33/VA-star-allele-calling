@@ -209,20 +209,18 @@ def display_graph(relations, data):
     for node in nodes:
         if "*" in node:
             label = "*" + node.split("*")[1]
-            # info = data[node]
             if "." in node:
                 category = "sub"
             else:
                 category = "core"
         else:
             label = node.split(':')[1].split('.')[1]
-            info = None # TODO fix data for this type
             category = "variant"
         elements.append({            
             "data": {
                 "id": node, 
                 "label": label,
-                # "data": info
+                "data": data[node]
             },
             "classes": category
         })

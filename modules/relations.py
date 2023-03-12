@@ -82,7 +82,6 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
     # Parse and get relations
     relations = []
     variant_names = list(all_variants.keys())
-    print(len(variant_names), "variants")
     with SharedMemoryManager() as smn:
         # TODO is there a better way to do this?
         # Store data between processes
@@ -229,7 +228,6 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
     for component in nx.weakly_connected_components(subgraph_equivalence):
         if len(component) == 1: 
             continue
-        print(component)
         for node in component:
             if "*" in node and "." not in node: # Favour relations with core allele (is arbitrary)
                 continue
@@ -241,7 +239,6 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
                         continue
                     to_remove.append((node, other))
                     to_remove.append((other, node))		
-                    print("Removing", node, other)
     return to_remove 
 
 def prune_relations(relations):

@@ -71,9 +71,13 @@ def main():
     # Group suballeles by core alleles and index by the star-allele notation of the core allele
     # QUESTION is an empty allele always a subset of any allele
     # QUESTION should variants within a suballele be disjoint?
-    # TODO use datastructure with less redundant information for consistency
+    # TODO use datastructure with less redundant information and for consistency
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
-    suballeles = {coreallele: [sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele] for coreallele in corealleles.keys()}
+    suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
+    variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
+    data = corealleles | variants
+    for suballele in suballeles.values():
+        data = data | suballele
 
     # TEST 0: test if naming is consistent
     # test_naming(corealleles, suballeles)
@@ -83,8 +87,8 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
-    relations = find_relations_all(corealleles, reference_sequence, suballeles)
-    display_graph(relations, corealleles | suballeles)
+    relations = find_relations_all(corealleles, reference_sequence)
+    display_graph(relations, data)
 
     # TEST 3: parse samples
     # samples = parse_samples()
