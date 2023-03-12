@@ -2,6 +2,21 @@ import algebra as va
 import warnings
 from .data import cache_get, cache_set
 
+def to_supremal(variants, reference_sequence):
+    """Convert a list of variants to a supremal representation.
+    
+    Faster because it accounts for single variations
+    """
+    if len(variants) > 1: # Need to patch
+        observed = va.variants.patch(reference_sequence, variants)
+        spanning = va.relations.supremal_based.spanning_variant(reference_sequence, observed, variants)
+        supremal = va.relations.supremal_based.find_supremal(reference_sequence, spanning)
+        return supremal
+    else:
+        # QUESTION: is the supremal representation the same as the variant?
+        supremal = va.relations.supremal_based.find_supremal(reference_sequence, variants[0])
+        return supremal
+
 def parse_hgvs_supremal(hgvs_lst, reference_sequence):
     """Parse multiple hgvs as supremal representation. 
     
@@ -12,14 +27,8 @@ def parse_hgvs_supremal(hgvs_lst, reference_sequence):
     for hgvs in hgvs_lst:    
         variants += va.variants.parse_hgvs(hgvs, reference=reference_sequence)
     # Convert to supremal
-    if len(variants) > 1: # Need to patch
-        observed = va.variants.patch(reference_sequence, variants)
-        spanning = va.relations.supremal_based.spanning_variant(reference_sequence, observed, variants)
-        supremal = va.relations.supremal_based.find_supremal(reference_sequence, spanning)
-        return supremal
-    else:
-        supremal = va.relations.supremal_based.find_supremal(reference_sequence, variants[0])
-        return supremal
+    return to_supremal(variants, reference_sequence)
+
     
 def extract_variants(reference_sequence, corealleles, suballeles=None, cache_name=None):
     """Find supremal representations for all variants in the core and suballeles."""

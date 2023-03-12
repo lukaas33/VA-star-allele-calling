@@ -48,6 +48,14 @@ default_stylesheet = [
             "shape": "round-rectangle",
         }   
     }, {
+        "selector": ".sample",
+        "style": {
+            "font-size": "10px",
+            "width": "55px", 
+            "height": "55px",
+            "shape": "hexagon",
+        }  
+    }, {
         'selector': '.EQUIVALENT',
         'style': {
             'line-color': '#37474F', # Blue gray 800

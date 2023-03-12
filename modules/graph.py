@@ -213,14 +213,17 @@ def display_graph(nodes, edges, data):
                 category = "sub"
             else:
                 category = "core"
-        else:
+        elif ":" in node:
             label = node.split(':')[1].split('.')[1]
             category = "variant"
+        else:
+            label = node
+            category = "sample"
         elements.append({            
             "data": {
                 "id": node, 
                 "label": label,
-                "data": data[node]
+                "data": data[node] if node in data else None
             },
             "classes": category
         })

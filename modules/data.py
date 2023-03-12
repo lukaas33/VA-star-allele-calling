@@ -91,6 +91,7 @@ def pharmvar_get(target):
 def parse_samples():
     """ Parse sample VCF files as variant objects."""
     directory = "data/samples"
+    samples = {}
     for filename in os.listdir(directory):
         variants = []
         with open(os.path.join(directory, filename), 'r') as file:
@@ -104,4 +105,7 @@ def parse_samples():
                 # TODO check if positions are correct
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
                 variants.append(variant)
-        yield variants
+        name = filename.split('.')[0]
+        samples[name] = variants 
+        break # TODO remove
+    return samples

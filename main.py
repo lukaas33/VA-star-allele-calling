@@ -1,7 +1,8 @@
 import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
-from modules.relations import find_relations_all, prune_relations
+from modules.compare import find_relations_all, find_relations_sample
+from modules.relations import prune_relations
 from modules.parse import extract_variants
 import algebra as va
 
@@ -96,13 +97,13 @@ def main():
 
 
     # TEST 3: parse samples
-    # samples = parse_samples()
-    # for sample in samples:
-
-    #     break
+    samples = parse_samples()
+    for name, sample in samples.items():
+        samples_relations = find_relations_sample(name, sample, supremal, reference_sequence)
+        relations += samples_relations
 
     # VISUALIZE
-    pruned = prune_relations(relations, cache_name="relations_pruned")
+    pruned = prune_relations(relations, cache_name="relations_pruned_sample")
     display_graph(*pruned, data)
 
 if __name__ == "__main__":
