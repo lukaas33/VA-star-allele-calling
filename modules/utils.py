@@ -21,13 +21,20 @@ def count_relations(relations):
     counts = {relationType.name: 0 for relationType in va.Relation}
     for _, _, relation in relations:
         counts[relation.name] += 1
+    counts["CONTAINS"] = counts["IS_CONTAINED"]
     return counts
 
 def count_arity(nodes, relations):
+    # TODO not accurate since it doesn't account for unreduced relations
     arity = {node: {relationType.name: 0 for relationType in va.Relation} for node in nodes}
     for l_allele, r_allele, relation in relations:
         arity[l_allele][relation.name] += 1
-        if relation in (va.Relation.IS_CONTAINED, va.Relation.CONTAINS): # Directional
+        # Find inverse
+        if relation == "IS_CONTAINED": # Directional
+            arity[r_allele]["CONTAINS"] += 1
+            continue
+        if relation == "CONTAINS": # Directional
+            arity[r_allele]["IS_CONTAINED"] += 1
             continue
         arity[r_allele][relation.name] += 1
     return arity

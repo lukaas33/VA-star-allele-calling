@@ -10,6 +10,8 @@ from textwrap import wrap
 from sys import getsizeof
 import math
 
+# TODO use consistent datastructure with OOP
+
 def find_context(nodes, edges):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
     # TODO do this based on a networkx graph
@@ -22,20 +24,24 @@ def find_context(nodes, edges):
     return context
 
 def find_relation(args):
-    """Worker for multiprocessing relations."""
-    # TODO make faster
-    # TODO fix progress bar resetting (integer overflow?)
-    left, right, ref_chunks, sequences, count = args
+    """Worker for multiprocessing relations.
+    
+    Finds all relations for a given left variant.
+    This is faster than finding the relation for a pair since sharing memory costs time.
+    """
+    left, ref_chunks, sequences, count = args
     # Find relation for reconstructed variants
+    relations = []
     reference = "".join(ref_chunks)
     lhs = va.Variant(sequences[left*3], sequences[left*3+1], sequences[left*3+2])
-    rhs = va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
-    relation = va.relations.supremal_based.compare(reference, lhs, rhs)
+    for right in range(left, len(sequences)//3):
+        rhs = va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
+        relation = va.relations.supremal_based.compare(reference, lhs, rhs)
+        relations.append((left, right, relation)) 
     # Print progress
-    count[0] += 1
-    alleles = len(sequences)//3
-    printProgressBar(count[0], (alleles**2 + alleles)/2, prefix = 'Comparing:', length = 50)
-    return left, right, relation
+    count[0] -= 1.0
+    printProgressBar(count[1] - count[0], count[1], prefix = 'Comparing:', length = 50)
+    return relations
 
 def find_relations_all(corealleles, reference_sequence, suballeles=None):
     """Find the relation between all corealleles, suballeles and variants.
@@ -89,23 +95,24 @@ def find_relations_all(corealleles, reference_sequence, suballeles=None):
         for supremal in all_variants.values():
             spread += [supremal.start, supremal.end, supremal.sequence]
         seqs = smn.ShareableList(spread)
-        count = smn.ShareableList([0])
+        count = smn.ShareableList([len(all_variants), len(all_variants)])
         # Multiprocessing of relations
         with mp.Pool(mp.cpu_count()) as pool:
-            # TODO change to strings
-            args = ((i, j, ref, seqs, count) for i in range(len(variant_names)) for j in range(i, len(variant_names)))
-            relation_pairs = pool.map(find_relation, args)
+            n = len(variant_names)
+            args = ((i, ref, seqs, count) for i in range(n))
+            relations_2D = pool.map(find_relation, args)
             # Store relations
-            for left, right, relation in relation_pairs:
-                left, right = variant_names[left], variant_names[right]
-                if relation == va.Relation.CONTAINS:
-                    inv_relation = va.Relation.IS_CONTAINED
-                elif relation == va.Relation.IS_CONTAINED:
-                    inv_relation = va.Relation.CONTAINS
-                else:
-                    inv_relation = relation
-                relations.append((left, right, relation))
-                relations.append((right, left, inv_relation))
+            for relations_1D in relations_2D:
+                for i, j, relation in relations_1D:
+                    left, right = variant_names[i], variant_names[j]
+                    if relation == va.Relation.CONTAINS:
+                        inv_relation = va.Relation.IS_CONTAINED
+                    elif relation == va.Relation.IS_CONTAINED:
+                        inv_relation = va.Relation.CONTAINS
+                    else:
+                        inv_relation = relation
+                    relations.append((left, right, relation))
+                    relations.append((right, left, inv_relation))
 
     cache_set(relations, cache_name)
     return relations
@@ -136,16 +143,21 @@ def redundant_reflexive(graph):
     """Returns redundant reflexive relations"""
     return nx.selfloop_edges(graph)
 
-def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
+def redundant_common_ancestor(subgraph_contains, subgraph_overlap, full=False):
     """Returns redundant overlap relations due to common ancestor
     
-    If the graph is full than the ancestor check is not needed since all relationships would exist.
-    But this function can be used more generally.
+    If the graph is full than the ancestor check is not needed since all relationships would exist and can be checked directly.
+    This function can be used more generally and be used faster for full graphs.
     """
     # TODO use ancestors function of nx instead and do all at once
     # TODO can do this faster with lowest common ancestors function (but cannot use nx implementation)
     to_remove = []
     for s, t in subgraph_overlap.edges():
+        if full:
+            if subgraph_contains.has_node(s) and subgraph_contains.has_node(t) and \
+                    set(subgraph_contains[s]) & set(subgraph_contains[t]):
+                to_remove.append((s, t))
+            continue
         if has_common_ancestor(subgraph_contains, s, t):
             to_remove.append((s, t))
     return to_remove
@@ -153,7 +165,7 @@ def redundant_common_ancestor(subgraph_contains, subgraph_overlap):
 def redundant_transitive(graph):
     """Return edges redundant due to transitivity."""
     to_remove = []
-    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT, va.Relation.CONTAINS):
+    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
         subgraph = graph.edge_subgraph([edge for edge in graph.edges() if edge not in redundant_symmetric(graph)])
         subgraph = subgraph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
         subgraph_reduced = nx.transitive_reduction(subgraph)
@@ -271,23 +283,24 @@ def prune_relations(relations):
     graph.remove_edges_from(redundant_reflexive(graph))
     print("Reflexive removed")
     # Remove common ancestor redundancy
-    # graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap)) # Long running
-    # print("Common ancestor removed")
-    # Only one direction of containment will be displayed so it won't be filtered here
+    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap, full=True)) 
+    print("Common ancestor removed")
+    # Only one direction of containment is needed
+    graph.remove_edges_from(list(subgraph_contains.edges()))
     # Remove transitive redundancies for single relations 
-    # graph.remove_edges_from(redundant_transitive(graph)) # Long running
-    # print("Transitive removed")
+    graph.remove_edges_from(redundant_transitive(graph)) 
+    print("Transitive removed")
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     print("Most specific removed")
     # Remove redundant relations due to equivalence
-    graph.remove_edges_from(redundant_equivalence(graph, subgraph_equivalence))
-    print("Equivalence removed")
+    # graph.remove_edges_from(redundant_equivalence(graph, subgraph_equivalence))
+    # print("Equivalence removed")
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
     print("Symmetric removed")
 
     # Convert back to edge list
-    edges = [(s, t, d["relation"]) for s, t, d in subgraph_equivalence.edges(data=True)]
-    # cache_set((nodes, edges), cache_name)
+    edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
+    cache_set((nodes, edges), cache_name)
     return nodes, edges    
