@@ -181,6 +181,7 @@ def interactive_graph(app, original_elements, edges):
         Input('filter', 'value'))
     def filter(filterValues):
         # TODO inexact selection
+        # TODO fix filter
         if not filterValues:
             return no_update
         filterValues = [filterValue.strip() for filterValue in filterValues.split(",")]

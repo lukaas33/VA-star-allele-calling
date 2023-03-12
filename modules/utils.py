@@ -30,10 +30,10 @@ def count_arity(nodes, relations):
     for l_allele, r_allele, relation in relations:
         arity[l_allele][relation.name] += 1
         # Find inverse
-        if relation == "IS_CONTAINED": # Directional
+        if relation.name == "IS_CONTAINED": # Directional
             arity[r_allele]["CONTAINS"] += 1
             continue
-        if relation == "CONTAINS": # Directional
+        if relation.name == "CONTAINS": # Directional
             arity[r_allele]["IS_CONTAINED"] += 1
             continue
         arity[r_allele][relation.name] += 1
@@ -52,6 +52,8 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         fill        - Optional  : bar fill character (Str)
         printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
     """
+    # TODO use tqdm library instead
+    # TODO display ETA
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
