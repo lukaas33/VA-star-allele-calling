@@ -112,7 +112,8 @@ def parse_samples():
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
                         phased_allele[i].append(variant)
-        samples[name + "_A"] = phased_allele[0]
-        samples[name + "_B"] = phased_allele[1]
-        break # TODO remove
+        for i in range(2):
+            if len(phased_allele[i]) == 0: # TODO how to handle empty alleles?
+                continue
+            samples[name + "AB"[i]] = phased_allele[i]
     return samples

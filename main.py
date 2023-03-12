@@ -1,9 +1,10 @@
 import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
-from modules.compare import find_relations_all, find_relations_sample
+from modules.compare import find_relations_all
 from modules.relations import prune_relations
-from modules.parse import extract_variants
+from modules.parse import extract_variants, to_supremal
+from modules.data import cache_get, cache_set
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -95,12 +96,20 @@ def main():
     relations = find_relations_all(reference_sequence, supremal, cache_name="relations")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
 
-
     # TEST 3: parse samples
-    samples = parse_samples()
-    for name, sample in samples.items():
-        samples_relations = find_relations_sample(name, sample, supremal, reference_sequence)
-        relations += samples_relations
+    try:
+        supremal_samples = cache_get("supremal_samples")
+    except:
+        samples = parse_samples()
+        supremal_samples = {}
+        for name, variants in samples.items():
+            try:
+                supremal_samples[name] = to_supremal(variants, reference_sequence)
+            except ValueError as e: # TODO is this ok in this case?
+                warnings.warn(f"Could not parse sample {name}: {e}")
+        cache_set(supremal_samples, "supremal_samples")
+    relations_samples = find_relations_all(reference_sequence, supremal, supremal_samples, cache_name="relations_samples") # TODO use extended
+    exit()
 
     # VISUALIZE
     pruned = prune_relations(relations, cache_name="relations_pruned_sample")
