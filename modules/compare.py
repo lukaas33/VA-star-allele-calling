@@ -65,11 +65,10 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
                 args = ((i, i, ref, seqs, count) for i in range(n)) 
             else: 
                 start = len(left_variants)
-                args = ((i, start, ref, seqs, count) for i in range(start)) # Exclude some from the right side
-            # for arg in args:
-            #     i, j = arg[0], arg[1]
-            #     print(f"Comparing {variant_names[i]} to {variant_names[j]}, {variant_names[j+1]}, ..., {variant_names[-1]}")
-            # exit()
+                args = ((start, i, ref, seqs, count) for i in range(start)) # Exclude some from the right side
+                print("Comparing", len(left_variants), "with", len(right_variants), "variants")
+                print("first", variant_names[start])
+                print("last", variant_names[-1]	)
             relations_2D = pool.map(find_relation, args)
             # Store relations
             for relations_1D in relations_2D:
@@ -86,24 +85,3 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
 
     if cache_name: cache_set(relations, cache_name)
     return relations
-
-# def find_relations_sample(samples, alleles, reference_sequence, cache_name=None):
-#     """Find the relations of each sample to all corealleles, suballeles and variants.
-    
-#     Different from find_relations_all since it doesn't find relations between samples.
-#     """
-#     try:
-#         if cache_name: return cache_get(cache_name)
-#     except:
-#         pass
-#     # TODO merge with find_relations_all?
-#     relations = []
-#     i = 0
-#     for sample_name, sample_supremal in samples.items():
-#         print(i, len(samples))
-#         i += 1
-#         for variant_name, variant_supremal in alleles.items():
-#             relation = va.relations.supremal_based.compare(reference_sequence, sample_supremal, variant_supremal)
-#             relations.append((sample_name, variant_name, relation))
-#     if cache_name: cache_set(relations, cache_name)
-#     return relations

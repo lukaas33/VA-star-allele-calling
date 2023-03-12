@@ -98,9 +98,10 @@ def main():
 
     # TEST 3: parse samples
     try:
+        # TODO include variants in samples
         supremal_samples = cache_get("supremal_samples")
     except:
-        samples = parse_samples()
+        samples = parse_samples() # TODO also check unphased
         supremal_samples = {}
         for name, variants in samples.items():
             try:
@@ -108,8 +109,11 @@ def main():
             except ValueError as e: # TODO is this ok in this case?
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
+    # QUESTION: is it needed to look at suballeles?
+    # QUESTION: is it needed to look at individual variants for calling?
     relations_samples = find_relations_all(reference_sequence, supremal, supremal_samples, cache_name="relations_samples") # TODO use extended
-    exit()
+    relations += relations_samples
+    # TODO determine star allele calling
 
     # VISUALIZE
     pruned = prune_relations(relations, cache_name="relations_pruned_sample")
