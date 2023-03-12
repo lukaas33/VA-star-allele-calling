@@ -205,24 +205,24 @@ def redundant_symmetric(graph):
         to_remove.add((t, s)) # Remove other direction
     return to_remove
 
-def redundant_equivalence(graph):
+def redundant_equivalence(graph, subgraph_equivalence):
     """Remove redundant relations due to equivalence"""
     # TODO can use contracted nodes method of nx 
     # TODO can consider equivalent nodes as a component
     to_remove = []
-    for s, t, d in graph.edges(data=True):
-        if d["relation"].name != "EQUIVALENT":
-            continue
-        s_conn = set(graph[s])
-        t_conn = set(graph[t])
-        share_conn = s_conn & t_conn
-        for shared in share_conn:
-            if "*" in s: # Favour allele relations (choice arbitrary)
-                to_remove.append((t, shared))
-                to_remove.append((shared, t))
-            else:
-                to_remove.append((s, shared))
-                to_remove.append((shared, s))
+    for component in nx.connected_components(nx.Graph(subgraph_equivalence)):
+        print(component)
+    # for s, t, d in graph.edges(data=True):
+    #     if d["relation"].name != "EQUIVALENT":
+    #         continue
+    #     s_conn = set(graph[s])
+    #     t_conn = set(graph[t])
+    #     share_conn = s_conn & t_conn
+    #     for shared in share_conn:
+    #         if "*" in s: # Favour allele relations (choice arbitrary)
+    #             to_remove.append((t, ))
+    #         else:
+    #             to_remove.append((shared))
     return to_remove 
 
 def prune_relations(relations):
@@ -263,6 +263,7 @@ def prune_relations(relations):
     graph.add_nodes_from(nodes)
     graph.add_edges_from(edges)
     # Create subgraphs for some reductions (are linked to graph)
+    subgraph_equivalence = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "EQUIVALENT"])
     subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
     subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
@@ -270,23 +271,23 @@ def prune_relations(relations):
     graph.remove_edges_from(redundant_reflexive(graph))
     print("Reflexive removed")
     # Remove common ancestor redundancy
-    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap)) # Long running
-    print("Common ancestor removed")
+    # graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap)) # Long running
+    # print("Common ancestor removed")
     # Only one direction of containment will be displayed so it won't be filtered here
     # Remove transitive redundancies for single relations 
-    graph.remove_edges_from(redundant_transitive(graph)) # Long running
-    print("Transitive removed")
+    # graph.remove_edges_from(redundant_transitive(graph)) # Long running
+    # print("Transitive removed")
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     print("Most specific removed")
+    # Remove redundant relations due to equivalence
+    graph.remove_edges_from(redundant_equivalence(graph, subgraph_equivalence))
+    print("Equivalence removed")
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
     print("Symmetric removed")
-    # Remove redundant relations due to equivalence
-    graph.remove_edges_from(redundant_equivalence(graph))
-    print("Equivalence removed")
 
     # Convert back to edge list
-    edges = [(s, t, d["relation"]) for s, t, d in graph.edges(data=True)]
-    cache_set((nodes, edges), cache_name)
+    edges = [(s, t, d["relation"]) for s, t, d in subgraph_equivalence.edges(data=True)]
+    # cache_set((nodes, edges), cache_name)
     return nodes, edges    
