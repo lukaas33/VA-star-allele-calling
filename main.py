@@ -109,9 +109,13 @@ def main():
             except ValueError as e: # TODO is this ok in this case?
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
-    # QUESTION: is it needed to look at suballeles?
+    # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
-    relations_samples = find_relations_all(reference_sequence, supremal, supremal_samples, cache_name="relations_samples") # TODO use extended
+    # TODO calculate extended and sample variants so that they are available
+    supremal_core = {coreallele: supremal for coreallele, supremal in supremal.items() if coreallele in corealleles.keys()}
+    relations_samples = find_relations_all(reference_sequence, supremal_core, supremal_samples, cache_name="relations_samples") 
+    
+    # TEST 4: display the samples in the graph
     relations += relations_samples
     # TODO determine star allele calling
 
