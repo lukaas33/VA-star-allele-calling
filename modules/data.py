@@ -109,6 +109,7 @@ def parse_samples():
                     raise ValueError("Multiple samples not supported (how to interpret this?))")
                 phasing = record.samples[0].data[0]
                 # Add to correct phased allele
+                # QUESTION: is 0|1 the same as 1|0 or does this say something about inheritance?	
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
                         phased_allele[i].append(variant)

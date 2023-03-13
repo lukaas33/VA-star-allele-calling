@@ -5,6 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
+from modules.calling import star_allele_calling
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -117,7 +118,10 @@ def main():
     
     # TEST 4: display the samples in the graph
     relations += relations_samples
-    # TODO determine star allele calling
+
+    # TEST 5: determine star allele calling
+    for sample in supremal_samples.keys():
+        star_allele_calling(sample, relations_samples)
 
     # VISUALIZE
     pruned = prune_relations(relations, cache_name="relations_pruned_sample")

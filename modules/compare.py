@@ -37,6 +37,7 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
 
     Returns edge list.
     """
+    # TODO apply reduction when comparing to calculate fewer relations
     try:
         if cache_name: return cache_get(cache_name)
     except:
