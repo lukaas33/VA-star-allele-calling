@@ -4,6 +4,7 @@ import os
 import os.path
 import vcf
 import algebra as va
+import warnings
 
 def api_get(url, params={}):
     """ Wrapper for making API calls. 
@@ -97,19 +98,20 @@ def parse_samples():
         phased_allele = [[], []]
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
-            # TODO validate input, is on reference sequence?
+            # TODO validate input, is REF actually on reference sequence at pos?
             # QUESTION: what are the filter, quality, format, info fields?
             # QUESTION: what is the format of alt
             for record in reader:
                 if len(record.ALT) > 1: # TODO handle different alt values
+                    # Can have multiple values for different phases, etc.
                     raise ValueError("Multiple ALT alleles not supported")
-                # TODO check if positions are correct
+                # Zero based half-open
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
                 if len(record.samples) > 1:
                     raise ValueError("Multiple samples not supported (how to interpret this?))")
                 phasing = record.samples[0].data[0]
                 # Add to correct phased allele
-                # QUESTION: is 0|1 the same as 1|0 or does this say something about inheritance?	
+                # 0|1 is the same as 1|0 between samples (not within sample) 
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
                         phased_allele[i].append(variant)
@@ -117,7 +119,9 @@ def parse_samples():
                 hgvs = va.variants.to_hgvs([variant], sequence_prefix="NC_000022.11") # TODO give reference and don't hardcode prefix
                 samples[hgvs] = [variant]
         for i in range(2):
+            phased_name = name + "AB"[i]
             if len(phased_allele[i]) == 0: # TODO how to handle empty alleles?
+                warning.warn(f"No variants found for {phased_name}") # TODO check this
                 continue
-            samples[name + "AB"[i]] = phased_allele[i]
+            samples[phased_name] = phased_allele[i]
     return samples

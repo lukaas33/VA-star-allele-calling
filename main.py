@@ -113,19 +113,21 @@ def main():
         cache_set(supremal_samples, "supremal_samples")
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
+    # relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
     # TODO verify sample relations
 
     # TEST 4: display the samples in the graph
-    relations_extended += relations_samples
+    # relations_extended += relations_samples
 
     # TEST 5: determine star allele calling
-    for sample in supremal_samples.keys():
-        star_allele_calling(sample, relations_samples)
+    # for sample in supremal_samples.keys():
+    #     star_allele_calling(sample, relations_samples)
 
     # VISUALIZE
-    pruned = prune_relations(relations, cache_name="relations_pruned_sample")
-    display_graph(*pruned, data)
+    # pruned = prune_relations(relations, cache_name="relations_pruned_sample")
+    # print("pruning", len(supremal_extended.keys()))
+    # pruned = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    # display_graph(*pruned, data)
 
 if __name__ == "__main__":
     main()
