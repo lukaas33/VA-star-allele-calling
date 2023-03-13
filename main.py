@@ -96,6 +96,7 @@ def main():
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations = find_relations_all(reference_sequence, supremal, cache_name="relations")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
+    # TODO verify extended relations
 
     # TEST 3: parse samples
     try:
@@ -112,12 +113,11 @@ def main():
         cache_set(supremal_samples, "supremal_samples")
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
-    # TODO calculate extended and sample variants so that they are available
-    supremal_core = {coreallele: supremal for coreallele, supremal in supremal.items() if coreallele in corealleles.keys()}
-    relations_samples = find_relations_all(reference_sequence, supremal_core, supremal_samples, cache_name="relations_samples") 
-    
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
+    # TODO verify sample relations
+
     # TEST 4: display the samples in the graph
-    relations += relations_samples
+    relations_extended += relations_samples
 
     # TEST 5: determine star allele calling
     for sample in supremal_samples.keys():

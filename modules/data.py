@@ -113,6 +113,9 @@ def parse_samples():
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
                         phased_allele[i].append(variant)
+                # Also save individually
+                hgvs = va.variants.to_hgvs([variant], sequence_prefix="NC_000022.11") # TODO give reference and don't hardcode prefix
+                samples[hgvs] = [variant]
         for i in range(2):
             if len(phased_allele[i]) == 0: # TODO how to handle empty alleles?
                 continue
