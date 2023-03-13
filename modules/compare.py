@@ -57,7 +57,9 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
         for supremal in all_variants.values():
             spread += [supremal.start, supremal.end, supremal.sequence]
         seqs = smn.ShareableList(spread)
-        count = smn.ShareableList([len(right_variants), len(right_variants)])
+        total = len(left_variants)
+        if total == 0: total = len(right_variants)
+        count = smn.ShareableList([total, total])
         # Multiprocessing of relations
         with mp.Pool(mp.cpu_count()) as pool:
             n = len(right_variants)
