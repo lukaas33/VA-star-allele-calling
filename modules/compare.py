@@ -69,9 +69,6 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
             else: 
                 start = len(left_variants)
                 args = ((start, i, ref, seqs, count) for i in range(start)) # Exclude some from the right side
-                print("Comparing", len(left_variants), "with", len(right_variants), "variants")
-                print("first", variant_names[start])
-                print("last", variant_names[-1]	)
             relations_2D = pool.map(find_relation, args)
             # Store relations
             for relations_1D in relations_2D:

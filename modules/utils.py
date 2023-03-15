@@ -65,17 +65,13 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         print()
 
 
-def validate_relations(variants):
+def validate_relations(data, variants, filename):
     """Validate if relations match with the M&J method"""
-    data = cache_get("relations_extended")
     data = set([row for row in data if row[2] != va.Relation.DISJOINT and row[0] != row[1]])
-    
     variants = {v["variantId"]: v["hgvs"] for v in variants.values()}
-    wrong = ("CYP2D6*19", "CYP2D6*19.002", "CYP2D6*19.001", "CYP2D6*35.003", "CYP2D6*6.006", "CYP2D6*120", "CYP2D6*120.001", "CYP2D6*4.030") # TODO remove later
-    
     ref = set()
     wrong_ref = set()
-    with open(r"C:\Users\Lucas-PC\Documents\git\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations.txt") as file:
+    with open(filename) as file:
         for line in file:
             edge = line.rstrip().split(' ')
             for i in range(2):
@@ -86,10 +82,6 @@ def validate_relations(variants):
                         warnings.warn(f"Variant {id} not found in variants")
                         break
                     edge[i] = variants[id]
-                # Check if allele in reference is wrong
-                if edge[i] in wrong:
-                    wrong_ref.add(edge[i])
-                    break
             else: # No break, can continue
                 # Convert to same edge notation as data
                 edge[2] = va.Relation[edge[2].upper()]
@@ -103,12 +95,15 @@ def validate_relations(variants):
     not_in_ref = data - ref
     not_in_data = ref - data
 
-    print("These relations are in the reference but not in the data")
-    for n in not_in_data:
-        print('\t', n)
-    print("These relations are in the data but not in the reference")
-    for n in not_in_ref:
-        print('\t', n)
-    print("Reference contains these alleles that are wrong")
-    for w in wrong_ref:
-        print('\t', w)
+    if len(not_in_data) > 0:
+        print("These relations are in the reference but not in the data")
+        for n in not_in_data:
+            print('\t', n)
+    if len(not_in_ref) > 0:
+        print("These relations are in the data but not in the reference")
+        for n in not_in_ref:
+            print('\t', n)
+    if len(wrong_ref) > 0:
+        print("Reference contains these alleles that are wrong")
+        for w in wrong_ref:
+            print('\t', w)
