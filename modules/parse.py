@@ -2,7 +2,7 @@ import algebra as va
 import warnings
 from .data import cache_get, cache_set
 
-def to_supremal(variants, reference_sequence):
+def  to_supremal(variants, reference_sequence):
     """Convert a list of variants to a supremal representation.
     
     Faster because it accounts for single variations
@@ -32,6 +32,7 @@ def parse_hgvs_supremal(hgvs_lst, reference_sequence):
     
 def extract_variants(reference_sequence, corealleles, suballeles=None, cache_name=None):
     """Find supremal representations for all variants in the core and suballeles."""
+    # TODO use pharmvar data directly?
     try:
         if cache_name: return cache_get(cache_name)
     except:
@@ -42,6 +43,9 @@ def extract_variants(reference_sequence, corealleles, suballeles=None, cache_nam
         if suballeles is not None: # Include sub
             alleles += suballeles[coreallele].values()
         for allele in alleles:
+            if len(allele["variants"]) == 0:
+                warnings.warn(f"Empty variant for {allele['alleleName']}")
+                continue
             all_variants[allele["alleleName"]] = [] 
             for variant in allele["variants"]: # Variants for allele
                 all_variants[allele["alleleName"]].append(variant["hgvs"])

@@ -1,6 +1,6 @@
 Variant algebra based star allele calling implementation.
 
-## Installation
+## Installation (Windows)
 
 ```bash
 python -m venv env

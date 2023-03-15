@@ -3,6 +3,8 @@ import algebra as va
 def star_allele_calling(sample, relations):
     """Determine star allele calling for a sample based on va relations."""
     specific_relations = [relation for relation in relations if relation[0] == sample] # TODO use graph ds
+    # QUESTION: is it needed to look at suballeles for calling?
+    # QUESTION: is it needed to look at individual variants for calling?
     # STEP 1: Trivial matching
     # Try to find a core allele that is equivalent to the sample
     for _, allele, relation in specific_relations:

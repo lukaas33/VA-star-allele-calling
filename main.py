@@ -6,6 +6,7 @@ from modules.relations import prune_relations
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
 from modules.calling import star_allele_calling
+from modules.utils import validate_relations
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -77,11 +78,12 @@ def main():
     # QUESTION should variants within a suballele be disjoint?
     # TODO use datastructure with less redundant information and for consistency
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
+    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1"}} # Add wild type TODO do this nicer
     suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
+    # TODO check if more suballeles have an empty coreallele
     variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
     data = corealleles | variants
-    for suballele in suballeles.values():
-        data = data | suballele
+    for suballele in suballeles.values(): data = data | suballele
 
     # TEST 0: test if naming is consistent
     # test_naming(corealleles, suballeles)
@@ -91,16 +93,15 @@ def main():
         # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
 
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
-    # TODO move caching to outside function?
-    supremal = extract_variants(reference_sequence, corealleles, cache_name="supremal")
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
-    relations = find_relations_all(reference_sequence, supremal, cache_name="relations")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
-    # TODO verify extended relations
+
+    # TEST 2.1: validate the relations
+    validate_relations(variants)
+    exit()
 
     # TEST 3: parse samples
     try:
-        # TODO include variants in samples
         supremal_samples = cache_get("supremal_samples")
     except:
         samples = parse_samples() # TODO also check unphased
@@ -108,12 +109,10 @@ def main():
         for name, variants in samples.items():
             try:
                 supremal_samples[name] = to_supremal(variants, reference_sequence)
-            except ValueError as e: # TODO is this ok in this case?
+            except ValueError as e:
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
-    # QUESTION: is it needed to look at suballeles for calling?
-    # QUESTION: is it needed to look at individual variants for calling?
-    # relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
     # TODO verify sample relations
 
     # TEST 4: display the samples in the graph
@@ -124,10 +123,8 @@ def main():
     #     star_allele_calling(sample, relations_samples)
 
     # VISUALIZE
-    # pruned = prune_relations(relations, cache_name="relations_pruned_sample")
-    # print("pruning", len(supremal_extended.keys()))
-    # pruned = prune_relations(relations_extended, cache_name="relations_pruned_extended")
-    # display_graph(*pruned, data)
+    pruned = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    display_graph(*pruned, data)
 
 if __name__ == "__main__":
     main()
