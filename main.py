@@ -97,7 +97,7 @@ def main():
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
 
     # TEST 2.1: validate the relations
-    validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
+    # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
 
     # TEST 3: parse samples
     try:
@@ -114,10 +114,7 @@ def main():
     relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
     # TODO verify sample relations
 
-    # TEST 4: display the samples in the graph
-    relations_extended += relations_samples
-
-    # TEST 5: determine star allele calling
+    # TEST 4: determine star allele calling
     supremal_samples = {sample: value for sample, value in supremal_samples.items() if sample[:2] in ('HG', 'NA')} # Don't need sample variants for this TODO find nicer way to filter this
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
     for sample in supremal_samples.keys():
@@ -126,8 +123,12 @@ def main():
         classifications[sample][phasing] = classification
     # print_classification(classifications)
 
+    # TEST 5: display some samples
+    sample_context = find_context(["HG00111A", "HG00111B"], relations_samples, as_edges=True)
+
     # VISUALIZE
-    pruned = prune_relations(relations_extended, cache_name="relations_pruned_sample")
+    _, pruned_extended = cache_get('relations_pruned_extended')
+    pruned = prune_relations(pruned_extended + sample_context)
     display_graph(*pruned, data)
 
 if __name__ == "__main__":

@@ -206,6 +206,7 @@ def display_graph(nodes, edges, data):
     # TODO why does it call this function twice
     # TODO add link between phased samples
     # TODO display sample variants differently
+    # TODO when dragging sometimes it moves the whole graph
     print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []

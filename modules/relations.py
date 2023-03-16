@@ -4,15 +4,21 @@ from .data import cache_get, cache_set
 
 # TODO use consistent datastructure with OOP
 
-def find_context(nodes, edges):
+def find_context(nodes, edges, as_edges=False):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
     # TODO do this based on a networkx graph
     context = set()
+    context_edges = list()
     for node in nodes:
         for s, t, d in edges:
             if s == node or t == node:
-                context.add(s)
-                context.add(t)
+                if as_edges:
+                    context_edges.append((s, t, d))
+                else:
+                    context.add(s)
+                    context.add(t)
+    if as_edges:
+        return context_edges
     return context
 
 def has_common_ancestor(graph, node1, node2):
@@ -63,7 +69,7 @@ def redundant_common_ancestor(subgraph_contains, subgraph_overlap, full=False):
 def redundant_transitive(graph):
     """Return edges redundant due to transitivity."""
     to_remove = []
-    for relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
+    for relation in (va.Relation.IS_CONTAINED, ):
         subgraph = graph.edge_subgraph([edge for edge in graph.edges() if edge not in redundant_symmetric(graph)])
         subgraph = subgraph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"] == relation])
         subgraph_reduced = nx.transitive_reduction(subgraph)
@@ -123,6 +129,7 @@ def redundant_symmetric(graph):
 def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence):
     """Remove redundant relations due to equivalence"""
     # TODO can use contracted nodes method of nx 
+    # TODO also reduce equivalence itself
     to_remove = []
     for component in nx.weakly_connected_components(subgraph_equivalence):
         if len(component) == 1: 
@@ -130,6 +137,11 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
         for node in component:
             if "*" in node and "." not in node: # Favour relations with core allele (is arbitrary)
                 continue
+            for other in subgraph_equivalence[node]: # Remove equivalence to non core
+                if "*" in other and "." not in other:
+                    continue
+                to_remove.append((node, other))
+                to_remove.append((other, node))
             for subgraph in (subgraph_contained, subgraph_overlap, subgraph_contains):
                 if not subgraph.has_node(node):
                     continue
@@ -189,6 +201,7 @@ def prune_relations(relations, cache_name=None):
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     # Remove redundant relations due to equivalence
+    # TODO equivalence reduction doesn't always show relation to core
     graph.remove_edges_from(redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence))
     # Only one direction of containment is needed
     graph.remove_edges_from(list(subgraph_contains.edges()))
