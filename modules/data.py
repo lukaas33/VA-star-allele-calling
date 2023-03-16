@@ -120,8 +120,8 @@ def parse_samples():
                 samples[hgvs] = [variant]
         for i in range(2):
             phased_name = name + "AB"[i]
-            if len(phased_allele[i]) == 0: # TODO how to handle empty alleles?
-                warning.warn(f"No variants found for {phased_name}") # TODO check this
+            if len(phased_allele[i]) == 0: # TODO how to handle empty alleles? Make *1?
+                warnings.warn(f"No variants found for {phased_name}") # TODO check this
                 continue
             samples[phased_name] = phased_allele[i]
     return samples

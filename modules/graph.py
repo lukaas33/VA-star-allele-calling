@@ -205,6 +205,7 @@ def display_graph(nodes, edges, data):
     # TODO create js page
     # TODO why does it call this function twice
     # TODO add link between phased samples
+    # TODO display sample variants differently
     print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []

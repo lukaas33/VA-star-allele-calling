@@ -2,10 +2,10 @@ import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
 from modules.compare import find_relations_all
-from modules.relations import prune_relations
+from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
-from modules.calling import star_allele_calling
+from modules.calling import star_allele_calling, print_classification
 from modules.utils import validate_relations
 import algebra as va
 
@@ -97,7 +97,7 @@ def main():
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
 
     # TEST 2.1: validate the relations
-    # validate_relations(relations_extended, variants, r"C:\Users\Lucas-PC\Documents\git\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
+    validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
 
     # TEST 3: parse samples
     try:
@@ -115,14 +115,19 @@ def main():
     # TODO verify sample relations
 
     # TEST 4: display the samples in the graph
-    # relations_extended += relations_samples
+    relations_extended += relations_samples
 
     # TEST 5: determine star allele calling
-    # for sample in supremal_samples.keys():
-    #     star_allele_calling(sample, relations_samples)
+    supremal_samples = {sample: value for sample, value in supremal_samples.items() if sample[:2] in ('HG', 'NA')} # Don't need sample variants for this TODO find nicer way to filter this
+    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
+    for sample in supremal_samples.keys():
+        classification = star_allele_calling(sample, relations_samples)
+        sample, phasing = sample[:-1], sample[-1]
+        classifications[sample][phasing] = classification
+    # print_classification(classifications)
 
     # VISUALIZE
-    pruned = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    pruned = prune_relations(relations_extended, cache_name="relations_pruned_sample")
     display_graph(*pruned, data)
 
 if __name__ == "__main__":
