@@ -112,6 +112,7 @@ def main():
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
     relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
+    # TODO also find sample variant relations to sample? Or remove them 
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
@@ -123,12 +124,14 @@ def main():
         classifications[sample][phasing] = classification
     # print_classification(classifications)
 
-    # TEST 5: display some samples
-    sample_context = find_context(["HG00111A", "HG00111B"], relations_samples, as_edges=True)
+    # TEST 5: display all samples
+    # TODO display subset (pruning takes a long time)
+    # sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
+    relations_extended += relations_samples
 
     # VISUALIZE
-    _, pruned_extended = cache_get('relations_pruned_extended')
-    pruned = prune_relations(pruned_extended + sample_context)
+    # pruned_nodes, pruned_edges = prune_relations(sample_context)
+    pruned = prune_relations(relations_extended, cache_name="relations_pruned_samples") #
     display_graph(*pruned, data)
 
 if __name__ == "__main__":

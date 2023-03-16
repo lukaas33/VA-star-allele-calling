@@ -134,20 +134,25 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
     for component in nx.weakly_connected_components(subgraph_equivalence):
         if len(component) == 1: 
             continue
+        # Favour relations with core allele, then sub, etc. (is arbitrary)
+        # TODO use specific classes for this, this can break
+        # TODO where to put sample in sequence?
+        center = sorted(list(component), key=lambda s: len(s))[0] 
         for node in component:
-            if "*" in node and "." not in node: # Favour relations with core allele (is arbitrary)
+            if node == center: # Keep relations from here
                 continue
-            for other in subgraph_equivalence[node]: # Remove equivalence to non core
-                if "*" in other and "." not in other:
+            # Remove equivalence not connected to center
+            for other in subgraph_equivalence[node]: 
+                if other == center:
                     continue
                 to_remove.append((node, other))
                 to_remove.append((other, node))
+            # Remove all other relations not with center
+            # TODO traverse contained in reverse 
             for subgraph in (subgraph_contained, subgraph_overlap, subgraph_contains):
                 if not subgraph.has_node(node):
                     continue
                 for other in subgraph[node]:
-                    if not subgraph.has_node(other):
-                        continue
                     to_remove.append((node, other))
                     to_remove.append((other, node))		
     return to_remove 
@@ -167,7 +172,8 @@ def prune_relations(relations, cache_name=None):
 
     returns list of edges and nodes.
     """
-    # TODO redo more efficiently by using directed graphs
+    # TODO redo more efficiently by using un/directed graphs
+    # TODO make this function able to be run on partially pruned data (instead of full relations)
     try:
         if cache_name: return cache_get(cache_name)
     except:
@@ -196,12 +202,10 @@ def prune_relations(relations, cache_name=None):
     # Remove common ancestor redundancy
     graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap, full=True)) 
     # Remove transitive redundancies for single relations 
-    # TODO transitive reduction should show links to the core allele (arbitrary choice)
     graph.remove_edges_from(redundant_transitive(graph)) 
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     # Remove redundant relations due to equivalence
-    # TODO equivalence reduction doesn't always show relation to core
     graph.remove_edges_from(redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence))
     # Only one direction of containment is needed
     graph.remove_edges_from(list(subgraph_contains.edges()))
