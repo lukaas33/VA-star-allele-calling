@@ -211,7 +211,7 @@ def display_graph(nodes, edges, data):
     # Convert to proper format for cytoscape
     elements = []
     for node in nodes:
-        if "*" in node:
+        if "*" in node: # TODO use classes for this
             label = "*" + node.split("*")[1]
             if "." in node:
                 category = "sub"
@@ -220,9 +220,12 @@ def display_graph(nodes, edges, data):
         elif ":" in node:
             label = node.split(':')[1].split('.')[1]
             category = "variant"
-        else:
+        elif node[:2] in ('HG', 'NA'): 
             label = node
             category = "sample"
+        else:
+            label = node
+            category = "observed variant"
         elements.append({            
             "data": {
                 "id": node, 

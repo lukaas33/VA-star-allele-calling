@@ -1,10 +1,23 @@
 import algebra as va
 
+
+def sort_types(v):
+    """Sort variant types in order of specificity (somewhat arbitrary)."""
+    if '*' in v:
+        if '.' in v:
+            return 2 # Suballele
+        else:
+            return 1 # Core allele
+    elif v[:2] in ('HG', 'NA'):
+        return 4 # Sample
+    else:
+        return 3 # Variant
+
 def find_most_specific(matches):
     """Find most specific match from a list of matches."""
     if len(matches) == 0:
         return
-    matches.sort(key=lambda x: len(x)) # Can use length because of notation TODO watch out for alternative variant notation; find a better way
+    matches.sort(key=sort_types) 
     # TODO find most specific classification (return core of sub?)
     return matches[0]
 
@@ -31,7 +44,7 @@ def print_classification(classifications):
         if classification['A'] == classification['B'] == None:
             continue
         # TODO print None = *1?
-        # TODO how to represent uncertainty?
+        # TODO how to represent uncertainty vs *1?
         classified += 1
         print(f"{sample}: {classification['A']} {classification['B']}")
     total = len(classifications)

@@ -48,6 +48,11 @@ default_stylesheet = [
             "shape": "round-rectangle",
         }   
     }, {
+        "selector": ".variant.observed",
+        "style": {
+            "shape": "hexagon"
+        }
+    }, {
         "selector": ".sample",
         "style": {
             "font-size": "10px",

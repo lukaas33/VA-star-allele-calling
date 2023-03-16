@@ -126,12 +126,11 @@ def main():
 
     # TEST 5: display all samples
     # TODO display subset (pruning takes a long time)
-    # sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
-    relations_extended += relations_samples
+    sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
 
     # VISUALIZE
-    # pruned_nodes, pruned_edges = prune_relations(sample_context)
-    pruned = prune_relations(relations_extended, cache_name="relations_pruned_samples") #
+    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    pruned = prune_relations(pruned_extended + sample_context)
     display_graph(*pruned, data)
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import networkx as nx
 import algebra as va
 from .data import cache_get, cache_set
+from .calling import sort_types
 
 # TODO use consistent datastructure with OOP
 
@@ -129,7 +130,7 @@ def redundant_symmetric(graph):
 def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence):
     """Remove redundant relations due to equivalence"""
     # TODO can use contracted nodes method of nx 
-    # TODO also reduce equivalence itself
+    # TODO fix for samples
     to_remove = []
     for component in nx.weakly_connected_components(subgraph_equivalence):
         if len(component) == 1: 
@@ -137,7 +138,8 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
         # Favour relations with core allele, then sub, etc. (is arbitrary)
         # TODO use specific classes for this, this can break
         # TODO where to put sample in sequence?
-        center = sorted(list(component), key=lambda s: len(s))[0] 
+        center = sorted(list(component), key=sort_types)[0] 
+        # print("Center", center, "of", component)
         for node in component:
             if node == center: # Keep relations from here
                 continue
@@ -145,6 +147,7 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
             for other in subgraph_equivalence[node]: 
                 if other == center:
                     continue
+                # print("\Remove equivalent", node, other)
                 to_remove.append((node, other))
                 to_remove.append((other, node))
             # Remove all other relations not with center
@@ -153,6 +156,7 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
                 if not subgraph.has_node(node):
                     continue
                 for other in subgraph[node]:
+                    # print("\tRemove relation", node, other)
                     to_remove.append((node, other))
                     to_remove.append((other, node))		
     return to_remove 
@@ -179,13 +183,14 @@ def prune_relations(relations, cache_name=None):
     except:
         pass
     # Create edge list in proper format for networkx
-    # Filter out disjoint relations
     nodes = set()
     edges = []
     for left, right, relation in relations:
         nodes.add(left)
         nodes.add(right)
-        if relation.name == "DISJOINT":
+        if relation.name == "DISJOINT": # Same as no relation
+            continue
+        if relation.name == "CONTAINS": # Only one direction of containment is needed
             continue
         edges.append((left, right, {"relation": relation}))
     # Construct networkx graph object from edge list
@@ -194,21 +199,19 @@ def prune_relations(relations, cache_name=None):
     graph.add_edges_from(edges)
     # Create subgraphs for some reductions (are linked to graph)
     subgraph_equivalence = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "EQUIVALENT"])
-    subgraph_contains = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "CONTAINS"])
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
     subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
+    subgraph_contains = nx.DiGraph([(t, s, {"relation": va.Relation.CONTAINS}) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
     # Remove reflexive self-loops
     graph.remove_edges_from(redundant_reflexive(graph))
     # Remove common ancestor redundancy
-    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap, full=True)) 
+    graph.remove_edges_from(redundant_common_ancestor(subgraph_contains, subgraph_overlap)) 
     # Remove transitive redundancies for single relations 
     graph.remove_edges_from(redundant_transitive(graph)) 
     # Remove most specific redundancy
     graph.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     # Remove redundant relations due to equivalence
     graph.remove_edges_from(redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence))
-    # Only one direction of containment is needed
-    graph.remove_edges_from(list(subgraph_contains.edges()))
     # Remove redundant symmetric relations 
     graph.remove_edges_from(redundant_symmetric(graph))
 
