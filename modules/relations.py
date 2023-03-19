@@ -130,16 +130,12 @@ def redundant_symmetric(graph):
 def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overlap, subgraph_equivalence):
     """Remove redundant relations due to equivalence"""
     # TODO can use contracted nodes method of nx 
-    # TODO fix for samples
     to_remove = []
     for component in nx.weakly_connected_components(subgraph_equivalence):
         if len(component) == 1: 
             continue
         # Favour relations with core allele, then sub, etc. (is arbitrary)
-        # TODO use specific classes for this, this can break
-        # TODO where to put sample in sequence?
         center = sorted(list(component), key=sort_types)[0] 
-        # print("Center", center, "of", component)
         for node in component:
             if node == center: # Keep relations from here
                 continue
@@ -147,16 +143,14 @@ def redundant_equivalence(subgraph_contained, subgraph_contains, subgraph_overla
             for other in subgraph_equivalence[node]: 
                 if other == center:
                     continue
-                # print("\Remove equivalent", node, other)
                 to_remove.append((node, other))
                 to_remove.append((other, node))
             # Remove all other relations not with center
-            # TODO traverse contained in reverse 
+            # TODO traverse contained in reverse?
             for subgraph in (subgraph_contained, subgraph_overlap, subgraph_contains):
                 if not subgraph.has_node(node):
                     continue
                 for other in subgraph[node]:
-                    # print("\tRemove relation", node, other)
                     to_remove.append((node, other))
                     to_remove.append((other, node))		
     return to_remove 

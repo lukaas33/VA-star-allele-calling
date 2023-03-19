@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
-from modules.calling import star_allele_calling, print_classification
+from modules.calling import star_allele_calling, print_classification, sort_types
 from modules.utils import validate_relations
 import algebra as va
 
@@ -98,6 +98,7 @@ def main():
 
     # TEST 2.1: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
+    # validate_relations(cache_get('relations_pruned_extended'), r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc-pruned.txt")
 
     # TEST 3: parse samples
     try:
@@ -116,20 +117,21 @@ def main():
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
-    supremal_samples = {sample: value for sample, value in supremal_samples.items() if sample[:2] in ('HG', 'NA')} # Don't need sample variants for this TODO find nicer way to filter this
+    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    supremal_samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
     for sample in supremal_samples.keys():
-        classification = star_allele_calling(sample, relations_samples)
+        classification = star_allele_calling(sample, relations_extended)
         sample, phasing = sample[:-1], sample[-1]
         classifications[sample][phasing] = classification
-    # print_classification(classifications)
+    print_classification(classifications)
+    exit()
 
     # TEST 5: display all samples
-    # TODO display subset (pruning takes a long time)
     sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
 
     # VISUALIZE
-    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    # TODO only show context of samples?
     pruned = prune_relations(pruned_extended + sample_context)
     display_graph(*pruned, data)
 
