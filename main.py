@@ -133,13 +133,14 @@ def main():
             classifications[sample][phasing] = classification
         except Exception as e:
             warnings.warn(f"Could not classify sample {sample}: {e}")
-    # print_classification(classifications)
+    print_classification(classifications)
 
     # TEST 5: display all samples
-    sample_context = find_context(["NA19109A", "NA19109B"], relations_samples, as_edges=True)
+    sample_context = find_context(["NA19143A", "NA19143B"], relations_samples, as_edges=True)
 
     # VISUALIZE
     # TODO only show context of samples?
+    exit()
     pruned = prune_relations(pruned_extended + sample_context)
     display_graph(*pruned, data)
 

@@ -1,7 +1,6 @@
 import algebra as va
 import networkx as nx
 
-
 def sort_types(v):
     """Sort variant types in order of specificity (somewhat arbitrary)."""
     if '*' in v:
@@ -13,7 +12,7 @@ def sort_types(v):
         return 4 # Sample
     else:
         return 3 # Variant
-
+    
 def find_contained_cores(start, cont_graph, matches):
     """Find the first contained cores from a given start node."""
     for node, _ in cont_graph.in_edges(start):
@@ -27,13 +26,21 @@ def find_least_specific(matches, cont_graph):
     if len(matches) == 0:
         return None
     core_matches = [match for match in matches if sort_types(match) == 1]
+    # Reduce core matches
+    for m1 in core_matches:
+        for m2 in core_matches:
+            if m1 == m2:
+                continue
+            if m2 in nx.ancestors(cont_graph, m1): # Match 2 contains match 1
+                core_matches.remove(m1)
     if "CYP2D6*1" in core_matches and len(core_matches) > 1: # More than *1 
         core_matches.remove("CYP2D6*1") # Can be ignored # TODO reason?
     if len(core_matches) > 1: # TODO handle this case
         raise Exception(f"Multiple core matches found after reduction: {core_matches}")
     if len(core_matches) == 0: # Found no cores but may be able to find them from the suballeles
-        # TODO always check deeply for corealleles? 
-        indirect_matches = set()
+        # TODO don't do this step here? (should be done in star_allele_calling after eq matching)
+        # Find all contained cores using DFS
+        indirect_matches = set() 
         for match in matches:
             find_contained_cores(match, cont_graph, indirect_matches)
         return find_least_specific(list(indirect_matches), cont_graph) # Try again for indirect matches

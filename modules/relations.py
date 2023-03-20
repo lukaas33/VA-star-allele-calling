@@ -28,7 +28,6 @@ def has_common_ancestor(graph, node1, node2):
         return False
     # Do a parallel BFS on the directed graph and check if both have a node as a child
     # TODO possible to not do a complete BFS the first time?
-        # TODO can reduce for complete graph but doesn't work in all instances
     # TODO use networkx ancestors
     visited = {node: [False, False] for node in graph.nodes()}
     for i, start_node in enumerate((node1, node2)):
