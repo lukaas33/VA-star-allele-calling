@@ -95,10 +95,11 @@ def main():
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
+    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
 
     # TEST 2.1: validate the relations
-    # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc.txt")
-    # validate_relations(cache_get('relations_pruned_extended'), r"..\pharmvar-tools\data\pharmvar_5.2.19.1_CYP2D6_relations-nc-pruned.txt")
+    # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
+    # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: parse samples
     try:
@@ -117,13 +118,15 @@ def main():
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
-    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
     supremal_samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
     for sample in supremal_samples.keys():
-        classification = star_allele_calling(sample, relations_extended)
-        sample, phasing = sample[:-1], sample[-1]
-        classifications[sample][phasing] = classification
+        try:
+            classification = star_allele_calling(sample, relations_samples + relations_extended)
+            sample, phasing = sample[:-1], sample[-1]
+            classifications[sample][phasing] = classification
+        except Exception as e:
+            warnings.warn(f"Could not classify sample {sample}: {e}")
     print_classification(classifications)
     exit()
 

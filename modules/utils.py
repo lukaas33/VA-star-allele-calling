@@ -107,3 +107,4 @@ def validate_relations(data, variants, filename):
         print("Reference contains these alleles that are wrong")
         for w in wrong_ref:
             print('\t', w)
+    print("No (further) differences found between the reference and the data relations")
