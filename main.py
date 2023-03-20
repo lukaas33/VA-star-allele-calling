@@ -135,7 +135,7 @@ def main():
     print_classification(classifications)
 
     # TEST 5: display all samples
-    sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
+    sample_context = find_context(["HG00276A", "HG00276B"], relations_samples, as_edges=True)
 
     # VISUALIZE
     # TODO only show context of samples?
