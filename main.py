@@ -118,7 +118,8 @@ def main():
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
     relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
-    # TODO also find sample variant relations to sample? Or remove them 
+    # TODO also find sample variant relations to sample and display
+    # TODO check if sample variants in sample allele
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
@@ -132,10 +133,10 @@ def main():
             classifications[sample][phasing] = classification
         except Exception as e:
             warnings.warn(f"Could not classify sample {sample}: {e}")
-    print_classification(classifications)
+    # print_classification(classifications)
 
     # TEST 5: display all samples
-    sample_context = find_context(["HG00276A", "HG00276B"], relations_samples, as_edges=True)
+    sample_context = find_context(["NA19109A", "NA19109B"], relations_samples, as_edges=True)
 
     # VISUALIZE
     # TODO only show context of samples?
