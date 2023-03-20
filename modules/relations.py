@@ -171,7 +171,6 @@ def prune_relations(relations, cache_name=None):
     returns list of edges and nodes.
     """
     # TODO redo more efficiently by using un/directed graphs
-    # TODO make this function able to be run on partially pruned data (instead of full relations)
     try:
         if cache_name: return cache_get(cache_name)
     except:
@@ -195,7 +194,7 @@ def prune_relations(relations, cache_name=None):
     subgraph_equivalence = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "EQUIVALENT"])
     subgraph_overlap = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "OVERLAP"])
     subgraph_contained = graph.edge_subgraph([(s, t) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
-    subgraph_contains = nx.DiGraph([(t, s, {"relation": va.Relation.CONTAINS}) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"])
+    subgraph_contains = nx.DiGraph([(t, s, {"relation": va.Relation.CONTAINS}) for s, t, d in graph.edges(data=True) if d["relation"].name == "IS_CONTAINED"]) # TODO use incoming nodes for is contained
     # Remove reflexive self-loops
     graph.remove_edges_from(redundant_reflexive(graph))
     # Remove common ancestor redundancy

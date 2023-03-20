@@ -95,6 +95,10 @@ def main():
     # TEST 2: find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
+    for node in supremal_extended.keys():
+        if "*1.0" not in node:
+            continue
+        relations_extended.append(("CYP2D6*1", node, va.Relation.IS_CONTAINED)) # TODO do this structurally
     _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
 
     # TEST 2.1: validate the relations
@@ -118,17 +122,17 @@ def main():
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
+    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     supremal_samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
     for sample in supremal_samples.keys():
         try:
-            classification = star_allele_calling(sample, relations_samples + relations_extended)
+            classification = star_allele_calling(sample, *pruned_samples)
             sample, phasing = sample[:-1], sample[-1]
             classifications[sample][phasing] = classification
         except Exception as e:
             warnings.warn(f"Could not classify sample {sample}: {e}")
     print_classification(classifications)
-    exit()
 
     # TEST 5: display all samples
     sample_context = find_context(["HG00337A", "HG00337B"], relations_samples, as_edges=True)
