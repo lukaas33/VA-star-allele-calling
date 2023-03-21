@@ -76,15 +76,13 @@ def star_allele_calling(sample, nodes, edges):
 def print_classification(classifications):
     classified = 0 
     for sample, classification in classifications.items():
-        if classification['A'] is None and classification['B'] is None:
-            continue
         # TODO how to represent uncertainty vs *1? (handle by classification?)
         print(f"{sample}:", end=' ')
         for key, value in classification.items():
-            if value is None:
-                classification[key] = '?'
-            else:
+            if value is not None and sort_types(value) == 1:
                 classified += 1
+            elif value is None: # TEST: change back to else later
+                classification[key] = '?'
             print(classification[key], end=' ')
         print()
     total = len(classifications) * 2

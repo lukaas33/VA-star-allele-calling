@@ -138,15 +138,16 @@ def main():
             classification = star_allele_calling(sample, *pruned_samples)
             classifications[sample_source][phasing] = classification
         except Exception as e:
+            if "Multiple" in str(e):
+                classifications[sample_source][phasing] = '+' # TEST
             warnings.warn(f"Could not classify sample {sample}: {e}")
-    print_classification(classifications)
+    # print_classification(classifications)
 
     # TEST 5: display all samples
-    sample_context = find_context(["NA19143A", "NA19143B"], relations_samples, as_edges=True)
+    sample_context = find_context(["HG00276A"], relations_samples, as_edges=True)
 
     # VISUALIZE
     # TODO only show context of samples?
-    exit()
     pruned = prune_relations(pruned_extended + sample_context)
     display_graph(*pruned, data)
 
