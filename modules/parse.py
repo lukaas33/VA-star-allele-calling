@@ -2,11 +2,13 @@ import algebra as va
 import warnings
 from .data import cache_get, cache_set
 
-def  to_supremal(variants, reference_sequence):
+def to_supremal(variants, reference_sequence):
     """Convert a list of variants to a supremal representation.
     
     Faster because it accounts for single variations
     """
+    if len(variants) == 0: # No variants
+        raise Exception("Variant list empty") # TODO empty variant?
     if len(variants) > 1: # Need to patch
         observed = va.variants.patch(reference_sequence, variants)
         spanning = va.relations.supremal_based.spanning_variant(reference_sequence, observed, variants)

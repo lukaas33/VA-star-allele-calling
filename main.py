@@ -106,12 +106,15 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: parse samples
+    samples = parse_samples() # TODO also check unphased # TODO cache
     try:
+        # TODO solve: UserWarning: Could not parse sample NA18526A: unorderable variants
         supremal_samples = cache_get("supremal_samples")
     except:
-        samples = parse_samples() # TODO also check unphased
         supremal_samples = {}
         for name, variants in samples.items():
+            if variants is None:
+                continue
             try:
                 supremal_samples[name] = to_supremal(variants, reference_sequence)
             except ValueError as e:
@@ -124,13 +127,16 @@ def main():
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    supremal_samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
-    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(supremal_samples.keys())} 
-    for sample in supremal_samples.keys():
+    samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
+    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
+    for sample, content in samples.items():
+        sample_source, phasing = sample[:-1], sample[-1]
+        if content is None:
+            classifications[sample_source][phasing] = "CYP2D6*1" # TODO do this structurally
+            continue
         try:
             classification = star_allele_calling(sample, *pruned_samples)
-            sample, phasing = sample[:-1], sample[-1]
-            classifications[sample][phasing] = classification
+            classifications[sample_source][phasing] = classification
         except Exception as e:
             warnings.warn(f"Could not classify sample {sample}: {e}")
     print_classification(classifications)

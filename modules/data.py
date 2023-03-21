@@ -121,7 +121,8 @@ def parse_samples():
         for i in range(2):
             phased_name = name + "AB"[i]
             if len(phased_allele[i]) == 0: # TODO how to handle empty alleles? Make *1?
-                warnings.warn(f"No variants found for {phased_name}") # TODO check this
+                # TODO check if actually empty
+                samples[phased_name] = None
                 continue
             samples[phased_name] = phased_allele[i]
     return samples
