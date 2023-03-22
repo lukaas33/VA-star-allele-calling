@@ -67,33 +67,52 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 def validate_relations(data, variants, filename):
     """Validate if relations match with the M&J method"""
-    data = set([row for row in data if row[2] != va.Relation.DISJOINT and row[0] != row[1]])
+    data = set([
+        (left, right, rel) 
+            for left, right, rel in data 
+            if rel != va.Relation.DISJOINT \
+                and left != right]
+    )
     variants = {v["variantId"]: v["hgvs"] for v in variants.values()}
     ref = set()
     wrong_ref = set()
+    not_in_ref = set(data)
+    not_in_data = set()
     with open(filename) as file:
         for line in file:
             edge = line.rstrip().split(' ')
             for i in range(2):
-                # Convert variant notation to HGVS
+                # Convert variant_id notation to HGVS
                 if 'variant_' in edge[i]: 
                     id = edge[i].split('variant_')[1]
                     if id not in variants.keys():
                         warnings.warn(f"Variant {id} not found in variants")
+                        wrong_ref.add(tuple(edge))
                         break
                     edge[i] = variants[id]
             else: # No break, can continue
                 # Convert to same edge notation as data
-                edge[2] = va.Relation[edge[2].upper()]
-                reversed = [edge[1], edge[0], edge[2]]
+                edge[2] = va.Relation[edge[2].upper()] # Found in reference
+                edge = tuple(edge)
+                reversed = [edge[1], edge[0], edge[2]] # Reverse
                 if edge[2] == va.Relation.CONTAINS: reversed[2] = va.Relation.IS_CONTAINED
                 elif edge[2] == va.Relation.IS_CONTAINED: reversed[2] = va.Relation.CONTAINS
-                # Store in reference
-                ref.add(tuple(edge))
-                ref.add(tuple(reversed))
-    # Find differences
-    not_in_ref = data - ref
-    not_in_data = ref - data
+                reversed = tuple(reversed)
+                # Check for orientation that is in data
+                if edge in data and reversed in data: # Both in data
+                    ref.add(edge)
+                    ref.add(reversed)
+                elif edge in data: # Specific orientation in data
+                    ref.add(edge)
+                elif reversed in data: # Specific orientation in data
+                    ref.add(reversed)
+                else:
+                    not_in_data.add(edge) # In ref but not in data
+                 # Remove from data to see what is left at the end
+                if edge in not_in_ref:
+                    not_in_ref.remove(edge) 
+                if reversed in not_in_ref: 
+                    not_in_ref.remove(reversed)
 
     if len(not_in_data) > 0:
         print("These relations are in the reference but not in the data")
@@ -107,4 +126,11 @@ def validate_relations(data, variants, filename):
         print("Reference contains these alleles that are wrong")
         for w in wrong_ref:
             print('\t', w)
+
+    count_ref = count_relations(ref)
+    count_data = count_relations(data)
+    for pair in zip(count_ref.items(), count_data.items()):
+        if pair[0][1] != pair[1][1]:
+            print(f"Difference in relation count for {pair[0][0]}: {pair[0][1]} in ref vs {pair[1][1]} in data")
+    
     print("No (further) differences found between the reference and the data relations")
