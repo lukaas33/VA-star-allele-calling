@@ -80,7 +80,9 @@ def validate_relations(data, variants, filename):
     not_in_data = set()
     with open(filename) as file:
         for line in file:
+            # Convert to same edge notation as data
             edge = line.rstrip().split(' ')
+            edge[2] = va.Relation[edge[2].upper()] 
             for i in range(2):
                 # Convert variant_id notation to HGVS
                 if 'variant_' in edge[i]: 
@@ -91,14 +93,13 @@ def validate_relations(data, variants, filename):
                         break
                     edge[i] = variants[id]
             else: # No break, can continue
-                # Convert to same edge notation as data
-                edge[2] = va.Relation[edge[2].upper()] # Found in reference
-                edge = tuple(edge)
+                # Find reversed edge
                 reversed = [edge[1], edge[0], edge[2]] # Reverse
                 if edge[2] == va.Relation.CONTAINS: reversed[2] = va.Relation.IS_CONTAINED
                 elif edge[2] == va.Relation.IS_CONTAINED: reversed[2] = va.Relation.CONTAINS
-                reversed = tuple(reversed)
                 # Check for orientation that is in data
+                edge = tuple(edge)
+                reversed = tuple(reversed)
                 if edge in data and reversed in data: # Both in data
                     ref.add(edge)
                     ref.add(reversed)
@@ -108,12 +109,12 @@ def validate_relations(data, variants, filename):
                     ref.add(reversed)
                 else:
                     not_in_data.add(edge) # In ref but not in data
-                 # Remove from data to see what is left at the end
+                # Remove from data to see what is left at the end
                 if edge in not_in_ref:
                     not_in_ref.remove(edge) 
                 if reversed in not_in_ref: 
                     not_in_ref.remove(reversed)
-
+    # Relations test
     if len(not_in_data) > 0:
         print("These relations are in the reference but not in the data")
         for n in not_in_data:
@@ -126,7 +127,7 @@ def validate_relations(data, variants, filename):
         print("Reference contains these alleles that are wrong")
         for w in wrong_ref:
             print('\t', w)
-
+    # Count test
     count_ref = count_relations(ref)
     count_data = count_relations(data)
     for pair in zip(count_ref.items(), count_data.items()):

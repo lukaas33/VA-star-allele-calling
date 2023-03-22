@@ -100,7 +100,6 @@ def main():
     # TEST 2.1: validate the relations
     validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
-    exit()
 
     # TEST 3: parse samples
     samples = parse_samples() # TODO also check unphased # TODO cache
@@ -132,6 +131,7 @@ def main():
             classifications[sample_source][phasing] = "CYP2D6*1" # TODO do this structurally
             continue
         try:
+            continue
             classification = star_allele_calling(sample, *pruned_samples)
             classifications[sample_source][phasing] = classification
         except Exception as e:
@@ -140,13 +140,25 @@ def main():
             warnings.warn(f"Could not classify sample {sample}: {e}")
     # print_classification(classifications)
 
-    # TEST 5: display all samples
-    sample_context = find_context(["HG00276A"], relations_samples, as_edges=True)
+    # # TEMP explain disjoint variants
+    # print(va.variants.patch(reference_sequence, va.variants.parse_hgvs("NC_000022.11:g.42131063G>A"))[42126309:42132377])
+    # allele = supremal_extended["CYP2D6*35.002"]
+    # print(allele)
+    # for variant in suballeles["CYP2D6*35"]["CYP2D6*35.002"]["variants"]:
+    #     id = variant["hgvs"]
+    #     rel = va.relations.supremal_based.compare(reference_sequence, allele, supremal_extended[id])
+    #     print("CYP2D6*35.002", id, rel)
+    # print(reference_sequence[42126309:42132377])
+    # exit()
 
-    # VISUALIZE
+    # TEST 5: display some samples
     # TODO only show context of samples?
-    pruned = prune_relations(pruned_extended + sample_context)
-    display_graph(*pruned, data)
+    sample_context = find_context([], relations_samples, as_edges=True)
+
+    # VISUALIZE some context with information of interest
+    context = pruned_extended
+    pruned_nodes, pruned_edges = prune_relations(context + sample_context)
+    display_graph(pruned_nodes, pruned_edges, data)
 
 if __name__ == "__main__":
     main()

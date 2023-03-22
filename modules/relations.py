@@ -11,6 +11,7 @@ def find_context(nodes, edges, as_edges=False):
     context = set()
     context_edges = list()
     for node in nodes:
+        context.add(node)
         for s, t, d in edges:
             if s == node or t == node:
                 if as_edges:
