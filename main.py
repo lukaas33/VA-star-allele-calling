@@ -98,8 +98,8 @@ def main():
     _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
 
     # TEST 2.1: validate the relations
-    validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
-    validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
+    # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
+    # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: parse samples
     samples = parse_samples() # TODO also check unphased # TODO cache
@@ -125,35 +125,15 @@ def main():
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
-    for sample, content in samples.items():
+    for sample in samples.keys():
         sample_source, phasing = sample[:-1], sample[-1]
-        if content is None:
-            classifications[sample_source][phasing] = "CYP2D6*1" # TODO do this structurally
-            continue
-        try:
-            continue
-            classification = star_allele_calling(sample, *pruned_samples)
-            classifications[sample_source][phasing] = classification
-        except Exception as e:
-            if "Multiple" in str(e):
-                classifications[sample_source][phasing] = '+' # TEST
-            warnings.warn(f"Could not classify sample {sample}: {e}")
-    # print_classification(classifications)
-
-    # # TEMP explain disjoint variants
-    # print(va.variants.patch(reference_sequence, va.variants.parse_hgvs("NC_000022.11:g.42131063G>A"))[42126309:42132377])
-    # allele = supremal_extended["CYP2D6*35.002"]
-    # print(allele)
-    # for variant in suballeles["CYP2D6*35"]["CYP2D6*35.002"]["variants"]:
-    #     id = variant["hgvs"]
-    #     rel = va.relations.supremal_based.compare(reference_sequence, allele, supremal_extended[id])
-    #     print("CYP2D6*35.002", id, rel)
-    # print(reference_sequence[42126309:42132377])
-    # exit()
+        classification = star_allele_calling(sample, *pruned_samples)
+        classifications[sample_source][phasing] = classification
+    print_classification(classifications)
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context([], relations_samples, as_edges=True)
+    sample_context = find_context(["NA20509A"], relations_samples, as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended

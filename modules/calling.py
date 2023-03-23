@@ -13,39 +13,35 @@ def sort_types(v):
     else:
         return 3 # Variant
     
-def find_contained_cores(start, cont_graph, matches):
+def find_contained_alleles(start, cont_graph, matches):
     """Find the first contained cores from a given start node."""
     for node, _ in cont_graph.in_edges(start):
-        if sort_types(node) == 1: # Found core, don't go deeper (don't want core alleles contained in core alleles)
-            matches.add(node)
-        else: # Go deeper to find
-            find_contained_cores(node, cont_graph, matches)
+        if sort_types(node) in (1, 2): # Found core, don't go deeper (don't want core alleles contained in core alleles)
+            # Check if this core is contained in another (possible via other path)
+            for other in matches:
+                if node in nx.ancestors(cont_graph, other):
+                    return
+            matches.append(node)
+        else: # Go deeper to find others
+            find_contained_alleles(node, cont_graph, matches)
 
-def find_least_specific(matches, cont_graph):
-    """Find least specific match (core) from a list of matches."""
-    if len(matches) == 0:
-        return None
-    core_matches = [match for match in matches if sort_types(match) == 1]
-    # Reduce core matches
-    for m1 in core_matches:
-        for m2 in core_matches:
-            if m1 == m2:
-                continue
-            if m2 in nx.ancestors(cont_graph, m1): # Match 2 contains match 1
-                core_matches.remove(m1)
-    if "CYP2D6*1" in core_matches and len(core_matches) > 1: # More than *1 
-        core_matches.remove("CYP2D6*1") # Can be ignored # TODO reason?
-    if len(core_matches) > 1: # TODO handle this case
-        raise Exception(f"Multiple core matches found after reduction: {core_matches}")
-    if len(core_matches) == 0: # Found no cores but may be able to find them from the suballeles
-        # TODO don't do this step here? (should be done in star_allele_calling after eq matching)
-        # Find all contained cores using DFS
-        indirect_matches = set() 
-        for match in matches:
-            find_contained_cores(match, cont_graph, indirect_matches)
-        return find_least_specific(list(indirect_matches), cont_graph) # Try again for indirect matches
-    return core_matches[0] # Only match
-
+def find_best_match(matches):
+    """Find the best match from a list of matches.
+    
+    Also return a measure of certainty.
+    """
+    # TODO how to express certainty here (depend on variants?)
+    if len(matches["equivalent"]) > 0: # Best match
+        if len(matches["equivalent"]) > 1:
+            raise Exception("This should not happen, multiple equivalent matches found.")
+        return matches["equivalent"], 1
+    elif len(matches["indirect"]) > 0: # Other matches
+        # TODO is there a preference for direct matches or are indirect ones equally important?
+        # TODO select best match
+        return matches["indirect"], 0.5
+    else: # Return default
+        # QUESTION: is this valid
+        return ["CYP2D6*1"], 0
 
 def star_allele_calling(sample, nodes, edges):
     """Determine star allele calling for a sample based on va relations.
@@ -61,29 +57,32 @@ def star_allele_calling(sample, nodes, edges):
     cont_graph.add_nodes_from(nodes)
     cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
 
-    matches = set()
+    matches = {"equivalent": [], "contained": [], "variants": [], "indirect": []}
     # STEP 1: Trivial matching
-    for match in eq_graph[sample]:
-        matches.add(match)
-    # QUESTION should equivalence be more important than containment?
-    if len(matches) > 0: 
-        return find_least_specific(matches, cont_graph)
+    if sample in eq_graph.nodes():
+        matches["equivalent"] = [match for match in eq_graph[sample]]
     # STEP 2: Matching by containment
-    # Traverse graph to find directly or indirectly contained cores
-    find_contained_cores(sample, cont_graph, matches) 
-    return find_least_specific(matches, cont_graph)
+    if sample in cont_graph.nodes():
+        # TODO split personal variants
+        for match, _ in cont_graph.in_edges(sample):
+            if sort_types(match) == 3:
+                matches["variants"].append(match)
+            elif sort_types(match) in (1, 2):
+                matches["contained"].append(match)
+            else:
+                raise Exception(f"Unexpected match type: {match}")
+        # STEP 3: matching by indirect containment (more detail)    
+        find_contained_alleles(sample, cont_graph, matches["indirect"])
+    # Filter and return
+    return find_best_match(matches) 
 
 def print_classification(classifications):
-    classified = 0 
+    # TODO add detail level
+    # TODO print certainty
+    # TODO add simplification
     for sample, classification in classifications.items():
-        # TODO how to represent uncertainty vs *1? (handle by classification?)
         print(f"{sample}:", end=' ')
-        for key, value in classification.items():
-            if value is not None and sort_types(value) == 1:
-                classified += 1
-            elif value is None: # TEST: change back to else later
-                classification[key] = '?'
-            print(classification[key], end=' ')
+        for key, _ in classification.items():
+            classes, certainty = classification[key]
+            print(",".join(classes), end=' ')
         print()
-    total = len(classifications) * 2
-    print(f"Classified {classified} of {total}")

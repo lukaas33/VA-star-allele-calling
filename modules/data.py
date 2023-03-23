@@ -120,7 +120,7 @@ def parse_samples():
                 samples[hgvs] = [variant]
         for i in range(2):
             phased_name = name + "AB"[i]
-            if len(phased_allele[i]) == 0: # TODO how to handle empty alleles? Make *1?
+            if len(phased_allele[i]) == 0: # Empty alleles will be treated as *1
                 # TODO check if actually empty
                 samples[phased_name] = None
                 continue
