@@ -124,26 +124,29 @@ def print_classification(classifications, detail_level=0):
     """Print the classification of samples.
     
     Different detail levels are available.
-    0: Only print best match based on certainty
+    0: Only print best match without certainty score
     1: Simplify to core matches
     2: Print all matches
     """
-    # TODO move matches core to find best match function
     for sample, classification in classifications.items():
+        if detail_level == 0:
+            print(f"{sample}:", end=' ')
         for key, _ in classification.items():
             staralleles = classification[key]
-            print(f"{sample}{key}:", end='\n')
+            if detail_level != 0:
+                print(f"{sample}{key}:", end='\n')
             for starallele, certainty in staralleles:
-                if detail_level <= 1: # Simplify to core matches
+                if detail_level in (0, 1): # Simplify to core matches
                     if sort_types(starallele) == 2:
                         continue
                 elif detail_level == 2: # Print all matches
                     pass
-                print(f"{starallele} ({round(certainty, 2)})", end='\n')
                 if detail_level == 0: # Only print best match based on certainty
+                    print(f"{starallele}", end=', ')
                     # Check if there are equally likely matches (cannot print one in that case)
                     optimal = [c for a, c in staralleles if c == certainty and sort_types(a) == 1]
                     if len(optimal) > 1:
                         raise Exception(f"This should not happen, multiple equally likely core alleles found: {optimal}")
                     break
+                print(f"{starallele} ({round(certainty, 2)})", end='\n')
         print()
