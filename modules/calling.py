@@ -26,22 +26,29 @@ def find_contained_alleles(start, cont_graph, matches):
             find_contained_alleles(node, cont_graph, matches)
 
 def find_best_match(matches):
-    """Find the best match from a list of matches.
+    """Find the best matches from a list of matches.
     
     Also return a measure of certainty.
     """
-    # TODO how to express certainty here (depend on variants?)
+    # TODO how to express certainty here (depend on extra variants?)
+    best_matches = []
     if len(matches["equivalent"]) > 0: # Best match
         if len(matches["equivalent"]) > 1:
             raise Exception("This should not happen, multiple equivalent matches found.")
-        return matches["equivalent"], 1
+        best_matches.append((matches["equivalent"][0], 1))
     elif len(matches["indirect"]) > 0: # Other matches
-        # TODO is there a preference for direct matches or are indirect ones equally important?
-        # TODO select best match
-        return matches["indirect"], 0.5
+        # TODO select best match from multiple
+        for m in matches["indirect"]:
+            certainty = 0.5
+            # Lower likelihood of *1 because other matches are more likely
+            # TODO is this valid?
+            if "CYP2D6*1" == matches_core(m) and len(matches["indirect"]) > 1: 
+                certainty = 0.1 
+            best_matches.append((m, certainty))
     else: # Return default
         # QUESTION: is this valid
-        return ["CYP2D6*1"], 0
+        best_matches.append(("CYP2D6*1", 0))
+    return best_matches
 
 def star_allele_calling(sample, nodes, edges):
     """Determine star allele calling for a sample based on va relations.
@@ -73,16 +80,46 @@ def star_allele_calling(sample, nodes, edges):
                 raise Exception(f"Unexpected match type: {match}")
         # STEP 3: matching by indirect containment (more detail)    
         find_contained_alleles(sample, cont_graph, matches["indirect"])
+        # TODO also find indirectly contained cores (from suballeles)
     # Filter and return
     return find_best_match(matches) 
 
-def print_classification(classifications):
-    # TODO add detail level
-    # TODO print certainty
-    # TODO add simplification
+def matches_core(match):
+    """Print the core allele from a match."""
+    if sort_types(match) == 1:
+        return match
+    elif sort_types(match) == 2:
+        return match[:-4] # QUESTION is this the best way to get the core?
+    else:
+        raise Exception(f"Unexpected match type: {match}")
+        # QUESTION needed to also handle variants?
+
+def print_classification(classifications, detail_level=2):
+    """Print the classification of samples.
+    
+    Different detail levels are available.
+    0: Only print best match based on certainty
+    1: Simplify to core matches
+    2: Print all matches
+    """
+    # TODO move matches core to find best match function
     for sample, classification in classifications.items():
-        print(f"{sample}:", end=' ')
         for key, _ in classification.items():
-            classes, certainty = classification[key]
-            print(",".join(classes), end=' ')
+            staralleles = classification[key]
+            staralleles.sort(key=lambda c: c[1], reverse=True)
+            if detail_level == 0: # Only print best match based on certainty
+                starallele, certainty = matches_core(staralleles[0][0]), staralleles[0][1]
+                print(f"{sample}{key}: {starallele} ({certainty})", end='\n')
+            else:
+                print(f"{sample}{key}:", end='\n')
+                cores = set()
+                for starallele, certainty in staralleles:
+                    if detail_level == 1: # Simplify to core matches
+                        starallele = matches_core(starallele)
+                        if starallele in cores:
+                            continue
+                        cores.add(starallele)
+                    elif detail_level == 2: # Print all matches
+                        pass
+                    print(f"{starallele} ({certainty})", end='\n')
         print()

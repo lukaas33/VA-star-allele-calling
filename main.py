@@ -133,7 +133,8 @@ def main():
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA20509A"], relations_samples, as_edges=True)
+    sample_context = find_context(["NA21105A"], relations_samples, as_edges=True)
+    exit()
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
