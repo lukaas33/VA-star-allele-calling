@@ -1,6 +1,17 @@
 import algebra as va
 import networkx as nx
 
+def sort_function(f):
+    """Sort function annotation based on severity."""
+    # QUESTION: what is the difference between uncertain and unknown?
+    all_functions = ['normal function', 'unknown function', 'uncertain function', 'decreased function', 'no function']
+    if f not in all_functions:
+        raise Exception("Unknown function: " + f)
+    functions = ['normal function', 'decreased function', 'no function']
+    if f not in functions: 
+        return 0 # TODO Where to put uncertain functions?
+    return functions.index(f) + 1
+
 def sort_types(v):
     """Sort variant types in order of specificity (somewhat arbitrary)."""
     if '*' in v:
@@ -25,42 +36,47 @@ def find_contained_alleles(start, cont_graph, matches):
         else: # Go deeper to find others
             find_contained_alleles(node, cont_graph, matches)
 
-def find_best_match(matches):
+def find_best_match(matches, functions):
     """Find the best matches from a list of matches.
     
     Also return a measure of certainty.
     """
-    # TODO how to express certainty here (depend on extra variants?)
+    # TODO how to express certainty (depend on extra variants?)
     best_matches = []
-    if len(matches["equivalent"]) > 0: # Best match
+    if len(matches["equivalent"]) > 0: # The same as some allele 
         if len(matches["equivalent"]) > 1:
             raise Exception("This should not happen, multiple equivalent matches found.")
+        # TODO merge this case (since extra variants will change the certainty)
         best_matches.append((matches["equivalent"][0], 10))
-    elif len(matches["indirect"]) > 0: # Other matches
+    elif len(matches["indirect"]) > 0: # Contains some allele
         # TODO select best match from multiple
         for m in matches["indirect"]:
             certainty = 5
-            # Lower likelihood of *1 because other matches are more likely
-            # TODO is this valid?   
+            # CYP2D6*1 is the default, prioritize other alleles
+            # TODO is this valid?
             if matches_core(m) == "CYP2D6*1":
-                certainty -= 1
+                best_matches.append((m, certainty))
+                continue
+            # Function influences certainty 
+            # deleterious mutations are less likely to be reversed
+            # QUESTION is this valid
+            certainty += (sort_function(functions[m]) + 1) / 4
             best_matches.append((m, certainty))
     else: # Return default
         # QUESTION: is this valid
         best_matches.append(("CYP2D6*1", 0))
-
     # Also add core alleles
     extended_best_matches = best_matches[:]
     for match, certainty in best_matches:
         core = matches_core(match)
         # Less certain because of extra variants
-        certainty -= 1
         if core not in [m[0] for m in extended_best_matches]:
             extended_best_matches.append((core, certainty)) 
-    # TODO check for equally good matches
+    # Sort based on certainty 
+    extended_best_matches.sort(key=lambda c: c[1], reverse=True)
     return extended_best_matches
 
-def star_allele_calling(sample, nodes, edges):
+def star_allele_calling(sample, nodes, edges, functions):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
@@ -85,14 +101,14 @@ def star_allele_calling(sample, nodes, edges):
             if sort_types(match) == 3:
                 matches["variants"].append(match)
             elif sort_types(match) in (1, 2):
-                matches["contained"].append(match)
+                matches["contained"].append(match) # TODO can leave out?
             else:
                 raise Exception(f"Unexpected match type: {match}")
         # STEP 3: matching by indirect containment (more detail)    
         find_contained_alleles(sample, cont_graph, matches["indirect"])
-        # TODO also find indirectly contained cores (from suballeles)
+        # QUESTION: is it needed to also find indirectly contained cores (from suballeles)
     # Filter and return
-    return find_best_match(matches) 
+    return find_best_match(matches, functions) 
 
 def matches_core(match):
     """Print the core allele from a match."""
@@ -104,7 +120,7 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def print_classification(classifications, detail_level=1):
+def print_classification(classifications, detail_level=0):
     """Print the classification of samples.
     
     Different detail levels are available.
@@ -116,7 +132,6 @@ def print_classification(classifications, detail_level=1):
     for sample, classification in classifications.items():
         for key, _ in classification.items():
             staralleles = classification[key]
-            staralleles.sort(key=lambda c: c[1], reverse=True)
             print(f"{sample}{key}:", end='\n')
             for starallele, certainty in staralleles:
                 if detail_level <= 1: # Simplify to core matches
@@ -124,7 +139,11 @@ def print_classification(classifications, detail_level=1):
                         continue
                 elif detail_level == 2: # Print all matches
                     pass
-                print(f"{starallele} ({certainty})", end='\n')
+                print(f"{starallele} ({round(certainty, 2)})", end='\n')
                 if detail_level == 0: # Only print best match based on certainty
+                    # Check if there are equally likely matches (cannot print one in that case)
+                    optimal = [c for a, c in staralleles if c == certainty and sort_types(a) == 1]
+                    if len(optimal) > 1:
+                        raise Exception(f"This should not happen, multiple equally likely core alleles found: {optimal}")
                     break
         print()

@@ -78,12 +78,13 @@ def main():
     # QUESTION should variants within a suballele be disjoint?
     # TODO use datastructure with less redundant information and for consistency
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
-    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1"}} # Add wild type TODO do this nicer
+    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type TODO do this nicer
     suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
     # TODO check if more suballeles have an empty coreallele
     variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
     data = corealleles | variants
     for suballele in suballeles.values(): data = data | suballele
+    functions = {a: d["function"] for a, d in data.items() if "function" in d}
 
     # TEST 0: test if naming is consistent
     # test_naming(corealleles, suballeles)
@@ -127,14 +128,14 @@ def main():
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
     for sample in samples.keys():
         sample_source, phasing = sample[:-1], sample[-1]
-        classification = star_allele_calling(sample, *pruned_samples)
+        classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
     print_classification(classifications)
+    exit()
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA21105A"], relations_samples, as_edges=True)
-    exit()
+    sample_context = find_context(["NA19917B"], relations_samples, as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
