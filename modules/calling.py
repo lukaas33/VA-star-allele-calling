@@ -35,20 +35,30 @@ def find_best_match(matches):
     if len(matches["equivalent"]) > 0: # Best match
         if len(matches["equivalent"]) > 1:
             raise Exception("This should not happen, multiple equivalent matches found.")
-        best_matches.append((matches["equivalent"][0], 1))
+        best_matches.append((matches["equivalent"][0], 10))
     elif len(matches["indirect"]) > 0: # Other matches
         # TODO select best match from multiple
         for m in matches["indirect"]:
-            certainty = 0.5
+            certainty = 5
             # Lower likelihood of *1 because other matches are more likely
-            # TODO is this valid?
-            if "CYP2D6*1" == matches_core(m) and len(matches["indirect"]) > 1: 
-                certainty = 0.1 
+            # TODO is this valid?   
+            if matches_core(m) == "CYP2D6*1":
+                certainty -= 1
             best_matches.append((m, certainty))
     else: # Return default
         # QUESTION: is this valid
         best_matches.append(("CYP2D6*1", 0))
-    return best_matches
+
+    # Also add core alleles
+    extended_best_matches = best_matches[:]
+    for match, certainty in best_matches:
+        core = matches_core(match)
+        # Less certain because of extra variants
+        certainty -= 1
+        if core not in [m[0] for m in extended_best_matches]:
+            extended_best_matches.append((core, certainty)) 
+    # TODO check for equally good matches
+    return extended_best_matches
 
 def star_allele_calling(sample, nodes, edges):
     """Determine star allele calling for a sample based on va relations.
@@ -94,7 +104,7 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def print_classification(classifications, detail_level=2):
+def print_classification(classifications, detail_level=1):
     """Print the classification of samples.
     
     Different detail levels are available.
@@ -107,19 +117,14 @@ def print_classification(classifications, detail_level=2):
         for key, _ in classification.items():
             staralleles = classification[key]
             staralleles.sort(key=lambda c: c[1], reverse=True)
-            if detail_level == 0: # Only print best match based on certainty
-                starallele, certainty = matches_core(staralleles[0][0]), staralleles[0][1]
-                print(f"{sample}{key}: {starallele} ({certainty})", end='\n')
-            else:
-                print(f"{sample}{key}:", end='\n')
-                cores = set()
-                for starallele, certainty in staralleles:
-                    if detail_level == 1: # Simplify to core matches
-                        starallele = matches_core(starallele)
-                        if starallele in cores:
-                            continue
-                        cores.add(starallele)
-                    elif detail_level == 2: # Print all matches
-                        pass
-                    print(f"{starallele} ({certainty})", end='\n')
+            print(f"{sample}{key}:", end='\n')
+            for starallele, certainty in staralleles:
+                if detail_level <= 1: # Simplify to core matches
+                    if sort_types(starallele) == 2:
+                        continue
+                elif detail_level == 2: # Print all matches
+                    pass
+                print(f"{starallele} ({certainty})", end='\n')
+                if detail_level == 0: # Only print best match based on certainty
+                    break
         print()
