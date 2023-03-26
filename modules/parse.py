@@ -7,6 +7,8 @@ def to_supremal(variants, reference_sequence):
     
     Faster because it accounts for single variations
     """
+    if not isinstance(variants, list):
+        raise Exception("Variants should be a list")
     if len(variants) == 0: # No variants
         raise Exception("Variant list empty") # TODO empty variant?
     if len(variants) > 1: # Need to patch

@@ -125,6 +125,7 @@ def main():
             rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
             if rel == va.Relation.EQUIVALENT: # Remove personal variants which already exist
                 del personal_variants[p_variant]
+    print(personal_variants)
     samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
     relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples | personal_variants, cache_name="relations_samples_extended") 
