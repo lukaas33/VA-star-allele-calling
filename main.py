@@ -117,14 +117,23 @@ def main():
             except ValueError as e:
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, supremal_samples, cache_name="relations_samples_extended") 
-    # TODO also find sample variant relations to sample and display
+    personal_variants = {variant: value for variant, value in samples.items() if sort_types(variant) == 3} 
+    for p_variant in list(personal_variants.keys()): # TODO do this nicer
+        for variant in supremal_extended.keys():
+            if sort_types(variant) != 3:
+                continue
+            rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
+            if rel == va.Relation.EQUIVALENT: # Remove personal variants which already exist
+                del personal_variants[p_variant]
+    samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} 
+    # Find all relations with samples
+    relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples | personal_variants, cache_name="relations_samples_extended") 
     # TODO check if sample variants in sample allele
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} # Don't need sample variants for this 
+    exit()
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
     for sample in samples.keys():
         sample_source, phasing = sample[:-1], sample[-1]
