@@ -103,13 +103,13 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: parse samples
-    samples = parse_samples(reference_sequence) # TODO also check unphased # TODO cache
+    samples_source = parse_samples(reference_sequence) # TODO also check unphased # TODO cache
     try:
         # TODO solve: UserWarning: Could not parse sample NA18526A: unorderable variants
         supremal_samples = cache_get("supremal_samples")
     except:
         supremal_samples = {}
-        for name, variants in samples.items():
+        for name, variants in samples_source.items():
             if variants is None:
                 continue
             try:
@@ -140,8 +140,10 @@ def main():
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
-    for sample in samples.keys():
+    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples_source.keys()) if sort_types(sample) == 4} 
+    for sample in samples_source.keys():
+        if sort_types(sample) != 4:
+            continue
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
@@ -149,7 +151,7 @@ def main():
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["42125924>G"], relations_samples, as_edges=True)
+    sample_context = find_context(["NA21105A"], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
