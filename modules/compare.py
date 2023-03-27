@@ -56,7 +56,6 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
         # Spread properties since variant can't be stored in shared memory
         spread = [] 
         for supremal in all_variants.values():
-            print(supremal)
             spread += [supremal.start, supremal.end, supremal.sequence]
         seqs = smn.ShareableList(spread)
         total = len(left_variants)

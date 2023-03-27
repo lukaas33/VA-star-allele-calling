@@ -117,7 +117,7 @@ def main():
             except ValueError as e:
                 warnings.warn(f"Could not parse sample {name}: {e}")
         cache_set(supremal_samples, "supremal_samples")
-    personal_variants = {variant: value for variant, value in samples.items() if sort_types(variant) == 3} 
+    personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 3} 
     for p_variant in list(personal_variants.keys()): # TODO do this nicer
         for variant in supremal_extended.keys():
             if sort_types(variant) != 3:
@@ -125,27 +125,31 @@ def main():
             rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
             if rel == va.Relation.EQUIVALENT: # Remove personal variants which already exist
                 del personal_variants[p_variant]
-    print(personal_variants)
-    samples = {sample: value for sample, value in samples.items() if sort_types(sample) == 4} 
+    samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
-    relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples | personal_variants, cache_name="relations_samples_extended") 
+    # TODO simplify 
+    # TODO run again to remove non-personal variants
+    # TODO why are personal variants not included in the relations in this way?
+    #   relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples, cache_name="relations_samples_extended") 
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
+    relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+
     # TODO check if sample variants in sample allele
     # TODO verify sample relations
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    exit()
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples.keys())} 
     for sample in samples.keys():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications)
-    exit()
+    # print_classification(classifications)
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA19917B"], relations_samples, as_edges=True)
+    sample_context = find_context(["42125924>G"], relations_samples, as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
