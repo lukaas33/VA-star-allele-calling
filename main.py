@@ -103,7 +103,7 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: parse samples
-    samples = parse_samples() # TODO also check unphased # TODO cache
+    samples = parse_samples(reference_sequence) # TODO also check unphased # TODO cache
     try:
         # TODO solve: UserWarning: Could not parse sample NA18526A: unorderable variants
         supremal_samples = cache_get("supremal_samples")

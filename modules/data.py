@@ -89,7 +89,7 @@ def pharmvar_get(target):
         cache_set(data, name)
         return data
 
-def parse_samples():
+def parse_samples(reference):
     """ Parse sample VCF files as variant objects."""
     directory = "data/samples"
     samples = {}
@@ -102,6 +102,9 @@ def parse_samples():
             # QUESTION: what are the filter, quality, format, info fields?
             # QUESTION: what is the format of alt
             for record in reader:
+                # Validate if reference of vcf files is on the reference sequence
+                if record.REF != reference[record.start:record.end]:
+                    raise ValueError("Reference sequence does not match")
                 if len(record.ALT) > 1: # TODO handle different alt values
                     # Can have multiple values for different phases, etc.
                     raise ValueError("Multiple ALT alleles not supported")
