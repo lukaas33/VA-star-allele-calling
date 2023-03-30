@@ -6,7 +6,7 @@ from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
 from modules.calling import star_allele_calling, print_classification, sort_types
-from modules.utils import validate_relations
+from modules.utils import validate_relations, validate_calling
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -29,42 +29,6 @@ def test_naming(corealleles, suballeles):
         # *13, etc. There are hybrid genes which 
         # *16, etc.
         warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
-        
-# def test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name):
-#     """Test if the coreallele is contained in each suballele.
-    
-#     By definition each suballele should contain the coreallele.
-#     If this is not the case there is an inconsistency.
-#     This is detected and then characterized.
-#     """
-#     # TODO do this on main dataset
-#     # Get the variants contained in the sub- and core allele as HGVS notation
-#     # hgvs has been tested to be consistent with fasta files
-#     # QUESTION why doesn't name always match position
-#     coreallele = corealleles[coreallele_name]
-#     coreallele_variants = [variant["hgvs"] for variant in coreallele["variants"]]
-#     for suballele in suballeles:
-#         suballele_name = suballele["alleleName"]
-#         # Convert HGVS notation to sequence notation
-#         suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
-#         s_coreallele_variants = parse_multi_hgvs(coreallele_variants, reference_sequence, coreallele_name)
-#         s_suballele_variants = parse_multi_hgvs(suballele_variants, reference_sequence, suballele_name)
-#         # Find relation between core and suballeles
-#         try:
-#             relation = va.compare(reference_sequence, s_coreallele_variants, s_suballele_variants)
-#         except Exception as e:
-#             if "unorderable variant" in str(e): 
-#                 # This happens when variants overlap, 
-#                 # in this case the observed sequence cannot be derived and the variants are not interpretable
-#                 warnings.warn(f"{coreallele_name}: Some variants overlap. Cannot interpret, ignoring current allele.")
-#                 # Skip uninterpretable variants 
-#                 continue
-#             raise ValueError(f"{coreallele_name}: Could not compare variants with {suballele_name} ({coreallele_variants} and {suballele_variants})")
-#         # Expect containment or equivalence for core and suballele
-#         # QUESTION is an equivalence between a sub and core allele inconsistent?
-#         if relation not in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED):
-#             # Not characterizing overlap since this is hard
-#             warnings.warn(f"{coreallele_name}: Unexpected relationship {relation} with suballele {suballele_name}")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -148,6 +112,10 @@ def main():
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
     # print_classification(classifications)
+
+    # TEST 4.1 validate star allele calling
+    validate_calling(classifications, r"data\bastard.txt")
+    exit()
 
     # TEST 5: display some samples
     # TODO only show context of samples?

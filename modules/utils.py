@@ -3,6 +3,7 @@ import difflib
 from itertools import chain, combinations
 from .data import cache_get
 import warnings
+from .calling import matches_core
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
@@ -135,3 +136,20 @@ def validate_relations(data, variants, filename):
             print(f"Difference in relation count for {pair[0][0]}: {pair[0][1]} in ref vs {pair[1][1]} in data")
     
     print("No (further) differences found between the reference and the data relations")
+
+def validate_calling(classifications, validate_filename):
+    """Validate if classifications match with the M&J method"""
+    n_errors = 0
+    with open(validate_filename, 'r') as validate:
+        for line in validate:
+            # convert to format of classifications
+            sample, classes = line.rstrip().split(' ')
+            classes = set(["CYP2D6" + c for c in classes.split('/')])
+            ref = set()
+            for c in classifications[sample].values():
+                ref.add(matches_core(c[0][0]))
+            if classes != ref:
+                print(f"Sample {sample} was predicted as {ref} but should be {classes}")
+                n_errors += 1
+    if n_errors > 0:
+        print(f"{n_errors} errors found in the classifications")
