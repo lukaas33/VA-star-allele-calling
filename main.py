@@ -30,41 +30,24 @@ def test_naming(corealleles, suballeles):
         # *16, etc.
         warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
         
-# def test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name):
-#     """Test if the coreallele is contained in each suballele.
+def test_coreallele_containment(corealleles, suballeles, relations_extended):
+    """Test if the coreallele is contained in each suballele.
     
-#     By definition each suballele should contain the coreallele.
-#     If this is not the case there is an inconsistency.
-#     This is detected and then characterized.
-#     """
-#     # TODO do this on main dataset
-#     # Get the variants contained in the sub- and core allele as HGVS notation
-#     # hgvs has been tested to be consistent with fasta files
-#     # QUESTION why doesn't name always match position
-#     coreallele = corealleles[coreallele_name]
-#     coreallele_variants = [variant["hgvs"] for variant in coreallele["variants"]]
-#     for suballele in suballeles:
-#         suballele_name = suballele["alleleName"]
-#         # Convert HGVS notation to sequence notation
-#         suballele_variants = [variant["hgvs"] for variant in suballele["variants"]]
-#         s_coreallele_variants = parse_multi_hgvs(coreallele_variants, reference_sequence, coreallele_name)
-#         s_suballele_variants = parse_multi_hgvs(suballele_variants, reference_sequence, suballele_name)
-#         # Find relation between core and suballeles
-#         try:
-#             relation = va.compare(reference_sequence, s_coreallele_variants, s_suballele_variants)
-#         except Exception as e:
-#             if "unorderable variant" in str(e): 
-#                 # This happens when variants overlap, 
-#                 # in this case the observed sequence cannot be derived and the variants are not interpretable
-#                 warnings.warn(f"{coreallele_name}: Some variants overlap. Cannot interpret, ignoring current allele.")
-#                 # Skip uninterpretable variants 
-#                 continue
-#             raise ValueError(f"{coreallele_name}: Could not compare variants with {suballele_name} ({coreallele_variants} and {suballele_variants})")
-#         # Expect containment or equivalence for core and suballele
-#         # QUESTION is an equivalence between a sub and core allele inconsistent?
-#         if relation not in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED):
-#             # Not characterizing overlap since this is hard
-#             warnings.warn(f"{coreallele_name}: Unexpected relationship {relation} with suballele {suballele_name}")
+    By definition each suballele should contain the coreallele.
+    There are cases where the suballele is equal to the coreallele.
+    If neither is the case there is an inconsistency.
+    This is detected and printed.
+    """
+    for core in corealleles.keys():
+        for sub in suballeles[core].keys():
+            for left, right, relation in relations_extended:
+                if left == core and right == sub: # Can do this since the set is full and thus contains both directions
+                    if relation == va.Relation.IS_CONTAINED:
+                        break
+                    if relation == va.Relation.EQUIVALENT:
+                        break
+                    warnings.warn(f"{core} is not contained in {sub}, but it is {relation.name}")
+                    break
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -89,20 +72,16 @@ def main():
     # TEST 0: test if naming is consistent
     # test_naming(corealleles, suballeles)
 
-    # TEST 1: test if all corealleles are contained in their suballeles
-    # for coreallele_name, suballeles in suballeles.items():
-        # test_coreallele_containment(corealleles, suballeles, reference_sequence, coreallele_name)
-
-    # TEST 2: find the relation between all corealleles, suballeles and the contained variants
+    # TEST 1: find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
     _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
 
-    # TEST 2.1: validate the relations
+    # TEST 1.1: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
-    # TEST 3: parse samples
+    # TEST 2: parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased # TODO cache
     try:
         # TODO solve: UserWarning: Could not parse sample NA18526A: unorderable variants
@@ -135,8 +114,11 @@ def main():
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
-    # TODO check if sample variants in sample allele
     # TODO verify sample relations
+
+    # TEST 3: check if cores are contained in subs, if variants are contained in alleles and if personal variants are contained in samples
+    test_coreallele_containment(corealleles, suballeles)
+    exit()
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
@@ -147,7 +129,7 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    # print_classification(classifications)
+    print_classification(classifications)
 
     # TEST 5: display some samples
     # TODO only show context of samples?
