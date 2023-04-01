@@ -29,14 +29,20 @@ def sort_types(v):
 def find_contained_alleles(start, cont_graph, matches):
     """Find the first contained cores from a given start node."""
     for node, _ in cont_graph.in_edges(start):
-        if sort_types(node) in (1, 2): # Found core, don't go deeper (don't want core alleles contained in core alleles)
-            # Check if this core is contained in another (possible via other path)
-            for other in matches:
-                if node in nx.ancestors(cont_graph, other):
-                    return
+        if sort_types(node) == 2: # Found suballele
             matches.append(node)
-        else: # Go deeper to find others
-            find_contained_alleles(node, cont_graph, matches)
+        elif sort_types(node) == 1: # Core allele
+            # Check if this allele is contained in another 
+            for other in matches:
+                if sort_types(other) == 2: # Skip suballeles as this is expected
+                    continue
+                if node in nx.ancestors(cont_graph, other): # Is contained in one of the matches
+                    return # Skip this allele
+            matches.append(node)
+            return # Don't traverse further since this doesn't add any information
+        # Go deeper to find others
+        find_contained_alleles(node, cont_graph, matches)
+    return
 
 def find_best_match(matches, functions):
     """Find the best matches from a list of matches.
@@ -67,16 +73,17 @@ def find_best_match(matches, functions):
     else: # Return default
         # QUESTION: is this valid
         best_matches.append(("CYP2D6*1", 0))
-    # Also add core alleles
-    extended_best_matches = best_matches[:]
-    for match, certainty in best_matches:
-        core = matches_core(match)
-        # Less certain because of extra variants
-        if core not in [m[0] for m in extended_best_matches]:
-            extended_best_matches.append((core, certainty)) 
+    # # Also add core alleles
+    # extended_best_matches = best_matches[:]
+    # for match, certainty in best_matches:
+    #     core = matches_core(match)
+    #     # Less certain because of extra variants
+    #     if core not in [m[0] for m in extended_best_matches]:
+    #         extended_best_matches.append((core, certainty)) 
     # Sort based on certainty 
-    extended_best_matches.sort(key=lambda c: c[1], reverse=True)
-    return extended_best_matches
+    best_matches.sort(key=lambda c: c[1], reverse=True)
+    # TODO remove 'certainty' 
+    return best_matches
 
 def star_allele_calling(sample, nodes, edges, functions):
     """Determine star allele calling for a sample based on va relations.
@@ -108,7 +115,6 @@ def star_allele_calling(sample, nodes, edges, functions):
                 raise Exception(f"Unexpected match type: {match}")
         # STEP 3: matching by indirect containment (more detail)    
         find_contained_alleles(sample, cont_graph, matches["indirect"])
-        # QUESTION: is it needed to also find indirectly contained cores (from suballeles)
     # Filter and return
     return find_best_match(matches, functions) 
 

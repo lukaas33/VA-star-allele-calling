@@ -63,7 +63,6 @@ def test_variant_containment(corealleles, suballeles, relations_extended):
                     if left == variant and right == allele: # Can do this since the set is full and thus contains both directions
                         if relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
                             break
-                        # TODO skip repeated warnings
                         warnings.warn(f"{variant} is not contained in {allele}, but instead {relation.name}")
                         break
                 else:
@@ -74,13 +73,11 @@ def test_personal_variant_containment(samples_source, relations_samples):
     
     Similar to the test_variant_containment but for the personal variants.
     """
-    # TODO do this differently and earlier
     for sample, variants in samples_source.items():
         for hgvs in variants.keys():
             for left, right, relation in relations_samples: # TODO use different ds here
-                if left == sample and right == hgvs or \
-                        left == hgvs and right == sample: 
-                    if relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
+                if left == sample and right == hgvs:
+                    if relation in (va.Relation.CONTAINS, va.Relation.EQUIVALENT):
                         break
                     warnings.warn(f"{hgvs} is not contained in {sample}, but instead {relation.name}")
                     break
@@ -134,6 +131,7 @@ def main():
             except ValueError as e:
                 warnings.warn(f"Could not parse sample {sample}: {e}")
         cache_set(supremal_samples, "supremal_samples")
+    
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
         for p_variant in list(p_variants.keys()):
@@ -141,8 +139,6 @@ def main():
                 continue
             for variant in supremal_extended.keys():
                 if sort_types(variant) != 3:
-                    continue
-                if p_variant not in supremal_samples.keys():
                     continue
                 rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
                 if rel == va.Relation.EQUIVALENT: # Remove personal variants which already exist
@@ -164,8 +160,6 @@ def main():
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
-    # TODO verify sample relations
-
     # TEST 3: check if cores are contained in subs, if variants are contained in alleles and if personal variants are contained in samples
     # test_coreallele_containment(suballeles, relations_extended)
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -180,7 +174,8 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    # print_classification(classifications)
+    print_classification(classifications, detail_level=2)
+    exit()
 
     # TEST 4.1 validate star allele calling
     # validate_calling(classifications, r"data\bastard.txt")
