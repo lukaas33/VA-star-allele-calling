@@ -133,7 +133,7 @@ def print_classification(classifications, detail_level=0):
     for sample, classification in classifications.items():
         if detail_level == 0:
             print(f"{sample}:", end=' ')
-        for key, _ in classification.items():
+        for i, key in enumerate(classification.keys()):
             staralleles = classification[key]
             if detail_level != 0:
                 print(f"{sample}{key}:", end='\n')
@@ -144,7 +144,7 @@ def print_classification(classifications, detail_level=0):
                 elif detail_level == 2: # Print all matches
                     pass
                 if detail_level == 0: # Only print best match based on certainty
-                    print(f"{starallele}", end=', ')
+                    print(f"{starallele}", end=('/' if i == 0 else ''))
                     # Check if there are equally likely matches (cannot print one in that case)
                     optimal = [c for a, c in staralleles if c == certainty and sort_types(a) == 1]
                     if len(optimal) > 1:

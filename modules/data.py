@@ -95,10 +95,9 @@ def parse_samples(reference):
     samples = {}
     for filename in os.listdir(directory):
         name = filename.split('.')[0]
-        phased_allele = [[], []]
+        phased_allele = [{}, {}]
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
-            # TODO validate input, is REF actually on reference sequence at pos?
             # QUESTION: what are the filter, quality, format, info fields?
             # QUESTION: what is the format of alt
             for record in reader:
@@ -117,15 +116,11 @@ def parse_samples(reference):
                 # 0|1 is the same as 1|0 between samples (not within sample) 
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
-                        phased_allele[i].append(variant)
-                # Also save individually personal variants
-                hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference
-                samples[hgvs] = [variant]
+                        hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
+                        phased_allele[i][hgvs] = variant
         for i in range(2):
             phased_name = name + "AB"[i]
-            if len(phased_allele[i]) == 0: # Empty alleles will be treated as *1
-                # TODO check if actually empty
-                samples[phased_name] = None
-                continue
+            if len(phased_allele[i].values()) == 0: # Empty alleles will be treated as *1
+                pass 
             samples[phased_name] = phased_allele[i]
     return samples
