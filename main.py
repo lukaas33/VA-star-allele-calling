@@ -30,7 +30,7 @@ def test_naming(corealleles, suballeles):
         # *16, etc.
         warnings.warn(f"Not all numbers present as coreallele: {sorted(list(all_numbers - set(numbers)))}")
         
-def test_coreallele_containment(corealleles, suballeles, relations_extended):
+def test_coreallele_containment(suballeles, relations_extended):
     """Test if the coreallele is contained in each suballele.
     
     By definition each suballele should contain the coreallele.
@@ -38,16 +38,33 @@ def test_coreallele_containment(corealleles, suballeles, relations_extended):
     If neither is the case there is an inconsistency.
     This is detected and printed.
     """
-    for core in corealleles.keys():
+    for core in suballeles.keys():
         for sub in suballeles[core].keys():
-            for left, right, relation in relations_extended:
+            for left, right, relation in relations_extended: # TODO use different ds here
                 if left == core and right == sub: # Can do this since the set is full and thus contains both directions
-                    if relation == va.Relation.IS_CONTAINED:
-                        break
-                    if relation == va.Relation.EQUIVALENT:
+                    if relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
                         break
                     warnings.warn(f"{core} is not contained in {sub}, but it is {relation.name}")
                     break
+
+def test_variant_containment(corealleles, suballeles, relations_extended):
+    """Test if the variants are contained in the coreallele or suballele.
+    
+    If not there are some interactions happening and this should be investigated.
+    Variants that are not simply contained should not be viewed as atomic.
+    """
+    for coreallele, core_values in corealleles.items():
+        for allele, values in list(suballeles[coreallele].items()) + [(coreallele, core_values)]:
+            variants = [variant["hgvs"] for variant in values["variants"]]
+            for variant in variants:
+                for left, right, relation in relations_extended: # TODO use different ds here
+                    if left == variant and right == allele: # Can do this since the set is full and thus contains both directions
+                        if relation in (va.Relation.IS_CONTAINED, va.Relation.EQUIVALENT):
+                            break
+                        warnings.warn(f"{variant} is not contained in {allele}, but instead {relation.name}")
+                        break
+
+            
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -117,8 +134,8 @@ def main():
     # TODO verify sample relations
 
     # TEST 3: check if cores are contained in subs, if variants are contained in alleles and if personal variants are contained in samples
-    test_coreallele_containment(corealleles, suballeles)
-    exit()
+    # test_coreallele_containment(corealleles, suballeles, relations_extended)
+    # test_variant_containment(corealleles, suballeles, relations_extended)
 
     # TEST 4: determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
@@ -129,15 +146,14 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications)
+    # print_classification(classifications)
 
     # TEST 4.1 validate star allele calling
-    validate_calling(classifications, r"data\bastard.txt")
-    exit()
+    # validate_calling(classifications, r"data\bastard.txt")
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA21105A"], pruned_samples[1], as_edges=True)
+    sample_context = find_context([], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
