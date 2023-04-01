@@ -22,7 +22,9 @@ def sort_types(v):
     elif v[:2] in ('HG', 'NA'):
         return 4 # Sample
     else:
-        return 3 # Variant
+        if ':' in v:
+            return 3 # Variant
+        return 5 # Personal variant
     
 def find_contained_alleles(start, cont_graph, matches):
     """Find the first contained cores from a given start node."""
@@ -93,12 +95,12 @@ def star_allele_calling(sample, nodes, edges, functions):
     matches = {"equivalent": [], "contained": [], "variants": [], "indirect": []}
     # STEP 1: Trivial matching
     if sample in eq_graph.nodes():
-        matches["equivalent"] = [match for match in eq_graph[sample]]
+        matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
     # STEP 2: Matching by containment
     if sample in cont_graph.nodes():
         # TODO split personal variants
         for match, _ in cont_graph.in_edges(sample):
-            if sort_types(match) == 3:
+            if sort_types(match) in (3, 5):
                 matches["variants"].append(match)
             elif sort_types(match) in (1, 2):
                 matches["contained"].append(match) # TODO can leave out?

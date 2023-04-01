@@ -6,7 +6,7 @@ from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set
 from modules.calling import star_allele_calling, print_classification, sort_types
-from modules.utils import validate_relations
+from modules.utils import validate_relations, validate_calling
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -130,6 +130,10 @@ def main():
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
     print_classification(classifications)
+
+    # TEST 4.1 validate star allele calling
+    validate_calling(classifications, r"data\bastard.txt")
+    exit()
 
     # TEST 5: display some samples
     # TODO only show context of samples?
