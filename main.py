@@ -84,6 +84,13 @@ def test_personal_variant_containment(samples_source, relations_samples):
             else:
                 warnings.warn(f"Could not find relation for {sample} and {hgvs}")
 
+def test_functional_annotation(suballeles, functions):
+    """ Test if the functional annotation is consistent between core and suballele."""
+    for core in suballeles.keys():
+        for sub in suballeles[core].keys():
+            if functions[core] != functions[sub]:
+                warnings.warn(f"Function of {core} and {sub} is not consistent: {functions[core]} and {functions[sub]}")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
@@ -114,6 +121,10 @@ def main():
     # TEST 1.1: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
+
+    # TEST 1.2: test if the suballeles have the same functional annotation as the coreallele
+    test_functional_annotation(suballeles, functions)
+    exit()
 
     # TEST 2: parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 

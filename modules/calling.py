@@ -92,6 +92,7 @@ def star_allele_calling(sample, nodes, edges, functions):
     # Find contained alleles
     find_contained_alleles(sample, cont_graph, eq_graph, contained, set())
     # Check if any contain another, keep most specific
+    # TODO add to initial getting?
     for i, node1 in enumerate(set(contained)):
         for node2 in contained:
             if node1 == node2: # Skip self 
