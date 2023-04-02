@@ -153,7 +153,7 @@ def main():
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
     # TODO simplify 
-    # TODO run again
+    # TODO run again to remove non-personal personal variants
     # TODO why are personal variants not included in the relations in this way?
     #   relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples, cache_name="relations_samples_extended") 
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
@@ -182,7 +182,7 @@ def main():
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context([], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["HG00276A"], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended

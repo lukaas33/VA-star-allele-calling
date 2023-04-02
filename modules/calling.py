@@ -26,23 +26,46 @@ def sort_types(v):
             return 3 # Variant
         return 5 # Personal variant
     
-def find_contained_alleles(start, cont_graph, matches):
-    """Find the first contained cores from a given start node."""
-    for node, _ in cont_graph.in_edges(start):
-        if sort_types(node) == 2: # Found suballele
-            matches.append(node)
-        elif sort_types(node) == 1: # Core allele
-            # Check if this allele is contained in another 
-            for other in matches:
-                if sort_types(other) == 2: # Skip suballeles as this is expected
-                    continue
-                if node in nx.ancestors(cont_graph, other): # Is contained in one of the matches
-                    return # Skip this allele
-            matches.append(node)
-            return # Don't traverse further since this doesn't add any information
-        # Go deeper to find others
-        find_contained_alleles(node, cont_graph, matches)
-    return
+def find_contained_alleles(start, cont_graph, eq_graph, matches, visited=set()):
+    """Recursively the equivalent and contained sub- and corealleles from a given start node."""
+    if start in visited: return # Already visited
+    visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
+    if sort_types(start) in (1, 2): # Core or suballele
+        matches.append(start)
+    if sort_types(start) == 1: 
+        return # Stop here
+
+    # Find equivalent alleles
+    if start in eq_graph.nodes():
+        equivalent = list(eq_graph[start])
+        if len(equivalent) > 1: # check for multiple equal connections
+            # Should only exist for cores which are not expanded
+            # raise Exception(f"This should not happen, multiple equivalent alleles of {start} found: {equivalent}."
+            pass
+        for match in equivalent: 
+            find_contained_alleles(match, cont_graph, eq_graph, matches) # Add equivalent alleles and maybe traverse
+    # Find contained alleles
+    if start in cont_graph.nodes():
+        for match, _ in cont_graph.in_edges(start):
+            find_contained_alleles(match, cont_graph, eq_graph, matches)
+
+    # for node, _ in cont_graph.in_edges(start):
+    #     if sort_types(node) == 2: # Found suballele
+    #         matches.append(node)
+    #     elif sort_types(node) == 1: # Core allele
+    #         # Check if this allele is contained in another 
+    #         for other in matches:
+    #             if other == node: # Skip self
+    #                 continue
+    #             if sort_types(other) == 2: # Skip suballeles as this is expected
+    #                 continue
+    #             if node in nx.ancestors(cont_graph, other): # Is contained in one of the matches
+    #                 return # Skip this allele
+    #         matches.append(node)
+    #         return # Don't traverse further since this doesn't add any information
+    #     # Go deeper to find others
+    #     find_contained_alleles(node, cont_graph, matches)
+    # return
 
 def find_best_match(matches, functions):
     """Find the best matches from a list of matches.
@@ -56,7 +79,7 @@ def find_best_match(matches, functions):
             raise Exception("This should not happen, multiple equivalent matches found.")
         # TODO merge this case (since extra variants will change the certainty)
         best_matches.append((matches["equivalent"][0], 10))
-    elif len(matches["indirect"]) > 0: # Contains some allele
+    if len(matches["indirect"]) > 0: # Contains some allele
         # TODO select best match from multiple
         for m in matches["indirect"]:
             certainty = 5
@@ -70,7 +93,7 @@ def find_best_match(matches, functions):
             # QUESTION is this valid
             certainty += (sort_function(functions[m]) + 1) / 4
             best_matches.append((m, certainty))
-    else: # Return default
+    if len(best_matches) == 0: # Return default
         # QUESTION: is this valid
         best_matches.append(("CYP2D6*1", 0))
     # # Also add core alleles
@@ -85,6 +108,7 @@ def find_best_match(matches, functions):
     # TODO remove 'certainty' 
     return best_matches
 
+index = 7
 def star_allele_calling(sample, nodes, edges, functions):
     """Determine star allele calling for a sample based on va relations.
     
@@ -99,24 +123,53 @@ def star_allele_calling(sample, nodes, edges, functions):
     cont_graph.add_nodes_from(nodes)
     cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
 
-    matches = {"equivalent": [], "contained": [], "variants": [], "indirect": []}
-    # STEP 1: Trivial matching
-    if sample in eq_graph.nodes():
-        matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
-    # STEP 2: Matching by containment
-    if sample in cont_graph.nodes():
-        # TODO split personal variants
-        for match, _ in cont_graph.in_edges(sample):
-            if sort_types(match) in (3, 5):
-                matches["variants"].append(match)
-            elif sort_types(match) in (1, 2):
-                matches["contained"].append(match) # TODO can leave out?
-            else:
-                raise Exception(f"Unexpected match type: {match}")
-        # STEP 3: matching by indirect containment (more detail)    
-        find_contained_alleles(sample, cont_graph, matches["indirect"])
-    # Filter and return
-    return find_best_match(matches, functions) 
+    matches = {"equivalent": [], "contained": [], "variants": []}
+    # Find equivalent alleles
+    contained = []
+    matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
+    # Find contained alleles
+    find_contained_alleles(sample, cont_graph, eq_graph, contained)
+    # Check if any contain another, keep most specific
+    for i, node1 in enumerate(contained):
+        for node2 in contained[i+1:]:
+            if node1 == node2: # Double 
+                break # Don't keep
+            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment suballeles as this is expected
+                continue
+            if node1 in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
+                break # Skip this allele
+        else: # No issues 
+            if node1 in matches["equivalent"]: # Skip equivalent alleles
+                continue
+            matches["contained"].append(node1) # Keep match
+    print(sample)
+    print(matches)
+    global index
+    index -= 1
+    if index == 0:
+        exit()
+    # Find extra variants
+    matches["variants"] = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
+
+    # # STEP 1: Trivial matching
+    # if sample in eq_graph.nodes():
+    #     matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
+    # # # STEP 2: Matching by containment
+    # # if sample in cont_graph.nodes():
+    # #     # TODO split personal variants
+    # #     for match, _ in cont_graph.in_edges(sample):
+    # #         if sort_types(match) in (3, 5):
+    # #             matches["variants"].append(match)
+    # #         elif sort_types(match) in (1, 2):
+    # #             matches["contained"].append(match) # TODO can leave out?
+    # #         else:
+    # #             raise Exception(f"Unexpected match type: {match}")
+    # # STEP 3: matching by indirect containment (more detail)
+    # for variant in [sample] + matches["equivalent"]: # Also find contained in equivalent alleles
+    #     if variant in cont_graph.nodes():
+    #         find_contained_alleles(variant, cont_graph, matches["indirect"])
+    # # Filter and return
+    # return find_best_match(matches, functions) 
 
 def matches_core(match):
     """Print the core allele from a match."""
