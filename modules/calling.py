@@ -70,41 +70,6 @@ def find_best_match(matches, functions):
         sorted_matches.append("CYP2D6*1")
     return sorted_matches
 
-    # # TODO how to express certainty (depend on extra variants?)
-    # best_matches = []
-    # if len(matches["equivalent"]) > 0: # The same as some allele 
-    #     if len(matches["equivalent"]) > 1:
-    #         raise Exception("This should not happen, multiple equivalent matches found.")
-    #     # TODO merge this case (since extra variants will change the certainty)
-    #     best_matches.append((matches["equivalent"][0], 10))
-    # if len(matches["indirect"]) > 0: # Contains some allele
-    #     # TODO select best match from multiple
-    #     for m in matches["indirect"]:
-    #         certainty = 5
-    #         # CYP2D6*1 is the default, prioritize other alleles
-    #         # TODO is this valid?
-    #         if matches_core(m) == "CYP2D6*1":
-    #             best_matches.append((m, certainty))
-    #             continue
-    #         # Function influences certainty 
-    #         # deleterious mutations are less likely to be reversed
-    #         # QUESTION is this valid
-    #         certainty += (sort_function(functions[m]) + 1) / 4
-    #         best_matches.append((m, certainty))
-    # if len(best_matches) == 0: # Return default
-    #     # QUESTION: is this valid
-    #     best_matches.append(("CYP2D6*1", 0))
-    # # # Also add core alleles
-    # # extended_best_matches = best_matches[:]
-    # # for match, certainty in best_matches:
-    # #     core = matches_core(match)
-    # #     # Less certain because of extra variants
-    # #     if core not in [m[0] for m in extended_best_matches]:
-    # #         extended_best_matches.append((core, certainty)) 
-    # # Sort based on certainty 
-    # best_matches.sort(key=lambda c: c[1], reverse=True)
-    # # TODO remove 'certainty' 
-    # return best_matches
 
 def star_allele_calling(sample, nodes, edges, functions):
     """Determine star allele calling for a sample based on va relations.
@@ -127,11 +92,11 @@ def star_allele_calling(sample, nodes, edges, functions):
     # Find contained alleles
     find_contained_alleles(sample, cont_graph, eq_graph, contained, set())
     # Check if any contain another, keep most specific
-    for i, node1 in enumerate(contained):
-        for node2 in contained[i+1:]:
-            if node1 == node2: # Double 
-                break # Don't keep
-            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment suballeles as this is expected
+    for i, node1 in enumerate(set(contained)):
+        for node2 in contained:
+            if node1 == node2: # Skip self 
+                continue
+            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment of core in suballeles as this is expected
                 continue
             if node1 in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
                 break # Skip this allele

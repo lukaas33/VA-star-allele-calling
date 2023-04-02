@@ -175,10 +175,11 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    # print_classification(classifications)
+    print_classification(classifications, detail_level=1)
 
     # TEST 4.1 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
+    exit()
 
     # TEST 5: display some samples
     # TODO only show context of samples?
