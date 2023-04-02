@@ -3,7 +3,7 @@ import difflib
 from itertools import chain, combinations
 from .data import cache_get
 import warnings
-from .calling import matches_core
+from .calling import sort_types
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
@@ -146,8 +146,12 @@ def validate_calling(classifications, validate_filename):
             sample, classes = line.rstrip().split(' ')
             classes = set(["CYP2D6" + c for c in classes.split('/')])
             ref = set()
-            for c in classifications[sample].values():
-                ref.add(matches_core(c[0][0]))
+            for classification in classifications[sample].values():
+                for class_ in classification: # Find first core per phase
+                    if sort_types(class_) != 1:
+                        continue
+                    ref.add(class_)
+                    break
             if classes != ref:
                 print(f"Sample {sample} was predicted as {ref} but should be {classes}")
                 n_errors += 1

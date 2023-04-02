@@ -166,6 +166,7 @@ def main():
     # test_personal_variant_containment(samples_source, relations_samples)
 
     # TEST 4: determine star allele calling
+    # TODO simplify
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples_source.keys()) if sort_types(sample) == 4} 
     for sample in samples_source.keys():
@@ -174,15 +175,14 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications, detail_level=2)
-    exit()
+    # print_classification(classifications)
 
     # TEST 4.1 validate star allele calling
-    # validate_calling(classifications, r"data\bastard.txt")
+    validate_calling(classifications, r"data\bastard.txt")
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["HG00276A"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["NA19143B"], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
