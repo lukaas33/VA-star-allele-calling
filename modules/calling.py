@@ -133,7 +133,7 @@ def star_allele_calling(sample, nodes, edges, functions):
             # TODO determine noise or uncertain based on sequence?
             matches["variants"]["personal"].append(variant)
         elif sort_types(variant) == 3: # Variant (equal to some in the database)
-            if is_noise(variant, cont_graph): # Noise, not relevant for calling
+            if is_noise(variant, cont_graph, functions): # Noise, not relevant for calling
                 matches["variants"]["noise"].append(variant)
             else: # May be relevant for calling
                 matches["variants"]["uncertain"].append(variant)
@@ -152,12 +152,19 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_noise(variant, cont_graph): 
+def is_noise(variant, cont_graph, functions): 
     """Determine if a variant is noise.
     
     Noise is determined as not being relevant for calling.
     """
-    # TODO use pharmvar information on variant
+    # Check the PharmVar annotation
+    if variant not in functions:
+        raise Exception(f"Variant {variant} had no impact annotation.")
+    if functions[variant] != None:
+        if functions[variant] == '': # no change
+            pass # TODO return True here?
+        else:
+            return False
     # Check based on occurrence in core alleles
     for connected in cont_graph[variant]:
         if sort_types(connected) == 1: # Is contained in a core allele

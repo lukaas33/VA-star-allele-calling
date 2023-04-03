@@ -106,9 +106,12 @@ def main():
     corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type TODO do this nicer
     suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
     variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
+    # Save information of alleles and variants
     data = corealleles | variants
     for suballele in suballeles.values(): data = data | suballele
+    # Get functional annotation of alleles and impact of variants
     functions = {a: d["function"] for a, d in data.items() if "function" in d}
+    functions |= {a: d["impact"] for a, d in data.items() if "impact" in d}
 
     # TEST 0: test if naming is consistent
     # test_naming(corealleles, suballeles)
@@ -185,7 +188,7 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications, detail_level=0)
+    # print_classification(classifications, detail_level=0)
 
     # TEST 4.1 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
@@ -193,7 +196,7 @@ def main():
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA19143B"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["NA19777A"], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
