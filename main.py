@@ -123,8 +123,7 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 1.2: test if the suballeles have the same functional annotation as the coreallele
-    test_functional_annotation(suballeles, functions)
-    exit()
+    # test_functional_annotation(suballeles, functions)
 
     # TEST 2: parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 
@@ -186,7 +185,7 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications, detail_level=1)
+    print_classification(classifications, detail_level=0)
 
     # TEST 4.1 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")

@@ -8,9 +8,13 @@ def sort_function(f):
     all_functions = ['normal function', 'unknown function', 'uncertain function', 'decreased function', 'no function']
     if f not in all_functions:
         raise Exception("Unknown function: " + f)
-    functions = ['normal function', 'decreased function', 'no function']
+    functions = [all_functions[0]] + all_functions[2:]
     if f not in functions: 
-        return 0 # TODO Where to put uncertain functions, now below normal
+        # TODO Where to put uncertain functions, now below normal
+        #   but maybe they should be above normal?
+        #   or maybe it should be considered as normal?
+        #   or it can be handled differently
+        return 0 
     return functions.index(f) + 1
 
 def sort_types(v):
@@ -44,8 +48,7 @@ def find_contained_alleles(start, cont_graph, eq_graph, matches, visited):
         for match, _ in cont_graph.in_edges(start):
             find_contained_alleles(match, cont_graph, eq_graph, matches, visited) # Add contained alleles and maybe traverse
 
-
-def find_best_match(matches, functions):
+def find_best_match(sample, matches, functions):
     """Find the best matches from a list of matches.
     
     Also return a measure of certainty.
@@ -53,7 +56,7 @@ def find_best_match(matches, functions):
     sorted_matches = []
     # Equivalent alleles are the most certain
     if len(matches["equivalent"]) > 1: # The same as some allele
-        raise Exception(f"This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+        raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
     sorted_matches.extend(matches["equivalent"])
     # Next step is the contained alleles
     # In the case of multiple contained corealleles, a choice is made based on functional annotation
@@ -61,13 +64,22 @@ def find_best_match(matches, functions):
     matches["contained"].sort(key=lambda c: sort_function(functions[c]), reverse=True)
     sorted_matches.extend(matches["contained"])
     core_matches = [m for m in sorted_matches if sort_types(m) == 1]
-    if len(core_matches) >= 2 and sort_function(functions[core_matches[0]]) == sort_function(functions[core_matches[1]]):
-        # TODO describe this case
-        warnings.warn(f"At least two equally likely core matches found: {core_matches[0]} and {core_matches[1]}.")
+    # Check if answer is ambiguous
+    # TODO implement choice here
+    if len(core_matches) >= 2 and \
+            sort_function(functions[core_matches[0]]) == sort_function(functions[core_matches[1]]):
+        raise Exception(f"{sample}: At least two equally likely core matches found: {core_matches[0]} and {core_matches[1]}.")
     # Catch-all is the default allele
     # QUESTION is this valid?
     if len(core_matches) == 0:
         sorted_matches.append("CYP2D6*1")
+    # Look at variants to determine the certainty of the calling
+    # TODO how to express this to the user
+    if len(matches["variants"]["personal"]) > 0:
+        # warnings.warn(f"{sample}: classification may not be exact due to personal variants: {matches['variants']['personal']}.")
+        pass
+    if len(matches["variants"]["uncertain"]) > 0:
+        warnings.warn(f"{sample}: classification may not be exact due to extra variants which cannot be determined as noise: {matches['variants']['uncertain']}.")
     return sorted_matches
 
 
@@ -85,7 +97,16 @@ def star_allele_calling(sample, nodes, edges, functions):
     cont_graph.add_nodes_from(nodes)
     cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
 
-    matches = {"equivalent": [], "contained": [], "variants": []}
+    # All information of a calling
+    matches = {
+        "equivalent": [], 
+        "contained": [], 
+        "variants": {
+            "personal": [], 
+            "noise": [], 
+            "uncertain": []
+        }
+    }
     # Find equivalent alleles
     contained = []
     if sample in eq_graph.nodes(): matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
@@ -93,7 +114,7 @@ def star_allele_calling(sample, nodes, edges, functions):
     find_contained_alleles(sample, cont_graph, eq_graph, contained, set())
     # Check if any contain another, keep most specific
     # TODO add to initial getting?
-    for i, node1 in enumerate(set(contained)):
+    for node1 in set(contained):
         for node2 in contained:
             if node1 == node2: # Skip self 
                 continue
@@ -105,9 +126,21 @@ def star_allele_calling(sample, nodes, edges, functions):
             if node1 in matches["equivalent"]: # Skip equivalent alleles
                 continue
             matches["contained"].append(node1) # Keep match
-    matches["variants"] = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
+    # Split variants into types
+    variants = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
+    for variant in variants:
+        if sort_types(variant) == 5: # Personal variant (not equal to any in the database)
+            # TODO determine noise or uncertain based on sequence?
+            matches["variants"]["personal"].append(variant)
+        elif sort_types(variant) == 3: # Variant (equal to some in the database)
+            if is_noise(variant, cont_graph): # Noise, not relevant for calling
+                matches["variants"]["noise"].append(variant)
+            else: # May be relevant for calling
+                matches["variants"]["uncertain"].append(variant)
+        else:
+            raise Exception(f"Unknown variant type: {variant}.")
     # Filter and return
-    return find_best_match(matches, functions) 
+    return find_best_match(sample, matches, functions) 
 
 def matches_core(match):
     """Print the core allele from a match."""
@@ -118,6 +151,18 @@ def matches_core(match):
     else:
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
+
+def is_noise(variant, cont_graph): 
+    """Determine if a variant is noise.
+    
+    Noise is determined as not being relevant for calling.
+    """
+    # TODO use pharmvar information on variant
+    # Check based on occurrence in core alleles
+    for connected in cont_graph[variant]:
+        if sort_types(connected) == 1: # Is contained in a core allele
+            return False
+    return True
 
 def print_classification(classifications, detail_level=0):
     """Print the classification of samples.
