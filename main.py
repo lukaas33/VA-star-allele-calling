@@ -112,6 +112,16 @@ def test_central_personal_variants(personal_variants, relations):
         if count > 1:
             warnings.warn(f"{personal_variant} has {count} relations while 1 is expected")
 
+def test_core_annotation(corealleles, functions):
+    """Test if the coreallele variants have an impact annotation."""
+    for core in corealleles.keys():
+        for variant in corealleles[core]["variants"]:
+            variant = variant["hgvs"]
+            if variant not in functions.keys():
+                warnings.warn(f"{variant} is in {core} but has no function annotation")
+            elif functions[variant] == "":
+                warnings.warn(f"{variant} is in {core} but has 'no change' function annotation")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
@@ -146,8 +156,10 @@ def main():
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
-    # TEST 1.2: test if the suballeles have the same functional annotation as the coreallele
+    # TEST 1.2: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
+    test_core_annotation(corealleles, functions)
+    exit()
 
     # TEST 2: parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 
@@ -193,8 +205,7 @@ def main():
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
     print(len(personal_variants.keys()))
 
-    # TEST 3: check if cores are contained in subs, if variants are contained in alleles and if personal variants are contained in samples
-    # test_coreallele_containment(suballeles, relations_extended)
+    # TEST 3: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
     # test_personal_variant_containment(samples_source, relations_samples)
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
