@@ -148,9 +148,13 @@ def validate_calling(classifications, validate_filename):
             ref = set()
             for classification in classifications[sample].values():
                 for class_ in classification: # Find first core per phase
-                    if sort_types(class_) != 1:
+                    for allele in class_:
+                        if sort_types(allele) != 1:
+                            continue
+                        ref.add(allele)
+                        break
+                    else:
                         continue
-                    ref.add(class_)
                     break
             if classes != ref:
                 print(f"Sample {sample} was predicted as {ref} but should be {classes}")

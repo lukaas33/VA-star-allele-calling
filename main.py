@@ -144,24 +144,23 @@ def main():
     functions = {a: d["function"] for a, d in data.items() if "function" in d}
     functions |= {a: d["impact"] for a, d in data.items() if "impact" in d}
 
-    # TEST 0: test if naming is consistent
+    # TEST 1: test if naming is consistent
     # test_naming(corealleles, suballeles)
 
-    # TEST 1: find the relation between all corealleles, suballeles and the contained variants
+    # Find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
     _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
 
-    # TEST 1.1: validate the relations
+    # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
-    # TEST 1.2: check if the functional annotations are consistent
+    # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
-    test_core_annotation(corealleles, functions)
-    exit()
+    # test_core_annotation(corealleles, functions)
 
-    # TEST 2: parse samples
+    # parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 
     try:
         supremal_samples = cache_get("supremal_samples")
@@ -203,15 +202,14 @@ def main():
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    print(len(personal_variants.keys()))
 
-    # TEST 3: check if relations are consistent with atomic variants
+    # TEST 4: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
     # test_personal_variant_containment(samples_source, relations_samples)
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
-    # TEST 4: determine star allele calling
+    # Determine star allele calling
     # TODO simplify
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples_source.keys()) if sort_types(sample) == 4} 
@@ -221,12 +219,13 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    # print_classification(classifications, detail_level=0)
+    print_classification(classifications, detail_level=0)
 
-    # TEST 4.1 validate star allele calling
+    # TEST 5 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
+    exit()
 
-    # TEST 5: display some samples
+    # display some samples
     # TODO only show context of samples?
     sample_context = find_context([], pruned_samples[1], as_edges=True)
 

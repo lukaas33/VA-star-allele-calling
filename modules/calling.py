@@ -2,18 +2,15 @@ import algebra as va
 import networkx as nx
 import warnings
 
+all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
+
 def sort_function(f):
     """Sort function annotation based on severity."""
     # QUESTION: what is the difference between uncertain and unknown?
-    all_functions = ['normal function', 'unknown function', 'uncertain function', 'decreased function', 'no function']
     if f not in all_functions:
         raise Exception("Unknown function: " + f)
-    functions = [all_functions[0]] + all_functions[2:]
+    functions = all_functions[3:]
     if f not in functions: 
-        # TODO Where to put uncertain functions, now below normal
-        #   but maybe they should be above normal?
-        #   or maybe it should be considered as normal?
-        #   or it can be handled differently
         return 0 
     return functions.index(f) + 1
 
@@ -55,31 +52,57 @@ def find_best_match(sample, matches, functions):
     """
     sorted_matches = []
     # Equivalent alleles are the most certain
-    if len(matches["equivalent"]) > 1: # The same as some allele
-        raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
-    sorted_matches.extend(matches["equivalent"])
+    if len(matches["equivalent"]) > 0:
+        if len(matches["equivalent"]) > 1: # The same as some allele
+            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+        sorted_matches.append(matches["equivalent"])
     # Next step is the contained alleles
-    # In the case of multiple contained corealleles, a choice is made based on functional annotation
-    # *1 will never be in contained so it is not prioritized
-    matches["contained"].sort(key=lambda c: sort_function(functions[c]), reverse=True)
-    sorted_matches.extend(matches["contained"])
-    core_matches = [m for m in sorted_matches if sort_types(m) == 1]
-    # Check if answer is ambiguous
-    # TODO implement choice here
-    if len(core_matches) >= 2 and \
-            sort_function(functions[core_matches[0]]) == sort_function(functions[core_matches[1]]):
-        raise Exception(f"{sample}: At least two equally likely core matches found: {core_matches[0]} and {core_matches[1]}.")
-    # Catch-all is the default allele
-    # QUESTION is this valid?
-    if len(core_matches) == 0:
-        sorted_matches.append("CYP2D6*1")
+    if len(matches["contained"]) > 0:
+        # In the case of multiple contained corealleles, a choice is made based on functional annotation
+        annotated = {f: [m for m in matches["contained"] if functions[m] == f] for f in all_functions}
+        # If the annotation is no function, this allele is most disruptive and is chosen
+        if len(annotated["no function"]) > 0:	
+            sorted_matches.append(annotated["no function"])
+        # If uncertain or unknown functions are present, the ordering after no function cannot be determined
+        # An unknown function could be no function and thus no allele should be preferred.
+        if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
+            # Put all in the same position of ordering
+            sorted_matches.append(
+                annotated["decreased function"] +
+                annotated["normal function"] +
+                annotated["unknown function"] +
+                annotated["uncertain function"]
+            )
+        else: # Ordering can be determined between normal and decreased function
+            # More disruptive alleles are chosen first
+            if len(annotated["decreased function"]) > 0:
+                sorted_matches.append(annotated["decreased function"])
+            if len(annotated["normal function"]) > 0:
+                sorted_matches.append(annotated["normal function"])
+
+    core_matches = [[m for m in match if sort_types(m) == 1] for match in sorted_matches]
+    if sum([len(m) for m in core_matches]) == 0: # No coreallele found
+        # Catch-all is the default allele
+        # *1 will never be in contained so it is not prioritized over others
+        sorted_matches.append(["CYP2D6*1"]) # QUESTION is this valid?
+    else: 
+        # Check if answer is ambiguous (has multiple corealleles)
+        for core_match in core_matches:
+            if len(core_match) == 0: # Skip
+                continue
+            if len(core_match) > 1: # Ambiguous
+                # TODO return multiple equally likely answers
+                raise Exception(f"{sample}: This should not happen, multiple corealleles found: {core_match}.")
+            else: # No ambiguity for best answer
+                break
     # Look at variants to determine the certainty of the calling
     # TODO how to express this to the user
-    if len(matches["variants"]["personal"]) > 0:
+    # if len(matches["variants"]["personal"]) > 0:
         # warnings.warn(f"{sample}: classification may not be exact due to personal variants: {matches['variants']['personal']}.")
-        pass
-    if len(matches["variants"]["uncertain"]) > 0:
-        warnings.warn(f"{sample}: classification may not be exact due to extra variants which cannot be determined as noise: {matches['variants']['uncertain']}.")
+        # pass
+    # if len(matches["variants"]["uncertain"]) > 0:
+        # warnings.warn(f"{sample}: classification may not be exact due to extra variants which cannot be determined as noise: {matches['variants']['uncertain']}.")
+        # pass
     return sorted_matches
 
 
@@ -157,6 +180,7 @@ def is_noise(variant, cont_graph, functions):
     
     Noise is determined as not being relevant for calling.
     """
+    # TODO redo (see notes)
     # Check the PharmVar annotation
     if variant not in functions:
         raise Exception(f"Variant {variant} had no impact annotation.")
@@ -181,12 +205,16 @@ def print_classification(classifications, detail_level=0):
     """
     for sample, classification in classifications.items():
         selected_alleles = {'A': [], 'B': []}
-        for phase, alleles in classification.items():
-            for allele in alleles:
-                if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
+        for phase, ordered_alleles in classification.items():
+            for alleles in ordered_alleles:
+                for allele in alleles:
+                    if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
+                        continue
+                    selected_alleles[phase].append(allele)
+                    if detail_level == 0: # Only display best
+                        break
+                else: # No break
                     continue
-                selected_alleles[phase].append(allele)
-                if detail_level == 0: # Only display best
-                    break
+                break
         # Print
         print(f"{sample}: {','.join(selected_alleles['A'])}/{','.join(selected_alleles['B'])}")
