@@ -1,6 +1,8 @@
 import algebra as va
 import networkx as nx
 import warnings
+from .data import api_get
+import re
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
 
@@ -175,12 +177,54 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
+def classify_region(variant):
+    """Classify region that a variant is in as UTR, intron or exon."""
+    position = variant.split(':')[1].split('.')[1]
+    if position[0] == '-': # Left from coding region
+        return "5'UTR" # TODO use enums
+    elif position[0] == '*':
+        return "3'UTR"
+    elif re.match(r"[0-9]{1,}[-+][0-9]{1,}", position):
+        return "intron"
+    return "exon" 
+
+def is_silent(variant):
+    """Determine if a variant could affect the protein sequence.
+    
+    Does this by checking if the variant equivalent descriptions.
+    Equivalents are found by using the Mutalyzer API which account for different placements of the variant.
+    
+    If one of the equivalent descriptions affects the amino acid sequence, the variant is not silent.
+    All coding representations must be in an UTR or intron to be considered non-coding.
+    This is erring on the side of caution.
+    """
+    # TODO what about splice variants?
+    # Find equivalent representations of the variant
+    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") # TODO calculate this locally?
+    if "equivalent_descriptions" not in data: # TODO why is this?
+        warnings.warn(f"Variant {variant} had no equivalent descriptions.")
+        return True # TODO what is the correct response here?
+    if 'c' not in data['equivalent_descriptions']: # Can ignore non-coding equivalents as these are always silent
+        return True
+    for nucleotide, protein in data["equivalent_descriptions"]['c']: # Check coding equivalents
+        print(nucleotide, classify_region(nucleotide))
+        print(protein)
+        if '=' not in protein: # Not silent, affects aminoacids
+            if classify_region(nucleotide) == "exon": # In exon
+                # TODO should return False even if in intron?
+                return False
+    # TODO what does n mean exactly?
+    # TODO check for other representations?
+    return True
+
 def is_noise(variant, functions): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
     The variant is noise if it has no impact on the protein.
     Else it can be classified as 'uncertain'.
+
+    This approach uses the pharmvar annotation but falls back on a sequence based approach.
     """    
     # Check the PharmVar impact annotation for the variant
     if variant not in functions:
@@ -188,9 +232,19 @@ def is_noise(variant, functions):
     if functions[variant] == '': # Explicit no change
         # TODO confirm that this is the correct interpretation
         return True 
-    if functions[variant] == None: # Not known
-        pass # TODO handle None
-    else: # Explicit change
+    elif functions[variant] == 'splice defect': # Change in expression
+        return False
+    elif functions[variant] == None: # Not known
+        # TODO check meaning of None
+        print(variant)
+        if is_silent(variant):
+            print("Silent")	
+        else:
+            print("Not silent")
+            exit()
+    else: # Explicit change on protein level
+        # TODO check non intronic
+        # TODO check pattern
         return False
 
     return False # Default is not noise

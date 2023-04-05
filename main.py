@@ -220,13 +220,10 @@ def main():
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
     # print_classification(classifications, detail_level=0)
+    exit()
 
     # TEST 5 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
-    for f in functions:
-        if sort_types(f) == 3:
-            print(f, functions[f])
-    exit()
 
     # display some samples
     # TODO only show context of samples?
