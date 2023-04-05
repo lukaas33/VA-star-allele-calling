@@ -118,6 +118,7 @@ def parse_samples(reference):
                     if phase == '1':
                         hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
                         phased_allele[i][hgvs] = variant
+        # Add to samples
         for i in range(2):
             phased_name = name + "AB"[i]
             if len(phased_allele[i].values()) == 0: # Empty alleles will be treated as *1

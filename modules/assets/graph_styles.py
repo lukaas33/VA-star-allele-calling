@@ -50,7 +50,7 @@ default_stylesheet = [
     }, {
         "selector": ".variant.observed",
         "style": {
-            "shape": "hexagon"
+            "shape": "hexagon",
         }
     }, {
         "selector": ".sample",

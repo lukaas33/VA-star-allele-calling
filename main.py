@@ -91,6 +91,27 @@ def test_functional_annotation(suballeles, functions):
             if functions[core] != functions[sub]:
                 warnings.warn(f"Function of {core} and {sub} is not consistent: {functions[core]} and {functions[sub]}")
 
+def test_central_personal_variants(personal_variants, relations):
+    """Test if personal variants are central, have a lot of relations.
+    
+    When personal variants have many relations to samples it would be expected that they are described in the literature.
+    """
+    for personal_variant in personal_variants:
+        count = 0   
+        for left, right, relation in relations: # TODO use different ds here
+            if relation == va.Relation.DISJOINT:
+                continue
+            if left != personal_variant: # Data contains two directions
+                continue
+            if sort_types(right) != 4: 
+                # warnings.warn(f"{left} has relation {relation.name} with {right} which is not a sample")
+                continue
+            if relation != va.Relation.IS_CONTAINED:
+                continue
+            count += 1
+        if count > 1:
+            warnings.warn(f"{personal_variant} has {count} relations while 1 is expected")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
@@ -144,7 +165,7 @@ def main():
             except ValueError as e:
                 warnings.warn(f"Could not parse sample {sample}: {e}")
         cache_set(supremal_samples, "supremal_samples")
-    
+
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
         for p_variant in list(p_variants.keys()):
@@ -166,17 +187,18 @@ def main():
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
     # TODO simplify 
-    # TODO run again to remove non-personal personal variants
-    # TODO why are personal variants not included in the relations in this way?
-    #   relations_samples = find_relations_all(reference_sequence, supremal_extended | personal_variants, supremal_samples, cache_name="relations_samples_extended") 
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    print(len(personal_variants.keys()))
 
     # TEST 3: check if cores are contained in subs, if variants are contained in alleles and if personal variants are contained in samples
     # test_coreallele_containment(suballeles, relations_extended)
     # test_variant_containment(corealleles, suballeles, relations_extended)
     # test_personal_variant_containment(samples_source, relations_samples)
+    # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
+    # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # TEST 4: determine star allele calling
     # TODO simplify
@@ -192,15 +214,15 @@ def main():
 
     # TEST 4.1 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
-    exit()
 
     # TEST 5: display some samples
     # TODO only show context of samples?
-    sample_context = find_context(["NA19777A"], pruned_samples[1], as_edges=True)
+    sample_context = find_context([], pruned_samples[1], as_edges=True)
 
     # VISUALIZE some context with information of interest
     context = pruned_extended
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
+    # pruned_nodes, pruned_edges = pruned_samples
     display_graph(pruned_nodes, pruned_edges, data)
 
 if __name__ == "__main__":
