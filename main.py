@@ -219,10 +219,13 @@ def main():
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, *pruned_samples, functions)
         classifications[sample_source][phasing] = classification
-    print_classification(classifications, detail_level=0)
+    # print_classification(classifications, detail_level=0)
 
     # TEST 5 validate star allele calling
     validate_calling(classifications, r"data\bastard.txt")
+    for f in functions:
+        if sort_types(f) == 3:
+            print(f, functions[f])
     exit()
 
     # display some samples

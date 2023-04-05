@@ -148,7 +148,7 @@ def validate_calling(classifications, validate_filename):
             ref = set()
             for classification in classifications[sample].values():
                 for class_ in classification: # Find first core per phase
-                    for allele in class_:
+                    for allele in class_: # TODO do this nicer
                         if sort_types(allele) != 1:
                             continue
                         ref.add(allele)

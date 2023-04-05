@@ -156,7 +156,7 @@ def star_allele_calling(sample, nodes, edges, functions):
             # TODO determine noise or uncertain based on sequence?
             matches["variants"]["personal"].append(variant)
         elif sort_types(variant) == 3: # Variant (equal to some in the database)
-            if is_noise(variant, cont_graph, functions): # Noise, not relevant for calling
+            if is_noise(variant, functions): # Noise, not relevant for calling
                 matches["variants"]["noise"].append(variant)
             else: # May be relevant for calling
                 matches["variants"]["uncertain"].append(variant)
@@ -175,25 +175,25 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_noise(variant, cont_graph, functions): 
+def is_noise(variant, functions): 
     """Determine if a variant is noise.
     
-    Noise is determined as not being relevant for calling.
-    """
-    # TODO redo (see notes)
-    # Check the PharmVar annotation
+    Noise is defined as not being relevant for calling.
+    The variant is noise if it has no impact on the protein.
+    Else it can be classified as 'uncertain'.
+    """    
+    # Check the PharmVar impact annotation for the variant
     if variant not in functions:
         raise Exception(f"Variant {variant} had no impact annotation.")
-    if functions[variant] != None:
-        if functions[variant] == '': # no change
-            pass # TODO return True here?
-        else:
-            return False
-    # Check based on occurrence in core alleles
-    for connected in cont_graph[variant]:
-        if sort_types(connected) == 1: # Is contained in a core allele
-            return False
-    return True
+    if functions[variant] == '': # Explicit no change
+        # TODO confirm that this is the correct interpretation
+        return True 
+    if functions[variant] == None: # Not known
+        pass # TODO handle None
+    else: # Explicit change
+        return False
+
+    return False # Default is not noise
 
 def print_classification(classifications, detail_level=0):
     """Print the classification of samples.
@@ -207,13 +207,13 @@ def print_classification(classifications, detail_level=0):
         selected_alleles = {'A': [], 'B': []}
         for phase, ordered_alleles in classification.items():
             for alleles in ordered_alleles:
-                for allele in alleles:
+                for allele in alleles: # TODO do this nicer
                     if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
                         continue
                     selected_alleles[phase].append(allele)
                     if detail_level == 0: # Only display best
                         break
-                else: # No break
+                else: # No break 
                     continue
                 break
         # Print
