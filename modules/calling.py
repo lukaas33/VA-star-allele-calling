@@ -205,15 +205,15 @@ def is_silent(variant):
     # TODO make faster (do one call?/calculate this locally?)
     if "equivalent_descriptions" not in data: # TODO why is this?
         warnings.warn(f"Variant {variant} had no equivalent descriptions.")
-        return True # TODO what is the correct response here?
+        return False # Assume worst
     if 'c' not in data['equivalent_descriptions']: # Can ignore non-coding equivalents as these are always silent
+        # n means non-coding, not in an ORF
         return True
     for nucleotide, protein in data["equivalent_descriptions"]['c']: # Check coding equivalents
         if '=' not in protein: # Not silent, affects aminoacids
             if classify_region(nucleotide) == "exon": # In exon
                 # TODO should return False even if in intron?
                 return False
-    # TODO what does n mean exactly?
     # TODO check for other representations?
     return True
 

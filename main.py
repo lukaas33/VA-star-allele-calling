@@ -135,27 +135,27 @@ def test_variant_annotation(functions):
         # Find equivalent representations of the variant
         data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}")
         if "equivalent_descriptions" not in data.keys():
-            warnings.warn(f"Could not find equivalent descriptions for {variant}")
+            warnings.warn(f"{variant} Could not find equivalent descriptions")
             continue
         data = data["equivalent_descriptions"]
-        if all([t for t in data.keys() if t in {'c', 'n'}]):
-                    warnings.warn(f"Unhandled types: {set(data.keys()) }")
-                    continue
+        if any(((t not in {'c', 'n'}) for t in data.keys())):
+            warnings.warn(f"Unhandled types: {set(data.keys()) }")
+            continue
         if 'c' in data.keys():
-            for repr, _ in data['c']:
-                # print('\t', repr, classify_region(repr))
-                if classify_region(repr) == 'exon':
-                    print(variant, 'exon')
+            for repr, protein in data['c']:
+                if classify_region(repr) == 'exon': # Possibly in coding region
+                    synonymous = '=' in protein
+                    if not synonymous:
+                        warnings.warn(f"{variant} is possibly a non synonymous mutation in an exon")
+                    else:
+                        warnings.warn(f"{variant} is possibly a synonymous mutation in an exon")
                     break
-            else: # Not exon, do second check
-                if 'n' in data.keys():
-                    for repr in data['n']:
-                        # print('\t', repr, classify_region(repr))
-                        if classify_region(repr) == 'exon':
-                            print(variant, 'exon')
-                            break
-                    else: # Not exon
-                        print(variant, 'intron')
+            else: 
+                # No exon placement possible so must be intron or UTR
+                pass
+        else: 
+            # n must be present so only variants in non-coding area present
+            pass
             
 
 def main():
@@ -195,6 +195,7 @@ def main():
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
+    # TODO check existing annotations
     test_variant_annotation(functions)
     exit()
 
