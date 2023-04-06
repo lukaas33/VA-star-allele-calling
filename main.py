@@ -4,8 +4,8 @@ from modules.graph import display_graph
 from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
-from modules.data import cache_get, cache_set
-from modules.calling import star_allele_calling, print_classification, sort_types
+from modules.data import cache_get, cache_set, api_get
+from modules.calling import star_allele_calling, print_classification, sort_types, classify_region
 from modules.utils import validate_relations, validate_calling
 import algebra as va
 
@@ -122,6 +122,42 @@ def test_core_annotation(corealleles, functions):
             elif functions[variant] == "":
                 warnings.warn(f"{variant} is in {core} but has 'no change' function annotation")
 
+def test_variant_annotation(functions):
+    """Find the correct annotation for the variants with no function annotation.
+    
+    Tests if variants are in an intron.
+    If one representation of the variant is in an exon this is taken as the annotation (worst case).
+    """
+    # TODO store these annotations
+    for variant, function in functions.items():
+        if function is not None:
+            continue
+        # Find equivalent representations of the variant
+        data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}")
+        if "equivalent_descriptions" not in data.keys():
+            warnings.warn(f"Could not find equivalent descriptions for {variant}")
+            continue
+        data = data["equivalent_descriptions"]
+        if all([t for t in data.keys() if t in {'c', 'n'}]):
+                    warnings.warn(f"Unhandled types: {set(data.keys()) }")
+                    continue
+        if 'c' in data.keys():
+            for repr, _ in data['c']:
+                # print('\t', repr, classify_region(repr))
+                if classify_region(repr) == 'exon':
+                    print(variant, 'exon')
+                    break
+            else: # Not exon, do second check
+                if 'n' in data.keys():
+                    for repr in data['n']:
+                        # print('\t', repr, classify_region(repr))
+                        if classify_region(repr) == 'exon':
+                            print(variant, 'exon')
+                            break
+                    else: # Not exon
+                        print(variant, 'intron')
+            
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_sequence = reference_get()
@@ -159,6 +195,8 @@ def main():
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
+    test_variant_annotation(functions)
+    exit()
 
     # parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 

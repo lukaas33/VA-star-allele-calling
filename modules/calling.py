@@ -198,17 +198,17 @@ def is_silent(variant):
     All coding representations must be in an UTR or intron to be considered non-coding.
     This is erring on the side of caution.
     """
+    # TODO merge with test (REDO)
     # TODO what about splice variants?
     # Find equivalent representations of the variant
-    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") # TODO calculate this locally?
+    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") 
+    # TODO make faster (do one call?/calculate this locally?)
     if "equivalent_descriptions" not in data: # TODO why is this?
         warnings.warn(f"Variant {variant} had no equivalent descriptions.")
         return True # TODO what is the correct response here?
     if 'c' not in data['equivalent_descriptions']: # Can ignore non-coding equivalents as these are always silent
         return True
     for nucleotide, protein in data["equivalent_descriptions"]['c']: # Check coding equivalents
-        print(nucleotide, classify_region(nucleotide))
-        print(protein)
         if '=' not in protein: # Not silent, affects aminoacids
             if classify_region(nucleotide) == "exon": # In exon
                 # TODO should return False even if in intron?
@@ -237,11 +237,10 @@ def is_noise(variant, functions):
     elif functions[variant] == None: # Not known
         # TODO check meaning of None
         print(variant)
-        if is_silent(variant):
-            print("Silent")	
+        if is_silent(variant): # TODO handle
+            pass
         else:
-            print("Not silent")
-            exit()
+            pass
     else: # Explicit change on protein level
         # TODO check non intronic
         # TODO check pattern
