@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling, print_classification, sort_types, classify_region
+from modules.calling import star_allele_calling, print_classification, sort_types, is_silent
 from modules.utils import validate_relations, validate_calling
 import algebra as va
 
@@ -122,41 +122,33 @@ def test_core_annotation(corealleles, functions):
             elif functions[variant] == "":
                 warnings.warn(f"{variant} is in {core} but has 'no change' function annotation")
 
-def test_variant_annotation(functions):
-    """Find the correct annotation for the variants with no function annotation.
-    
-    Tests if variants are in an intron.
-    If one representation of the variant is in an exon this is taken as the annotation (worst case).
-    """
-    # TODO store these annotations
-    for variant, function in functions.items():
-        if function is not None:
+def test_variant_annotation(variants, functions):
+    """Check if PharmVar annotations are consistent with the variant descriptions."""
+    # TODO cache this?
+    for variant in variants:
+        function = functions[variant]
+        classification = is_silent(variant)
+        print(variant, function, classification)
+        if function is None: # No expectation
+            # TODO what does None mean?
+            # TODO can give function here?
             continue
-        # Find equivalent representations of the variant
-        data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}")
-        if "equivalent_descriptions" not in data.keys():
-            warnings.warn(f"{variant} Could not find equivalent descriptions")
-            continue
-        data = data["equivalent_descriptions"]
-        if any(((t not in {'c', 'n'}) for t in data.keys())):
-            warnings.warn(f"Unhandled types: {set(data.keys()) }")
-            continue
-        if 'c' in data.keys():
-            for repr, protein in data['c']:
-                if classify_region(repr) == 'exon': # Possibly in coding region
-                    synonymous = '=' in protein
-                    if not synonymous:
-                        warnings.warn(f"{variant} is possibly a non synonymous mutation in an exon")
-                    else:
-                        warnings.warn(f"{variant} is possibly a synonymous mutation in an exon")
-                    break
-            else: 
-                # No exon placement possible so must be intron or UTR
-                pass
-        else: 
-            # n must be present so only variants in non-coding area present
-            pass
-            
+        elif function == '': # No change
+            if not classification['exon']: # No change because not in exon
+                continue
+            if not classification['non-synonymous']: # No change because synonymous
+                continue
+            warnings.warn(f"{variant} is annotated as 'no change' but may not be silent:{classification}")
+        elif function == 'splice defect': # No protein level change expected
+            if not classification['non-synonymous']: # No protein change because synonymous
+                continue
+            warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent:{classification}")
+        else: # Protein changing TODO check pattern here
+            if classification['exon']: # is in exon
+                continue
+            if classification['non-synonymous']: # is non-synonymous
+                continue
+            warnings.warn(f"{variant} is annotated as '{function}' but may be silent:{classification}")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -195,8 +187,7 @@ def main():
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
-    # TODO check existing annotations
-    test_variant_annotation(functions)
+    test_variant_annotation(variants, functions)
     exit()
 
     # parse samples

@@ -189,33 +189,41 @@ def classify_region(variant):
     return "exon" 
 
 def is_silent(variant):
-    """Determine if a variant could affect the protein sequence.
-    
-    Does this by checking if the variant equivalent descriptions.
-    Equivalents are found by using the Mutalyzer API which account for different placements of the variant.
-    
-    If one of the equivalent descriptions affects the amino acid sequence, the variant is not silent.
-    All coding representations must be in an UTR or intron to be considered non-coding.
-    This is erring on the side of caution.
+    """Characterize a variant as silent or not.
+     
+    More specifically the variant will be classified as being in an exon or not.
+    and as being synonymous or not. 
+    If not in an exon it will always be considered synonymous.
+    Will assume the worst case scenerio which means that if the variant can be described as an exon it will be considered as such.
+
+    Based on the Mutalyzer API which finds online annotations for the variant.
     """
-    # TODO merge with test (REDO)
-    # TODO what about splice variants?
+    classification = {'exon': False, 'non-synonymous': False} # If not proven differently
     # Find equivalent representations of the variant
-    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") 
-    # TODO make faster (do one call?/calculate this locally?)
-    if "equivalent_descriptions" not in data: # TODO why is this?
-        warnings.warn(f"Variant {variant} had no equivalent descriptions.")
-        return False # Assume worst
-    if 'c' not in data['equivalent_descriptions']: # Can ignore non-coding equivalents as these are always silent
-        # n means non-coding, not in an ORF
-        return True
-    for nucleotide, protein in data["equivalent_descriptions"]['c']: # Check coding equivalents
-        if '=' not in protein: # Not silent, affects aminoacids
-            if classify_region(nucleotide) == "exon": # In exon
-                # TODO should return False even if in intron?
-                return False
-    # TODO check for other representations?
-    return True
+    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}")
+    if "equivalent_descriptions" not in data.keys():
+        # No annotations available, must assume worst case
+        classification['exon'] = True
+        classification['non-synonymous'] = True
+        return classification
+    data = data["equivalent_descriptions"]
+    if any(((t not in {'c', 'n'}) for t in data.keys())): # Must be c or n or both
+        raise Exception(f"Unhandled types: {set(data.keys()) }")
+    if 'c' in data.keys():
+        for nucleotide, protein in data['c']: # Check equivalent coding representations
+            if classify_region(nucleotide) == 'exon': # Possibly in coding region
+                classification['exon'] = True # Assume worst
+                if '=' not in protein: # not synonymous and in exon
+                    classification['non-synonymous'] = True
+            # Don't need to check if synonymous since this only affects the protein sequence in exons
+    else: 
+        # n must be present (earlier check)
+        # so only variants in non-coding area present
+        pass
+    # QUESTION how to detect splice/transcription factor variants?
+    #           maybe by considering UTR and outside ORF differently?
+    # QUESTION can assume that when some equivalent representations are known, all are known?
+    return classification # All were intronic, outside ORF or UTR
 
 def is_noise(variant, functions): 
     """Determine if a variant is noise.
@@ -225,7 +233,8 @@ def is_noise(variant, functions):
     Else it can be classified as 'uncertain'.
 
     This approach uses the pharmvar annotation but falls back on a sequence based approach.
-    """    
+    """
+    # TODO replace with is_silent and test annotation?
     # Check the PharmVar impact annotation for the variant
     if variant not in functions:
         raise Exception(f"Variant {variant} had no impact annotation.")
