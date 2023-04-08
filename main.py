@@ -198,12 +198,11 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
+    rsids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
-    # TODO save test output
     # test_variant_annotation_mutalyzer(variants, functions)
-    # TODO also test against equivalent descriptions method
-    test_variant_annotation_entrez(variants, {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}, functions)
+    # test_variant_annotation_entrez(variants, , functions)
     exit()
 
     # parse samples
