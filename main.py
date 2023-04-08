@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling, print_classification, sort_types, is_silent
+from modules.calling import star_allele_calling, print_classification, sort_types, is_silent, protein_mutation
 from modules.utils import validate_relations, validate_calling
 import algebra as va
 
@@ -124,14 +124,11 @@ def test_core_annotation(corealleles, functions):
 
 def test_variant_annotation(variants, functions):
     """Check if PharmVar annotations are consistent with the variant descriptions."""
-    # TODO cache this?
     for variant in variants:
         function = functions[variant]
         classification = is_silent(variant)
-        print(variant, function, classification)
         if function is None: # No expectation
-            # TODO what does None mean?
-            # TODO can give function here?
+            # QUESTION: can make a prediction of function here?
             continue
         elif function == '': # No change
             if not classification['exon']: # No change because not in exon
@@ -143,12 +140,14 @@ def test_variant_annotation(variants, functions):
             if not classification['non-synonymous']: # No protein change because synonymous
                 continue
             warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent:{classification}")
-        else: # Protein changing TODO check pattern here
+        elif protein_mutation(function): # Explicit change on protein level
             if classification['exon']: # is in exon
                 continue
             if classification['non-synonymous']: # is non-synonymous
                 continue
             warnings.warn(f"{variant} is annotated as '{function}' but may be silent:{classification}")
+        else:
+            warnings.warn(f"{variant} is annotated as '{function}' but is not recognized")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -187,8 +186,7 @@ def main():
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
-    test_variant_annotation(variants, functions)
-    exit()
+    # test_variant_annotation(variants, functions)
 
     # parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 

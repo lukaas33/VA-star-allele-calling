@@ -99,12 +99,10 @@ def find_best_match(sample, matches, functions):
                 break
     # Look at variants to determine the certainty of the calling
     # TODO how to express this to the user
-    # if len(matches["variants"]["personal"]) > 0:
-        # warnings.warn(f"{sample}: classification may not be exact due to personal variants: {matches['variants']['personal']}.")
-        # pass
-    # if len(matches["variants"]["uncertain"]) > 0:
-        # warnings.warn(f"{sample}: classification may not be exact due to extra variants which cannot be determined as noise: {matches['variants']['uncertain']}.")
-        # pass
+    n_protein = len(matches['variants']['protein'])
+    n_uncertain = len(matches['variants']['uncertain'])
+    if n_protein + n_uncertain > 0:
+        warnings.warn(f"{sample}: classification is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
     return sorted_matches
 
 
@@ -127,8 +125,7 @@ def star_allele_calling(sample, nodes, edges, functions):
         "equivalent": [], 
         "contained": [], 
         "variants": {
-            "personal": [], 
-            "noise": [], 
+            "protein": [], 
             "uncertain": []
         }
     }
@@ -154,16 +151,13 @@ def star_allele_calling(sample, nodes, edges, functions):
     # Split variants into types
     variants = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
     for variant in variants:
+        complete_variant = variant
         if sort_types(variant) == 5: # Personal variant (not equal to any in the database)
-            # TODO determine noise or uncertain based on sequence?
-            matches["variants"]["personal"].append(variant)
-        elif sort_types(variant) == 3: # Variant (equal to some in the database)
-            if is_noise(variant, functions): # Noise, not relevant for calling
-                matches["variants"]["noise"].append(variant)
-            else: # May be relevant for calling
-                matches["variants"]["uncertain"].append(variant)
-        else:
-            raise Exception(f"Unknown variant type: {variant}.")
+            complete_variant = "NC_000022.11:g." + variant
+        if is_noise(complete_variant, functions): # No evidence of relevance
+            matches["variants"]["uncertain"].append(variant)
+        else: # Evidence of protein impact
+            matches["variants"]["protein"].append(variant)
     # Filter and return
     return find_best_match(sample, matches, functions) 
 
@@ -225,35 +219,38 @@ def is_silent(variant):
     # QUESTION can assume that when some equivalent representations are known, all are known?
     return classification # All were intronic, outside ORF or UTR
 
+# Check if a string is a protein mutation
+protein_mutation = lambda s: re.match(r"([A-Z][0-9]{1,}([A-Z]|fs|del)|[0-9]{1,}_[0-9]{1,}(ins|dup)[A-Z]{1,}(x2){0,})", s) # TODO change to match all possible values instead of observed
+
 def is_noise(variant, functions): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
     The variant is noise if it has no impact on the protein.
-    Else it can be classified as 'uncertain'.
 
     This approach uses the pharmvar annotation but falls back on a sequence based approach.
     """
-    # TODO replace with is_silent and test annotation?
+    if variant in functions: # PharmVar variant
+        function = functions[variant] 
+    else: # Personal variant
+        function = None
     # Check the PharmVar impact annotation for the variant
-    if variant not in functions:
-        raise Exception(f"Variant {variant} had no impact annotation.")
-    if functions[variant] == '': # Explicit no change
-        # TODO confirm that this is the correct interpretation
+    if function == '': # Explicit no change
+        # TODO handle exceptions here
         return True 
-    elif functions[variant] == 'splice defect': # Change in expression
+    elif function == 'splice defect': # Change in expression
         return False
-    elif functions[variant] == None: # Not known
-        # TODO check meaning of None
-        print(variant)
-        if is_silent(variant): # TODO handle
-            pass
-        else:
-            pass
-    else: # Explicit change on protein level
-        # TODO check non intronic
-        # TODO check pattern
+    elif function == None: # Not known in PharmVar
+        silent = is_silent(variant) # TODO cache this?
+        if silent['exon'] and silent['non-synonymous']: # Possibly not silent
+            return False
+        else: # No evidence for non-silent
+            return True 
+            # TODO refine this case for more certainty
+    elif protein_mutation(function): # Explicit change on protein level
         return False
+    else:
+        raise Exception(f"Unhandled function: {function}")
 
     return False # Default is not noise
 
