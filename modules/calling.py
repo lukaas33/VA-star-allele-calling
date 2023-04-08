@@ -3,6 +3,8 @@ import networkx as nx
 import warnings
 from .data import api_get
 import re
+from easy_entrez import EntrezAPI
+from easy_entrez.parsing import parse_dbsnp_variants
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
 
@@ -102,7 +104,7 @@ def find_best_match(sample, matches, functions):
     n_protein = len(matches['variants']['protein'])
     n_uncertain = len(matches['variants']['uncertain'])
     if n_protein + n_uncertain > 0:
-        warnings.warn(f"{sample}: classification is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
+        warnings.warn(f"{sample}: classification of {sorted_matches[0]} is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
     return sorted_matches
 
 
@@ -182,7 +184,7 @@ def classify_region(variant):
         return "intron"
     return "exon" 
 
-def is_silent(variant):
+def is_silent_mutalyzer(variant):
     """Characterize a variant as silent or not.
      
     More specifically the variant will be classified as being in an exon or not.
@@ -192,10 +194,11 @@ def is_silent(variant):
 
     Based on the Mutalyzer API which finds online annotations for the variant.
     """
-    classification = {'exon': False, 'non-synonymous': False} # If not proven differently
+    classification = {'exon': False, 'non-synonymous': False, "splicing": False} # If not proven differently
     # Find equivalent representations of the variant
-    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}")
+    data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") # TODO make faster with single call
     if "equivalent_descriptions" not in data.keys():
+        warnings.warn(f"No equivalent descriptions found for {variant}.")
         # No annotations available, must assume worst case
         classification['exon'] = True
         classification['non-synonymous'] = True
@@ -214,10 +217,75 @@ def is_silent(variant):
         # n must be present (earlier check)
         # so only variants in non-coding area present
         pass
+    classification['splicing'] = True # Must assume since no information otherwise
     # QUESTION how to detect splice/transcription factor variants?
     #           maybe by considering UTR and outside ORF differently?
     # QUESTION can assume that when some equivalent representations are known, all are known?
     return classification # All were intronic, outside ORF or UTR
+
+def is_silent_entrez(variant, rsids):
+    """Characterize a variant as silent or not.
+    
+    Similar to mutalyzer method but using the entrez API.
+    """
+    entrez_api = EntrezAPI(
+        'va-star-allele-calling',
+        'lucas@vanosenbruggen.com',
+        return_type='json'
+    )
+    classification = {"exon": False, "non-synonymous": False, "splicing": False}
+    # Find rsid of variant
+    # TODO possible for unknown/personal variants?
+    rsid = rsids[variant]
+    if rsid is None or rsid == '': # No information available, assume worst
+        warnings.warn(f"{variant} has no rsid: '{rsid}'")
+        classification['exon'] = True
+        classification['non-synonymous'] = True
+        classification['splicing'] = True
+        return classification
+    # Do lookup on entrez
+    result = entrez_api.fetch([rsid], max_results=1, database='snp')  # TODO make faster with single call
+    variants_data = parse_dbsnp_variants(result)
+    #  Convert possible annotations to boolean
+    consequences = list(variants_data.coordinates.consequence)
+    if len(consequences) != 1: # Wrong
+        raise Exception(f"Unexpected number of consequences: {consequences}")
+    for consequence in consequences[0].split(','): 
+        if consequence == "coding_sequence_variant": # Change in exon
+            classification["exon"] = True
+        elif consequence == "missense_variant": # Change in protein
+            classification["exon"] = True 
+            classification["non-synonymous"] = True
+        elif consequence == "stop_gained": # Early stop mutation
+            classification["non-synonymous"] = True
+            classification["exon"] = True
+        elif consequence == "frameshift_variant": # Frameshift (http://purl.obolibrary.org/obo/SO_0001589)
+            classification["non-synonymous"] = True
+            classification["exon"] = True
+        elif consequence == "inframe_deletion": # Deletes amino acids (http://purl.obolibrary.org/obo/SO_0001822)
+            classification["non-synonymous"] = True
+            classification["exon"] = True
+        elif consequence == "inframe_insertion": # Inserts amino acids (http://purl.obolibrary.org/obo/SO_0001821)
+            classification["non-synonymous"] = True
+            classification["exon"] = True
+        elif consequence == "splice_acceptor_variant": # Splice defect
+            classification["splicing"] = True
+        elif consequence == "splice_donor_variant": # Splice defect
+            classification["splicing"] = True
+        elif consequence == "synonymous_variant": # No impact on protein
+            pass
+        elif consequence == "intron_variant": # Not in exon
+            pass
+        elif "upstream" in consequence: # Outside ORF (TODO check if this is correct)
+            pass
+        elif "downstream" in consequence: # Outside ORF (TODO check if this is correct)
+            pass
+        elif "UTR_variant" in consequence: # In UTR (TODO check if this is correct)
+            pass
+        else:
+            # TODO handle other possible consequences    
+            raise Exception(f"Unknown consequence for {variant} ({rsid}): {consequence}")
+    return classification
 
 # Check if a string is a protein mutation
 protein_mutation = lambda s: re.match(r"([A-Z][0-9]{1,}([A-Z]|fs|del)|[0-9]{1,}_[0-9]{1,}(ins|dup)[A-Z]{1,}(x2){0,})", s) # TODO change to match all possible values instead of observed
@@ -230,6 +298,7 @@ def is_noise(variant, functions):
 
     This approach uses the pharmvar annotation but falls back on a sequence based approach.
     """
+    # TODO include entrez
     if variant in functions: # PharmVar variant
         function = functions[variant] 
     else: # Personal variant

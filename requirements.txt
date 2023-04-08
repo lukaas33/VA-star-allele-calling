@@ -6,3 +6,4 @@ plotly
 pandas
 networkx
 PyVCF 
+easy-entrez

@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling, print_classification, sort_types, is_silent, protein_mutation
+from modules.calling import star_allele_calling, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation
 from modules.utils import validate_relations, validate_calling
 import algebra as va
 
@@ -122,32 +122,46 @@ def test_core_annotation(corealleles, functions):
             elif functions[variant] == "":
                 warnings.warn(f"{variant} is in {core} but has 'no change' function annotation")
 
-def test_variant_annotation(variants, functions):
-    """Check if PharmVar annotations are consistent with the variant descriptions."""
+def _test_pharmvar_annotation(variant, function, classification):
+    """Test if a prediction of the function agrees with the pharmvar annotation."""
+    if function is None: # No expectation
+        # QUESTION: can make a prediction of function here?
+        return
+    elif function == '': # No change
+        if not classification['exon']: # No change because not in exon
+            return
+        if not classification['non-synonymous']: # No change because synonymous
+            return
+        warnings.warn(f"{variant} is annotated as 'no change' but may not be silent: {classification}")
+    elif function == 'splice defect': # No protein level change expected
+        if not classification['non-synonymous']: # No protein change because synonymous
+            return
+        if classification['splicing']:
+            return
+        warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent: {classification}")
+    elif protein_mutation(function): # Explicit change on protein level
+        if classification['exon']: # is in exon
+            return
+        if classification['non-synonymous']: # is non-synonymous
+            return
+        warnings.warn(f"{variant} is annotated as '{function}' but may be silent: {classification}")
+    else:
+        warnings.warn(f"{variant} is annotated as '{function}' but is not recognized")
+
+def test_variant_annotation_mutalyzer(variants, functions):
+    """Check if PharmVar annotations are consistent with the equivalent variant descriptions."""
     for variant in variants:
         function = functions[variant]
-        classification = is_silent(variant)
-        if function is None: # No expectation
-            # QUESTION: can make a prediction of function here?
-            continue
-        elif function == '': # No change
-            if not classification['exon']: # No change because not in exon
-                continue
-            if not classification['non-synonymous']: # No change because synonymous
-                continue
-            warnings.warn(f"{variant} is annotated as 'no change' but may not be silent:{classification}")
-        elif function == 'splice defect': # No protein level change expected
-            if not classification['non-synonymous']: # No protein change because synonymous
-                continue
-            warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent:{classification}")
-        elif protein_mutation(function): # Explicit change on protein level
-            if classification['exon']: # is in exon
-                continue
-            if classification['non-synonymous']: # is non-synonymous
-                continue
-            warnings.warn(f"{variant} is annotated as '{function}' but may be silent:{classification}")
-        else:
-            warnings.warn(f"{variant} is annotated as '{function}' but is not recognized")
+        classification = is_silent_mutalyzer(variant)
+        _test_pharmvar_annotation(variant, function, classification)
+
+def test_variant_annotation_entrez(variants, rsids, functions):
+    """Check if PharmVar annotations are consistent with the Entrez annotations."""
+    for variant in variants:
+        # Find classification 
+        classification = is_silent_entrez(variant, rsids)
+        # Compare against PharmVar annotation
+        _test_pharmvar_annotation(variant, functions[variant], classification)
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -186,7 +200,11 @@ def main():
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
-    # test_variant_annotation(variants, functions)
+    # TODO save test output
+    # test_variant_annotation_mutalyzer(variants, functions)
+    # TODO also test against equivalent descriptions method
+    test_variant_annotation_entrez(variants, {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}, functions)
+    exit()
 
     # parse samples
     samples_source = parse_samples(reference_sequence) # TODO also check unphased 
