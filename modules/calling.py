@@ -306,12 +306,12 @@ def is_noise(variant, functions):
     Noise is defined as not being relevant for calling.
     The variant is noise if it has no impact on the protein.
 
-    This approach uses the pharmvar annotation but falls back on a sequence based approach.
+    This approach uses the online annotations but falls back on a sequence based approach.
     """
     if variant in functions: # PharmVar variant
         function = functions[variant] 
     else: # Personal variant
-        function = None
+        function = None # No annotation known
     # Check the PharmVar impact annotation for the variant
     if function == '': # Explicit no change
         # TODO handle exceptions here
