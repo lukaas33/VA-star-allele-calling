@@ -126,27 +126,28 @@ def _test_pharmvar_annotation(variant, function, classification):
     """Test if a prediction of the function agrees with the pharmvar annotation."""
     if function is None: # No expectation
         # QUESTION: can make a prediction of function here?
-        return
+        return True
     elif function == '': # No change
         if not classification['exon']: # No change because not in exon
-            return
+            return True
         if not classification['non-synonymous']: # No change because synonymous
-            return
+            return True
         warnings.warn(f"{variant} is annotated as 'no change' but may not be silent: {classification}")
     elif function == 'splice defect': # No protein level change expected
         if not classification['non-synonymous']: # No protein change because synonymous
-            return
+            return True
         if classification['splicing']:
-            return
+            return True
         warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent: {classification}")
     elif protein_mutation(function): # Explicit change on protein level
         if classification['exon']: # is in exon
-            return
+            return True
         if classification['non-synonymous']: # is non-synonymous
-            return
+            return True
         warnings.warn(f"{variant} is annotated as '{function}' but may be silent: {classification}")
     else:
         warnings.warn(f"{variant} is annotated as '{function}' but is not recognized")
+    return False
 
 def test_variant_annotation_mutalyzer(variants, functions):
     """Check if PharmVar annotations are consistent with the equivalent variant descriptions."""

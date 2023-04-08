@@ -234,6 +234,7 @@ def is_silent_entrez(variant, rsids):
         return_type='json'
     )
     classification = {"exon": False, "non-synonymous": False, "splicing": False}
+    # QUESTION are these default values correct? (not if data is incomplete)
     # Find rsid of variant
     # TODO possible for unknown/personal variants?
     rsid = rsids[variant]
@@ -242,6 +243,7 @@ def is_silent_entrez(variant, rsids):
         classification['exon'] = True
         classification['non-synonymous'] = True
         classification['splicing'] = True
+        # TODO is this correct?
         return classification
     # Do lookup on entrez
     result = entrez_api.fetch([rsid], max_results=1, database='snp')  # TODO make faster with single call
@@ -287,6 +289,14 @@ def is_silent_entrez(variant, rsids):
             raise Exception(f"Unknown consequence for {variant} ({rsid}): {consequence}")
     return classification
 
+def is_silent_position(variant, allele):
+    """Check if a variant is silent based on positions of variants.
+    
+    This is a different approach to the other methods since it doesn't rely on online sources.
+    Instead it uses the position of a variant to see if it can undo the effect of a different variant.
+    """
+    pass
+
 # Check if a string is a protein mutation
 protein_mutation = lambda s: re.match(r"([A-Z][0-9]{1,}([A-Z]|fs|del)|[0-9]{1,}_[0-9]{1,}(ins|dup)[A-Z]{1,}(x2){0,})", s) # TODO change to match all possible values instead of observed
 
@@ -298,7 +308,6 @@ def is_noise(variant, functions):
 
     This approach uses the pharmvar annotation but falls back on a sequence based approach.
     """
-    # TODO include entrez
     if variant in functions: # PharmVar variant
         function = functions[variant] 
     else: # Personal variant
@@ -310,12 +319,8 @@ def is_noise(variant, functions):
     elif function == 'splice defect': # Change in expression
         return False
     elif function == None: # Not known in PharmVar
-        silent = is_silent(variant) # TODO cache this?
-        if silent['exon'] and silent['non-synonymous']: # Possibly not silent
-            return False
-        else: # No evidence for non-silent
-            return True 
-            # TODO refine this case for more certainty
+        # TODO handle this
+        pass
     elif protein_mutation(function): # Explicit change on protein level
         return False
     else:
