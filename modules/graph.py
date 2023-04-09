@@ -48,69 +48,89 @@ def plot_counts(elements):
 def layout_graph(elements, nodes, edges):
     """Returns the layout for the Dash graph"""
     default_layout = 'cose-bilkent' 
-    return html.Div([
-        dcc.Tabs([
-            dcc.Tab(
-                label="Network",
-                children=[
-                    cyto.Cytoscape(
-                        id='graph',
-                        style = {
-                            "width": "100%",
-                            "height": "80vh"
-                        },
-                        stylesheet = default_stylesheet,
-                        elements = elements
-                    ),
-                    html.Button("Export image", id="image-svg"),
-                    html.Button('Subgraph selection', id='subgraph'),
-                    dcc.Input(
-                        id="filter",
-                        placeholder="Find allele or variant...",
-                        type="text",
-                        debounce=True
-                    ),
-                    dcc.Dropdown(
-                        id='change-layout',
-                        value=default_layout,
+    return dcc.Tabs([
+        dcc.Tab(
+            label="Network",
+            children=[
+                cyto.Cytoscape(
+                    id='graph',
+                    style = {
+                        "width": "100%",
+                        "height": "80vh"
+                    },
+                    stylesheet = default_stylesheet,
+                    elements = elements
+                ),
+                html.Div(
+                    id='settings',
+                    style = {
+                        "display": "flex", 
+                        "flexWrap": "wrap" # Inline
+                    },
+                    children = [
+                        dcc.Dropdown(
+                        id='image-type',
+                        value='svg',
                         clearable=False,
+                        style={"width": "100px"},
                         options=[
-                            # Layouts which load efficiently enough
-                            {'label': name.capitalize(), 'value': name}
-                            for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
+                            {'label': 'SVG', 'value': 'svg'},
+                            {'label': 'PNG', 'value': 'png'},
+                            {'label': 'JPEG', 'value': 'jpeg'},
+                            {'label': 'PDF', 'value': 'pdf'}
                         ]
-                    )
-                ]
-            ),
-            dcc.Tab(
-                label="Statistics",
-                children=[
-                    dcc.Graph(
-                        id="plot-arity",
-                        figure=plot_arity(nodes, edges)
                     ),
-                    # TODO fix?
-                    # dcc.Graph(
-                    #     id="relation-counts",
-                    #     figure=plot_relations(edges)
-                    # ),
-                    dcc.Graph(
-                        id="pruned-relation-counts",
-                        figure=plot_relations(edges, pruned=True)
-                    ),                    
-                    dcc.Graph(
-                        id="counts",
-                        figure=plot_counts(elements)
-                    )
-                ]
-            ),
-            dcc.Tab(
-                label="Selection data",
-                children=[
-                    html.Pre(id='data')
-                ]
-            )
-        ])        
+                        html.Button("Export image", id="image"),
+                        html.Button('Subgraph selection', id='subgraph'),
+                        dcc.Input(
+                            id="filter",
+                            placeholder="Find allele or variant...",
+                            type="text",
+                            debounce=True
+                        ),
+                        dcc.Dropdown(
+                            id='change-layout',
+                            value=default_layout,
+                            clearable=False,
+                            style={"width": "200px"},
+                            options=[
+                                # Layouts which load efficiently enough
+                                {'label': name.capitalize(), 'value': name}
+                                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
+                            ]
+                        )
+                    ]
+                ),
+            ]
+        ),
+        dcc.Tab(
+            label="Statistics",
+            children=[
+                dcc.Graph(
+                    id="plot-arity",
+                    figure=plot_arity(nodes, edges)
+                ),
+                # TODO fix?
+                # dcc.Graph(
+                #     id="relation-counts",
+                #     figure=plot_relations(edges)
+                # ),
+                dcc.Graph(
+                    id="pruned-relation-counts",
+                    figure=plot_relations(edges, pruned=True)
+                ),                    
+                dcc.Graph(
+                    id="counts",
+                    figure=plot_counts(elements)
+                )
+            ]
+        ),
+        dcc.Tab(
+            label="Selection data",
+            children=[
+                html.Pre(id='data')
+            ]
+        )
     ])
 
 def interactive_graph(app, original_elements, edges):
@@ -148,12 +168,12 @@ def interactive_graph(app, original_elements, edges):
         return selection_stylesheet(context)
     @app.callback(
         Output("graph", "generateImage"),
-        Input("image-svg", "n_clicks"))
-    def get_image(n_clicks):
+        [Input("image", "n_clicks"), Input("image-type", "value")])
+    def get_image(n_clicks, type):
         if n_clicks is None:
             return no_update
         return {
-            'type': 'svg',
+            'type': type,
             'action': 'download'
             }
     # Subgraph selection
