@@ -104,7 +104,8 @@ def find_best_match(sample, matches, functions):
     n_protein = len(matches['variants']['protein'])
     n_uncertain = len(matches['variants']['uncertain'])
     if n_protein + n_uncertain > 0:
-        warnings.warn(f"{sample}: classification of {sorted_matches[0]} is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
+        # warnings.warn(f"{sample}: classification of {sorted_matches[0]} is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
+        pass
     return sorted_matches
 
 
@@ -162,6 +163,16 @@ def star_allele_calling(sample, nodes, edges, functions):
             matches["variants"]["protein"].append(variant)
     # Filter and return
     return find_best_match(sample, matches, functions) 
+
+def star_allele_calling_all(samples, nodes, edges, functions):
+    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples) if sort_types(sample) == 4} 
+    for sample in samples:
+        if sort_types(sample) != 4:
+            continue
+        sample_source, phasing = sample[:-1], sample[-1]
+        classification = star_allele_calling(sample, nodes, edges, functions)
+        classifications[sample_source][phasing] = classification
+    return classifications
 
 def matches_core(match):
     """Print the core allele from a match."""

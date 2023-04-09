@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation
+from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation
 from modules.utils import validate_relations, validate_calling
 import algebra as va
 
@@ -226,11 +226,10 @@ def main():
                 if "unorderable variants" in str(e):
                     warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
                     print(*variants.keys())
+                    # TODO how to handle for unphased
                 else:
                     raise e
         cache_set(supremal_samples, "supremal_samples")
-
-    print([s for s, t in samples_source.items() if t == {}])
 
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
@@ -265,20 +264,12 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Determine star allele calling
-    # TODO simplify
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples_source.keys()) if sort_types(sample) == 4} 
-    for sample in samples_source.keys():
-        if sort_types(sample) != 4:
-            continue
-        sample_source, phasing = sample[:-1], sample[-1]
-        classification = star_allele_calling(sample, *pruned_samples, functions)
-        classifications[sample_source][phasing] = classification
+    classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions)
     # print_classification(classifications, detail_level=0)
-    exit()
 
     # TEST 5 validate star allele calling
-    validate_calling(classifications, r"data\bastard.txt")
+    # validate_calling(classifications, r"data\bastard.txt")
 
     # display some samples
     # TODO only show context of samples?
