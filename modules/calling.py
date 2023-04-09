@@ -165,10 +165,8 @@ def star_allele_calling(sample, nodes, edges, functions):
     return find_best_match(sample, matches, functions) 
 
 def star_allele_calling_all(samples, nodes, edges, functions):
-    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples) if sort_types(sample) == 4} 
+    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
     for sample in samples:
-        if sort_types(sample) != 4:
-            continue
         sample_source, phasing = sample[:-1], sample[-1]
         classification = star_allele_calling(sample, nodes, edges, functions)
         classifications[sample_source][phasing] = classification

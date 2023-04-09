@@ -45,9 +45,8 @@ def plot_counts(elements):
     figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Amount of alleles and variants")
     return figure
 
-def layout_graph(elements, nodes, edges):
+def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
     """Returns the layout for the Dash graph"""
-    default_layout = 'cose-bilkent' 
     return dcc.Tabs([
         dcc.Tab(
             label="Network",
@@ -57,6 +56,10 @@ def layout_graph(elements, nodes, edges):
                     style = {
                         "width": "100%",
                         "height": "80vh"
+                    },
+                    layout={
+                        "name": default_layout,
+                        "fit": False # TODO remove
                     },
                     stylesheet = default_stylesheet,
                     elements = elements
@@ -77,7 +80,6 @@ def layout_graph(elements, nodes, edges):
                             {'label': 'SVG', 'value': 'svg'},
                             {'label': 'PNG', 'value': 'png'},
                             {'label': 'JPEG', 'value': 'jpeg'},
-                            {'label': 'PDF', 'value': 'pdf'}
                         ]
                     ),
                         html.Button("Export image", id="image"),
@@ -96,7 +98,7 @@ def layout_graph(elements, nodes, edges):
                             options=[
                                 # Layouts which load efficiently enough
                                 {'label': name.capitalize(), 'value': name}
-                                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent']
+                                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', default_layout]
                             ]
                         )
                     ]
@@ -138,13 +140,16 @@ def interactive_graph(app, original_elements, edges):
     # Change layout
     @app.callback(
         Output('graph', 'layout'), 
-        Input('change-layout', 'value'))
-    def update_layout(new_layout):
-        # TODO don't call at load?
+        [Input('graph', 'layout'), Input('change-layout', 'value')])
+    def update_layout(current_layout, new_layout):
+        if current_layout is None:
+            return no_update
+        if current_layout["name"] == new_layout:
+            return no_update
         settings = {}
         settings["name"] = new_layout
-        settings["nodeDimensionsIncludeLabels"] = True
         if new_layout == 'cose-bilkent' or new_layout == 'cose':
+            settings["nodeDimensionsIncludeLabels"] = True
             settings["idealEdgeLength"] = 250
             settings["tile"] = False
             settings["animate"] = False
@@ -156,7 +161,9 @@ def interactive_graph(app, original_elements, edges):
     def displayTapNodeData(data):
         if not data:
             return no_update
-        return json.dumps(data, indent=2)
+        if "data" not in data:
+            return no_update
+        return json.dumps(data["data"], indent=2)
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -170,6 +177,7 @@ def interactive_graph(app, original_elements, edges):
         Output("graph", "generateImage"),
         [Input("image", "n_clicks"), Input("image-type", "value")])
     def get_image(n_clicks, type):
+        # TODO fix downloading on change
         if n_clicks is None:
             return no_update
         return {
@@ -214,7 +222,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data):
+def display_graph(nodes, edges, data, positions=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -225,12 +233,11 @@ def display_graph(nodes, edges, data):
     # TODO create js page
     # TODO why does it call this function twice
     # TODO add link between phased samples
-    # TODO display sample variants differently
-    # TODO when dragging sometimes it moves the whole graph
     print("Displaying graph")
     # Convert to proper format for cytoscape
+    if positions is None: positions = [(0, 0) for _ in nodes]
     elements = []
-    for node in nodes:
+    for node, pos in zip(nodes, positions):
         if "*" in node: # TODO use classes for this
             label = "*" + node.split("*")[1]
             if "." in node:
@@ -252,7 +259,8 @@ def display_graph(nodes, edges, data):
                 "label": label,
                 "data": data[node] if node in data else None
             },
-            "classes": category
+            "classes": category,
+            "position": {"x": pos[0], "y": pos[1]}
         })
     for node, other, relation in edges:
         elements.append({
@@ -266,7 +274,7 @@ def display_graph(nodes, edges, data):
     cyto.load_extra_layouts()
     app = Dash(__name__)
     # Show graph
-    app.layout = layout_graph(elements, nodes, edges)
+    app.layout = layout_graph(elements, nodes, edges, default_layout="preset") # TODO change
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges)
     # Start webpage

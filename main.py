@@ -2,11 +2,12 @@ import warnings
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
 from modules.compare import find_relations_all
-from modules.relations import prune_relations, find_context
+from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation
 from modules.utils import validate_relations, validate_calling
+from modules.assets.generate_images import *
 import algebra as va
 
 def test_naming(corealleles, suballeles):
@@ -203,7 +204,7 @@ def main():
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
-    # test_variant_annotation_entrez(variants, , functions)
+    # test_variant_annotation_entrez(variants, rsids, functions)
 
     # parse samples
     samples_source = parse_samples(reference_sequence) 
@@ -251,10 +252,9 @@ def main():
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
-    # TODO simplify 
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended_phased")
+    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal_phased")
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
-    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
     # TEST 4: check if relations are consistent with atomic variants
@@ -264,22 +264,24 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Determine star allele calling
-    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions)
+    # pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
+    # classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions)
     # print_classification(classifications, detail_level=0)
 
     # TEST 5 validate star allele calling
     # validate_calling(classifications, r"data\bastard.txt")
 
-    # display some samples
-    # TODO only show context of samples?
-    sample_context = find_context([], pruned_samples[1], as_edges=True)
-
     # VISUALIZE some context with information of interest
-    context = pruned_extended
-    pruned_nodes, pruned_edges = prune_relations(context + sample_context)
-    # pruned_nodes, pruned_edges = pruned_samples
-    display_graph(pruned_nodes, pruned_edges, data)
+    # TODO only show context of samples?
+    # sample_context = find_context([], pruned_samples[1], as_edges=True)
+    # sample_context = []
+    # context = pruned_extended
+    # pruned_nodes, pruned_edges = prune_relations(context + sample_context)
+    # display_graph(pruned_nodes, pruned_edges, data)
+
+    # Generate images
+    nodes, edges, positions = image_reduction_equivalence(relations_extended)
+    display_graph(nodes, edges, data, positions=positions)
 
 if __name__ == "__main__":
     main()
