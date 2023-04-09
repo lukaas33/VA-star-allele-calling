@@ -230,6 +230,8 @@ def main():
                     raise e
         cache_set(supremal_samples, "supremal_samples")
 
+    print([s for s, t in samples_source.items() if t == {}])
+
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
         for p_variant in list(p_variants.keys()):
@@ -249,11 +251,6 @@ def main():
     # Split into personal variants and samples
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
-    print("\n\n\n\n\n\n\n")
-    print(personal_variants.keys())
-    print()
-    print(samples.keys())
-    exit()
     # Find all relations with samples
     # TODO simplify 
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
