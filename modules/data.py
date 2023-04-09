@@ -125,5 +125,5 @@ def parse_samples(reference):
                 pass 
             samples[phased_name] = phased_allele[i]
         # Add unphased sample to samples
-        samples[name] = {**phased_allele[0], **phased_allele[1]}
+        samples[name] = phased_allele[0] | phased_allele[1]
     return samples

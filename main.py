@@ -206,21 +206,28 @@ def main():
     # test_variant_annotation_entrez(variants, , functions)
 
     # parse samples
-    samples_source = parse_samples(reference_sequence) # TODO also check unphased 
+    samples_source = parse_samples(reference_sequence) 
     try:
         supremal_samples = cache_get("supremal_samples")
     except:
         supremal_samples = {}
         for sample, variants in samples_source.items():
-            if variants == {}: # TODO handle differently
+            if variants == {}: # TODO handle differently (as empty variant?)
                 continue
+            # Parse individual variants
             for hgvs, variant in variants.items(): # Find supremal for individual variants
+                if hgvs in supremal_samples:
+                    continue
                 supremal_samples[hgvs] = to_supremal([variant], reference_sequence)
+            # Parse alleles (variants together)
             try:
                 supremal_samples[sample] = to_supremal(list(variants.values()), reference_sequence) # Try to find supremal for sample
             except ValueError as e:
                 if "unorderable variants" in str(e):
-                    warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants: {variants.keys()}")
+                    warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
+                    print(*variants.keys())
+                else:
+                    raise e
         cache_set(supremal_samples, "supremal_samples")
 
     # Filter out non-personal variants (are already in dataset)
@@ -242,6 +249,7 @@ def main():
     # Split into personal variants and samples
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
+    print("\n\n\n\n\n\n\n")
     print(personal_variants.keys())
     print()
     print(samples.keys())
