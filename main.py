@@ -157,11 +157,11 @@ def test_variant_annotation_mutalyzer(variants, functions):
         classification = is_silent_mutalyzer(variant)
         _test_pharmvar_annotation(variant, function, classification)
 
-def test_variant_annotation_entrez(variants, rsids, functions):
+def test_variant_annotation_entrez(variants, ids, functions):
     """Check if PharmVar annotations are consistent with the Entrez annotations."""
     for variant in variants:
         # Find classification 
-        classification = is_silent_entrez(variant, rsids)
+        classification = is_silent_entrez(variant, ids)
         # Compare against PharmVar annotation
         _test_pharmvar_annotation(variant, functions[variant], classification)
 
@@ -200,11 +200,12 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
-    rsids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
+    ids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
-    # test_variant_annotation_entrez(variants, rsids, functions)
+    test_variant_annotation_entrez(variants, ids, functions)
+    exit()
 
     # parse samples
     samples_source = parse_samples(reference_sequence) 
@@ -252,8 +253,8 @@ def main():
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended_phased")
-    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal_phased")
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
@@ -264,24 +265,24 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Determine star allele calling
-    # pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
+    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     # classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions)
     # print_classification(classifications, detail_level=0)
+    exit()
 
     # TEST 5 validate star allele calling
     # validate_calling(classifications, r"data\bastard.txt")
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    # sample_context = find_context([], pruned_samples[1], as_edges=True)
-    # sample_context = []
-    # context = pruned_extended
-    # pruned_nodes, pruned_edges = prune_relations(context + sample_context)
-    # display_graph(pruned_nodes, pruned_edges, data)
+    sample_context = find_context([], pruned_samples[1], as_edges=True)
+    context = pruned_extended
+    pruned_nodes, pruned_edges = prune_relations(context + sample_context)
+    display_graph(pruned_nodes, pruned_edges, data)
 
     # Generate images
-    nodes, edges, positions = image_reduction_equivalence(relations_extended)
-    display_graph(nodes, edges, data, positions=positions)
+    # nodes, edges, positions = image_reduction_equivalence(relations_extended)
+    # display_graph(nodes, edges, data, positions=positions)
 
 if __name__ == "__main__":
     main()

@@ -6,6 +6,12 @@ import re
 from easy_entrez import EntrezAPI
 from easy_entrez.parsing import parse_dbsnp_variants
 
+entrez_api = EntrezAPI(
+    'va-star-allele-calling',
+    'lucas@vanosenbruggen.com',
+    return_type='json'
+)
+
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
 
 def sort_function(f):
@@ -232,30 +238,63 @@ def is_silent_mutalyzer(variant):
     # QUESTION can assume that when some equivalent representations are known, all are known?
     return classification # All were intronic, outside ORF or UTR
 
-def is_silent_entrez(variant, rsids):
+def find_id_hgvs(variant):
+    """Find the reference snp id of a variant based n hgvs."""
+    chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
+    position = re.findall(r"g\.([0-9]*)", variant)[0]
+    right = re.findall(r"g\.[0-9]*_([0-9]*)", variant)
+    if len(right) == 1: position = f"{position}:{right[0]}"
+    result = entrez_api.search(
+        {"chromosome": chromosome, "organism": 'human', "position": position},
+        database='snp',
+        max_results=10
+    )
+    result = entrez_api.fetch( # TODO make faster with single call
+        result.data['esearchresult']['idlist'], 
+        database='snp',
+        max_results=len(result.data['esearchresult']), 
+    )  
+    ids = []
+    variants_data = parse_dbsnp_variants(result)
+    for id, hgvs_lst in variants_data.summary.HGVS.items(): # Find rsid that matches HGVS (TODO is compare needed here?)
+        if variant in hgvs_lst:
+            ids.append(id)
+    # ids = [int(id) for id in result.data['esearchresult']['idlist']]
+    if len(ids) > 1:
+        warnings.warn(f"{variant} multiple ids found: {ids}")
+        return None # TODO handle
+    elif len(ids) == 0:
+        warnings.warn(f"{variant} no ids found")
+        return None # TODO handle
+    warnings.warn(f"{variant} had no id but {ids[0]} found")
+    return ids[0]
+
+
+def is_silent_entrez(variant, ids):
     """Characterize a variant as silent or not.
     
     Similar to mutalyzer method but using the entrez API.
     """
-    entrez_api = EntrezAPI(
-        'va-star-allele-calling',
-        'lucas@vanosenbruggen.com',
-        return_type='json'
-    )
     classification = {"exon": False, "non-synonymous": False, "splicing": False}
     # QUESTION are these default values correct? (not if data is incomplete)
-    # Find rsid of variant
+    # Find id of variant
     # TODO possible for unknown/personal variants?
-    rsid = rsids[variant]
-    if rsid is None or rsid == '': # No information available, assume worst
-        warnings.warn(f"{variant} has no rsid: '{rsid}'")
+    id = ids[variant]
+    if id is None or id == '': # Try getting 
+        id = find_id_hgvs(variant)
+    if id is None or id == '': # No information available, assume worst
+        warnings.warn(f"{variant} has no id: '{id}'")
         classification['exon'] = True
         classification['non-synonymous'] = True
         classification['splicing'] = True
         # TODO is this correct?
         return classification
     # Do lookup on entrez
-    result = entrez_api.fetch([rsid], max_results=1, database='snp')  # TODO make faster with single call
+    result = entrez_api.fetch( # TODO make faster with single call
+        [id], 
+        database='snp',
+        max_results=1, 
+    )  
     variants_data = parse_dbsnp_variants(result)
     #  Convert possible annotations to boolean
     consequences = list(variants_data.coordinates.consequence)
@@ -295,7 +334,7 @@ def is_silent_entrez(variant, rsids):
             pass
         else:
             # TODO handle other possible consequences    
-            raise Exception(f"Unknown consequence for {variant} ({rsid}): {consequence}")
+            raise Exception(f"Unknown consequence for {variant} ({id}): {consequence}")
     return classification
 
 def is_silent_position(variant, allele):
