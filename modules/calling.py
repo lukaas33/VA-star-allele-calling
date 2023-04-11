@@ -10,6 +10,7 @@ entrez_api = EntrezAPI(
     'va-star-allele-calling',
     'lucas@vanosenbruggen.com',
     return_type='json'
+    # TODO add api key for more requests (10/s instead of 3/s)
 )
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
@@ -205,7 +206,7 @@ def is_silent_mutalyzer(variant):
     More specifically the variant will be classified as being in an exon or not.
     and as being synonymous or not. 
     If not in an exon it will always be considered synonymous.
-    Will assume the worst case scenerio which means that if the variant can be described as an exon it will be considered as such.
+    Will assume the worst case scenario which means that if the variant can be described as an exon it will be considered as such.
 
     Based on the Mutalyzer API which finds online annotations for the variant.
     """
@@ -238,36 +239,49 @@ def is_silent_mutalyzer(variant):
     # QUESTION can assume that when some equivalent representations are known, all are known?
     return classification # All were intronic, outside ORF or UTR
 
-def find_id_hgvs(variant):
+def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
-    position = re.findall(r"g\.([0-9]*)", variant)[0]
-    right = re.findall(r"g\.[0-9]*_([0-9]*)", variant)
-    if len(right) == 1: position = f"{position}:{right[0]}"
+    va_variant = va.variants.parse_hgvs(variant)
+    position = f"{va_variant[0].start + 1}:{va_variant[0].end + 1}"
+    print(variant, chromosome, position)
+    # Lookup ids at the same position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
         database='snp',
-        max_results=10
+        max_results=1000 # Should not be limiting
     )
-    result = entrez_api.fetch( # TODO make faster with single call
-        result.data['esearchresult']['idlist'], 
-        database='snp',
-        max_results=len(result.data['esearchresult']), 
-    )  
-    ids = []
-    variants_data = parse_dbsnp_variants(result)
-    for id, hgvs_lst in variants_data.summary.HGVS.items(): # Find rsid that matches HGVS (TODO is compare needed here?)
-        if variant in hgvs_lst:
-            ids.append(id)
-    # ids = [int(id) for id in result.data['esearchresult']['idlist']]
+    # Check if any of these ids is the same as the variant
+    ids = result.data['esearchresult']['idlist']
+    print(ids)
+    if len(ids) >= 1:
+        result = entrez_api.fetch( # TODO make faster with single call
+            ["rs" + id for id in ids], 
+            database='snp',
+            max_results=len(ids), 
+        )  
+        # Find id that matches HGVS 
+        ids = []
+        variants_data = parse_dbsnp_variants(result)
+        for id, hgvs_lst in variants_data.summary.HGVS.items(): 
+            if variants_data.preferred_ids[id] != id: # Skip merged
+                continue
+            for other in hgvs_lst:
+                va_other = va.variants.parse_hgvs(other)
+                print(va_variant, va_other)
+                relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
+                if relation == va.Relation.EQUIVALENT:
+                    ids.append(id)
+                    break
+        print(ids)
     if len(ids) > 1:
         warnings.warn(f"{variant} multiple ids found: {ids}")
         return None # TODO handle
     elif len(ids) == 0:
         warnings.warn(f"{variant} no ids found")
         return None # TODO handle
-    warnings.warn(f"{variant} had no id but {ids[0]} found")
     return ids[0]
+    
 
 
 def is_silent_entrez(variant, ids):
@@ -275,13 +289,12 @@ def is_silent_entrez(variant, ids):
     
     Similar to mutalyzer method but using the entrez API.
     """
+    # TODO fix uid error that occurs sometimes
     classification = {"exon": False, "non-synonymous": False, "splicing": False}
     # QUESTION are these default values correct? (not if data is incomplete)
     # Find id of variant
     # TODO possible for unknown/personal variants?
     id = ids[variant]
-    if id is None or id == '': # Try getting 
-        id = find_id_hgvs(variant)
     if id is None or id == '': # No information available, assume worst
         warnings.warn(f"{variant} has no id: '{id}'")
         classification['exon'] = True
@@ -294,7 +307,7 @@ def is_silent_entrez(variant, ids):
         [id], 
         database='snp',
         max_results=1, 
-    )  
+    )
     variants_data = parse_dbsnp_variants(result)
     #  Convert possible annotations to boolean
     consequences = list(variants_data.coordinates.consequence)

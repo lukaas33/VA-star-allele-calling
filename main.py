@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation
+from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation, find_id_hgvs
 from modules.utils import validate_relations, validate_calling
 from modules.assets.generate_images import *
 import algebra as va
@@ -165,8 +165,17 @@ def test_variant_annotation_entrez(variants, ids, functions):
         # Compare against PharmVar annotation
         _test_pharmvar_annotation(variant, functions[variant], classification)
 
+def test_get_id(variants, ids, reference):
+    """Test if the getting of the id works"""
+    # TODO fix: NC_000022.11:g.42130052del, 
+    for variant in variants:
+        found_id = find_id_hgvs(variant, reference)
+        if found_id != ids[variant]:
+            warnings.warn(f"{variant} has id {ids[variant]} but {found_id} was found")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
+    reference_name = "NC_000022.11"
     reference_sequence = reference_get()
     # List genes as symbols in Pharmvar
     genes = pharmvar_get("genes/list") 
@@ -204,7 +213,8 @@ def main():
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
-    test_variant_annotation_entrez(variants, ids, functions)
+    # test_variant_annotation_entrez(variants, ids, functions)
+    test_get_id(variants, ids, reference_sequence)
     exit()
 
     # parse samples
