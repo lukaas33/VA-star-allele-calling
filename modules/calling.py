@@ -242,9 +242,8 @@ def is_silent_mutalyzer(variant):
 def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
-    va_variant = va.variants.parse_hgvs(variant)
+    va_variant = va.variants.parse_hgvs(variant, reference=reference)
     position = f"{va_variant[0].start + 1}:{va_variant[0].end + 1}"
-    print(variant, chromosome, position)
     # Lookup ids at the same position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
@@ -252,28 +251,32 @@ def find_id_hgvs(variant, reference):
         max_results=1000 # Should not be limiting
     )
     # Check if any of these ids is the same as the variant
-    ids = result.data['esearchresult']['idlist']
-    print(ids)
+    ids = ["rs" + id for id in result.data['esearchresult']['idlist']]
     if len(ids) >= 1:
         result = entrez_api.fetch( # TODO make faster with single call
-            ["rs" + id for id in ids], 
+            ids, 
             database='snp',
             max_results=len(ids), 
         )  
         # Find id that matches HGVS 
         ids = []
-        variants_data = parse_dbsnp_variants(result)
+        try:
+            variants_data = parse_dbsnp_variants(result)
+        except KeyError as e:
+            warnings.warn(f"{variant} error: {e}") # TODO solve
+            return None
         for id, hgvs_lst in variants_data.summary.HGVS.items(): 
             if variants_data.preferred_ids[id] != id: # Skip merged
                 continue
             for other in hgvs_lst:
-                va_other = va.variants.parse_hgvs(other)
-                print(va_variant, va_other)
-                relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
-                if relation == va.Relation.EQUIVALENT:
+                # va_other = va.variants.parse_hgvs(other)
+                if variant == other: # TODO is compare needed?
                     ids.append(id)
                     break
-        print(ids)
+                # relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
+                # if relation == va.Relation.EQUIVALENT:
+                    # ids.append(id)
+                    # break
     if len(ids) > 1:
         warnings.warn(f"{variant} multiple ids found: {ids}")
         return None # TODO handle
