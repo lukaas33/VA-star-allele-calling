@@ -241,9 +241,10 @@ def is_silent_mutalyzer(variant):
 
 def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
+    # WARNING: not useful, is consistent with PharmVar and does not find a id when it is None
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant, reference=reference)
-    position = f"{va_variant[0].start + 1}:{va_variant[0].end + 1}"
+    position = f"{va_variant[0].start - 10}:{va_variant[0].end + 10}" # Larger since position of target must be entirely in range TODO smarter range 
     # Lookup ids at the same position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
@@ -269,14 +270,18 @@ def find_id_hgvs(variant, reference):
             if variants_data.preferred_ids[id] != id: # Skip merged
                 continue
             for other in hgvs_lst:
-                # va_other = va.variants.parse_hgvs(other)
-                if variant == other: # TODO is compare needed?
+                if "NC" not in other or ".11" not in other: # Same reference TODO do nicer
+                    continue
+                # Compare with va since format may be different
+                try:
+                    va_other = va.variants.parse_hgvs(other, reference=reference)
+                except ValueError as e:
+                    warnings.warn(f"{other} could not be parsed: {e}")
+                    continue
+                relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
+                if relation == va.Relation.EQUIVALENT:
                     ids.append(id)
                     break
-                # relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
-                # if relation == va.Relation.EQUIVALENT:
-                    # ids.append(id)
-                    # break
     if len(ids) > 1:
         warnings.warn(f"{variant} multiple ids found: {ids}")
         return None # TODO handle

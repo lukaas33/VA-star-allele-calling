@@ -167,11 +167,13 @@ def test_variant_annotation_entrez(variants, ids, functions):
 
 def test_get_id(variants, ids, reference):
     """Test if the getting of the id works"""
-    # TODO fix: NC_000022.11:g.42130052del, 
+    # TODO further investigate cases None/None
     for variant in variants:
         found_id = find_id_hgvs(variant, reference)
-        if found_id != ids[variant]:
-            warnings.warn(f"{variant} has id {ids[variant]} but {found_id} was found")
+        id = ids[variant] 
+        if id == '': id = None
+        if found_id != id:
+            warnings.warn(f"{variant} has id {id} but {found_id} was found")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
