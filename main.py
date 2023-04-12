@@ -222,9 +222,9 @@ def main():
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
+    test_get_id(variants, ids, reference_sequence)
     # test_variant_annotation_entrez(variants, ids, functions)
-    # test_get_id(variants, ids, reference_sequence)
-    test_variant_annotation_position(variants, supremal_extended, functions)
+    # test_variant_annotation_position(variants, supremal_extended, functions)
     exit()
 
     # parse samples

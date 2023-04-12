@@ -108,10 +108,9 @@ def find_id_hgvs(variant, reference):
                     break
     if len(ids) > 1:
         warnings.warn(f"{variant} multiple ids found: {ids}")
-        return None # TODO handle
+        return None # TODO fix this
     elif len(ids) == 0:
-        warnings.warn(f"{variant} no ids found")
-        return None # TODO handle
+        return None 
     return ids[0]
     
 
