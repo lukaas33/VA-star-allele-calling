@@ -5,7 +5,8 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_mutalyzer, is_silent_entrez, protein_mutation, find_id_hgvs
+from modules.calling import star_allele_calling_all, print_classification, sort_types
+from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
 from modules.utils import validate_relations, validate_calling
 from modules.assets.generate_images import *
 import algebra as va
@@ -140,14 +141,12 @@ def _test_pharmvar_annotation(variant, function, classification):
         if classification['splicing']:
             return True
         warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent: {classification}")
-    elif protein_mutation(function): # Explicit change on protein level
+    else: # Explicit change on protein level
         if classification['exon']: # is in exon
             return True
         if classification['non-synonymous']: # is non-synonymous
             return True
         warnings.warn(f"{variant} is annotated as '{function}' but may be silent: {classification}")
-    else:
-        warnings.warn(f"{variant} is annotated as '{function}' but is not recognized")
     return False
 
 def test_variant_annotation_mutalyzer(variants, functions):
@@ -216,8 +215,7 @@ def main():
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
     # test_variant_annotation_entrez(variants, ids, functions)
-    test_get_id(variants, ids, reference_sequence)
-    exit()
+    # test_get_id(variants, ids, reference_sequence)
 
     # parse samples
     samples_source = parse_samples(reference_sequence) 
