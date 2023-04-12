@@ -149,18 +149,15 @@ def star_allele_calling(sample, nodes, edges, functions, supremals):
     # Split variants into types
     variants = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
     for variant in variants:
-        complete_variant = variant
-        if sort_types(variant) == 5: # Personal variant (not equal to any in the database)
-            complete_variant = "NC_000022.11:g." + variant # TODO don't hardcode
-        if is_noise(complete_variant, functions, supremals[variant]): # No evidence of relevance
+        if is_noise(variant, functions, supremals[variant]): # No evidence of relevance
             matches["variants"]["noise"].append(variant)
         else: # Evidence of possible protein impact
             matches["variants"]["uncertain"].append(variant)
+    # TODO check interference with other variants (allele dependent)
     # Filter and return
     return find_best_match(sample, matches, functions) 
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals):
-    samples = [sample for sample in samples if sample[-1] in ("A", "B")] # Filter out non-phased samples TODO handle these
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
     for sample in samples:
         sample_source, phasing = sample[:-1], sample[-1]
@@ -205,11 +202,13 @@ def is_silent_position(variant, supremal):
     # Check if supremal representation of variant (covers different placements) can influence the exon
     start = supremal.start + 1 # One-based
     end = supremal.end # Closed end
-    if not in_exon(start, end) and not overlap_exon(start, end): # No influence on exon
-        return True # Silent
-    return False # Not silent
+    if in_exon(start, end):
+        return False # Not silent
+    elif overlap_exon(start, end):
+        return False # Not silent
+    return True # Silent
 
-def is_noise(variant, functions, supremal): 
+def is_noise(variant, functions, supremals): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
@@ -220,9 +219,11 @@ def is_noise(variant, functions, supremal):
     if variant in functions: # PharmVar variant 
         function = functions[variant] 
     else: # Personal variant
+        supremal = supremals[variant]
         if is_silent_position(variant, supremal): # Variant not in an exon
             return True
-        # TODO check interference with other variants
+        else:
+            return False
     if function == '': # QUESTION what is the correct interpretation of this (no change or unknown)?
         function = None
     # Check the PharmVar impact annotation for the variant

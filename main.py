@@ -229,8 +229,8 @@ def main():
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
-    # test_get_id(variants, ids, reference_sequence) TODO run this
-    # test_variant_annotation_entrez(variants, ids, functions) TODO run this
+    # test_get_id(variants, ids, reference_sequence) # TODO run this
+    # test_variant_annotation_entrez(variants, ids, functions) # TODO run this
     # test_variant_annotation_position(variants, supremal_extended, functions)
 
     # parse samples
@@ -292,7 +292,9 @@ def main():
 
     # Determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions, supremal_extended | supremal_samples)
+    phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
+    # TODO extend to unphased
+    classifications = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
     # print_classification(classifications, detail_level=0)
     exit()
 
