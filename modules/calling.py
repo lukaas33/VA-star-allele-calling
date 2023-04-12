@@ -180,19 +180,46 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_silent_position(variant, allele):
+def is_silent_position(variant, supremals, allele):
     """Check if a variant is silent based on positions of variants.
     
     This is a different approach to the other methods since it doesn't rely on online sources.
-    Instead it uses the position of a variant to see if it can undo the effect of a different variant.
+    Instead it uses the position of a variant to see if it can undo or worsen the effect of a different variant.
+    This is based on the intron exon borders.
     """
-    pass
+    # TODO do earlier for all personal variants (and more?)
+    # TODO find exons dynamically for any gene
+    exons = [ # Exon borders (one-based; closed end) https://www.ncbi.nlm.nih.gov/genome/gdv/browser/gene/?id=1565
+        (42126499, 42126752),
+        (42126851, 42126992),
+        (42127447, 42127634),
+        (42127842, 42127983),
+        (42128174, 42128350),
+        (42128784, 42128944),
+        (42129033, 42129185),
+        (42129738, 42129909),
+        (42130612, 42130810)
+    ]
+    in_exon = lambda s, e: any(start <= s and e <= end for start, end in exons) # Check if a range is entirely in an exon
+    overlap_exon = lambda s, e: any((s < start and e >= start) or (s <= end and e > end) for start, end in exons) # Check if a range overlaps with an exon
+    # TODO check if overlap with border
+    
+    # Check if supremal representation of variant (covers different placements) can influence the exon
+    for supremal in [supremals[variant]]:
+        start = supremal.start + 1 # One-based
+        end = supremal.end # Closed end
+        if not in_exon(start, end) and not overlap_exon(start, end): # No influence on exon
+            return True
+    return False
+
+    # TODO check interference with other variants
+  
 
 def is_noise(variant, functions): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
-    The variant is noise if it has no impact on the protein.
+    The variant is noise if it has no impact on the protein through non-synonymous mutations or splicing effects.
 
     This approach uses the online annotations but falls back on a sequence based approach.
     """
@@ -208,10 +235,8 @@ def is_noise(variant, functions):
     elif function == None: # QUESTION what is the correct interpretation (no change or unknown)?
         return True
     else: # Explicit change on protein level
-        # TODO split 
+        # TODO split based on severity
         return False
-
-    return False # Default is not noise
 
 def print_classification(classifications, detail_level=0):
     """Print the classification of samples.

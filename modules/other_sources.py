@@ -13,7 +13,7 @@ entrez_api = EntrezAPI(
 )
 
 def classify_region(variant):
-    """Classify region that a variant is in as UTR, intron or exon."""
+    """Classify region that a variant is in as UTR, intron or exon based on HGVS."""
     position = variant.split(':')[1].split('.')[1]
     if position[0] == '-': # Left from coding region
         return "5'UTR" # TODO use enums
@@ -33,6 +33,7 @@ def is_silent_mutalyzer(variant):
 
     Based on the Mutalyzer API which finds online annotations for the variant.
     """
+    # WARNING this method is not reliable since it does not find all annotations (bug in mutalyzer!)
     classification = {'exon': False, 'non-synonymous': False, "splicing": False} # If not proven differently
     # Find equivalent representations of the variant
     data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") # TODO make faster with single call

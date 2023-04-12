@@ -5,12 +5,13 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, print_classification, sort_types
+from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_position
 from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
 from modules.utils import validate_relations, validate_calling
 from modules.assets.generate_images import *
 import algebra as va
 
+# TODO move checks to own file
 def test_naming(corealleles, suballeles):
     """Naming test, useful for checking if the data is complete."""
     numbers = []
@@ -174,6 +175,13 @@ def test_get_id(variants, ids, reference):
         if found_id != id:
             warnings.warn(f"{variant} has id {id} but {found_id} was found")
 
+def test_variant_annotation_position(variants, supremals, functions):
+    """Test if the position of the variant is consistent with the annotation."""
+    for variant in variants:
+        classification = is_silent_position(variant, supremals, None)
+        print(variant, functions[variant], "intron" if classification else 'exon')
+        # TODO test if annotation is consistent with classification
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
@@ -216,6 +224,8 @@ def main():
     # test_variant_annotation_mutalyzer(variants, functions)
     # test_variant_annotation_entrez(variants, ids, functions)
     # test_get_id(variants, ids, reference_sequence)
+    test_variant_annotation_position(variants, supremal_extended, functions)
+    exit()
 
     # parse samples
     samples_source = parse_samples(reference_sequence) 
