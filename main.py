@@ -142,7 +142,7 @@ def _test_pharmvar_annotation(variant, function, classification):
         if classification['splicing']:
             return True
         warnings.warn(f"{variant} is annotated as 'splice defect' but may not be silent: {classification}")
-    else: # Explicit change on protein level
+    else: # Explicit change on protein level TODO split further
         if classification['exon']: # is in exon
             return True
         if classification['non-synonymous']: # is non-synonymous
@@ -168,19 +168,26 @@ def test_variant_annotation_entrez(variants, ids, functions):
 def test_get_id(variants, ids, reference):
     """Test if the getting of the id works"""
     # TODO further investigate cases None/None
+    # TODO check for personal variants
     for variant in variants:
         found_id = find_id_hgvs(variant, reference)
         id = ids[variant] 
         if id == '': id = None
         if found_id != id:
             warnings.warn(f"{variant} has id {id} but {found_id} was found")
+            print("!!!!", variant, id, found_id)
 
 def test_variant_annotation_position(variants, supremals, functions):
     """Test if the position of the variant is consistent with the annotation."""
     for variant in variants:
         classification = is_silent_position(variant, supremals, None)
-        print(variant, functions[variant], "intron" if classification else 'exon')
-        # TODO test if annotation is consistent with classification
+        if functions[variant] is None or \
+                functions[variant] == '' or \
+                functions[variant] == 'splice defect': # No expectation on exon or intron
+            continue
+        else: # Protein effect
+            if classification:
+                warnings.warn(f"{variant} is annotated as '{functions[variant]}' but is in intron")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
@@ -222,10 +229,9 @@ def main():
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
-    test_get_id(variants, ids, reference_sequence)
-    # test_variant_annotation_entrez(variants, ids, functions)
+    # test_get_id(variants, ids, reference_sequence) TODO run this
+    # test_variant_annotation_entrez(variants, ids, functions) TODO run this
     # test_variant_annotation_position(variants, supremal_extended, functions)
-    exit()
 
     # parse samples
     samples_source = parse_samples(reference_sequence) 
@@ -286,7 +292,7 @@ def main():
 
     # Determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    # classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions)
+    classifications = star_allele_calling_all(samples_source.keys(), *pruned_samples, functions, supremal_extended | supremal_samples)
     # print_classification(classifications, detail_level=0)
     exit()
 

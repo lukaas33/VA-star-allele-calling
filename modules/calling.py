@@ -99,15 +99,12 @@ def find_best_match(sample, matches, functions):
                 break
     # Look at variants to determine the certainty of the calling
     # TODO how to express this to the user
-    n_protein = len(matches['variants']['protein'])
-    n_uncertain = len(matches['variants']['uncertain'])
-    if n_protein + n_uncertain > 0:
-        # warnings.warn(f"{sample}: classification of {sorted_matches[0]} is not certain due to {n_protein} variants that may affect protein function ({matches['variants']['protein']}) and {n_uncertain} variants with uncertain effect on protein function ({matches['variants']['uncertain']}).")
-        pass
+    if len(matches['variants']['uncertain']) > 0:
+        warnings.warn(f"{sample}: Uncertain variants found: {matches['variants']['uncertain']}.")
     return sorted_matches
 
 
-def star_allele_calling(sample, nodes, edges, functions):
+def star_allele_calling(sample, nodes, edges, functions, supremals):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
@@ -126,7 +123,7 @@ def star_allele_calling(sample, nodes, edges, functions):
         "equivalent": [], 
         "contained": [], 
         "variants": {
-            "protein": [], 
+            "noise": [], 
             "uncertain": []
         }
     }
@@ -154,19 +151,20 @@ def star_allele_calling(sample, nodes, edges, functions):
     for variant in variants:
         complete_variant = variant
         if sort_types(variant) == 5: # Personal variant (not equal to any in the database)
-            complete_variant = "NC_000022.11:g." + variant
-        if is_noise(complete_variant, functions): # No evidence of relevance
+            complete_variant = "NC_000022.11:g." + variant # TODO don't hardcode
+        if is_noise(complete_variant, functions, supremals[variant]): # No evidence of relevance
+            matches["variants"]["noise"].append(variant)
+        else: # Evidence of possible protein impact
             matches["variants"]["uncertain"].append(variant)
-        else: # Evidence of protein impact
-            matches["variants"]["protein"].append(variant)
     # Filter and return
     return find_best_match(sample, matches, functions) 
 
-def star_allele_calling_all(samples, nodes, edges, functions):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals):
+    samples = [sample for sample in samples if sample[-1] in ("A", "B")] # Filter out non-phased samples TODO handle these
     classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
     for sample in samples:
         sample_source, phasing = sample[:-1], sample[-1]
-        classification = star_allele_calling(sample, nodes, edges, functions)
+        classification = star_allele_calling(sample, nodes, edges, functions, supremals)
         classifications[sample_source][phasing] = classification
     return classifications
 
@@ -180,12 +178,12 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_silent_position(variant, supremals, allele):
+def is_silent_position(variant, supremal):
     """Check if a variant is silent based on positions of variants.
     
     This is a different approach to the other methods since it doesn't rely on online sources.
-    Instead it uses the position of a variant to see if it can undo or worsen the effect of a different variant.
-    This is based on the intron exon borders.
+    Instead it uses the position of a variant to see if it can influence the protein.
+    This is based on the intron-exon borders.
     """
     # TODO do earlier for all personal variants (and more?)
     # TODO find exons dynamically for any gene
@@ -199,23 +197,19 @@ def is_silent_position(variant, supremals, allele):
         (42129033, 42129185),
         (42129738, 42129909),
         (42130612, 42130810)
-    ]
+    ]    
     in_exon = lambda s, e: any(start <= s and e <= end for start, end in exons) # Check if a range is entirely in an exon
     overlap_exon = lambda s, e: any((s < start and e >= start) or (s <= end and e > end) for start, end in exons) # Check if a range overlaps with an exon
-    # TODO check if overlap with border
+    # TODO check if overlap with splice recognition site
     
     # Check if supremal representation of variant (covers different placements) can influence the exon
-    for supremal in [supremals[variant]]:
-        start = supremal.start + 1 # One-based
-        end = supremal.end # Closed end
-        if not in_exon(start, end) and not overlap_exon(start, end): # No influence on exon
-            return True
-    return False
+    start = supremal.start + 1 # One-based
+    end = supremal.end # Closed end
+    if not in_exon(start, end) and not overlap_exon(start, end): # No influence on exon
+        return True # Silent
+    return False # Not silent
 
-    # TODO check interference with other variants
-  
-
-def is_noise(variant, functions): 
+def is_noise(variant, functions, supremal): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
@@ -226,7 +220,9 @@ def is_noise(variant, functions):
     if variant in functions: # PharmVar variant 
         function = functions[variant] 
     else: # Personal variant
-        raise NotImplemented("Personal variants") # TODO get function from sequence
+        if is_silent_position(variant, supremal): # Variant not in an exon
+            return True
+        # TODO check interference with other variants
     if function == '': # QUESTION what is the correct interpretation of this (no change or unknown)?
         function = None
     # Check the PharmVar impact annotation for the variant
