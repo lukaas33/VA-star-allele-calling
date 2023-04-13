@@ -175,7 +175,7 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_silent_position(variant, supremal):
+def is_silent_position(supremal):
     """Check if a variant is silent based on positions of variants.
     
     This is a different approach to the other methods since it doesn't rely on online sources.
@@ -184,7 +184,10 @@ def is_silent_position(variant, supremal):
     """
     # TODO do earlier for all personal variants (and more?)
     # TODO find exons dynamically for any gene
-    exons = [ # Exon borders (one-based; closed end) https://www.ncbi.nlm.nih.gov/genome/gdv/browser/gene/?id=1565
+    # Exon borders (one-based; closed end) 
+    # Source? https://www.ncbi.nlm.nih.gov/genome/gdv/browser/gene/?id=1565
+    # QUESTION are there more exons sometimes? Does alternative splicing occur?
+    exons = [ 
         (42126499, 42126752),
         (42126851, 42126992),
         (42127447, 42127634),
@@ -195,20 +198,38 @@ def is_silent_position(variant, supremal):
         (42129738, 42129909),
         (42130612, 42130810)
     ]    
-    in_exon = lambda s, e: any(start <= s and e <= end for start, end in exons) # Check if a range is entirely in an exon
-    overlap_exon = lambda s, e: any((s < start and e >= start) or (s <= end and e > end) for start, end in exons) # Check if a range overlaps with an exon
-    # TODO check if overlap with splice recognition site
-    
+    # Length of splice site
+    # Part of intron that is used for recognition by spliceosome
+    # Source: https://www.ncbi.nlm.nih.gov/gene/1565
+    # QUESTION is this correct?
+    splice_sites = ("GT", "AG") 
+    # Functions for checking exon influence
+    # Check if a range is entirely in an exon
+    in_exon = lambda s, e: any(
+        start <= s and e <= end # Interval is contained in exon
+        for start, end in exons)
+    # Check if a range overlaps with an exon 
+    overlap_exon = lambda s, e: any((
+        s < start and e >= start) or # interval falls outside left side of exon
+        (s <= end and e > end) # interval falls outside right side of exon
+        for start, end in exons) 
+    # Check if a range overlaps with a splice site
+    overlap_splice_site = lambda s, e: any(
+        s <= (start - len(splice_sites[0]) <= e) or # interval contains left splice site
+        s <= (end + len(splice_sites[1])) <= e
+        for start, end in exons)
     # Check if supremal representation of variant (covers different placements) can influence the exon
-    start = supremal.start + 1 # One-based
-    end = supremal.end # Closed end
+    start = supremal.start + 1 # One-based position
+    end = supremal.end # Closed end position
     if in_exon(start, end):
-        return False # Not silent
+        return False # Possibly silent
     elif overlap_exon(start, end):
-        return False # Not silent
+        return False # Possibly silent
+    elif overlap_splice_site(start, end):
+        return False # Possibly silent
     return True # Silent
 
-def is_noise(variant, functions, supremals): 
+def is_noise(variant, functions, supremal): 
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
@@ -219,8 +240,7 @@ def is_noise(variant, functions, supremals):
     if variant in functions: # PharmVar variant 
         function = functions[variant] 
     else: # Personal variant
-        supremal = supremals[variant]
-        if is_silent_position(variant, supremal): # Variant not in an exon
+        if is_silent_position(supremal): # Variant not in an exon
             return True
         else:
             return False
