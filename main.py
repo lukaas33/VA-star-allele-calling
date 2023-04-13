@@ -175,7 +175,6 @@ def test_get_id(variants, ids, reference):
         if id == '': id = None
         if found_id != id:
             warnings.warn(f"{variant} has id {id} but {found_id} was found")
-            print("!!!!", variant, id, found_id)
 
 def test_variant_annotation_position(variants, supremals, functions):
     """Test if the position of the variant is consistent with the annotation."""

@@ -7,9 +7,9 @@ import warnings
 
 entrez_api = EntrezAPI(
     'va-star-allele-calling',
-    'lucas@vanosenbruggen.com',
+    'lucas@vanosenbruggen.com', # TODO hide
+    api_key="52181bc8fa51eacb5b70448a9e6fd6ae8209", # TODO hide
     return_type='json'
-    # TODO add api key for more requests (10/s instead of 3/s)
 )
 
 def classify_region(variant):
@@ -66,6 +66,7 @@ def is_silent_mutalyzer(variant):
 def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
     # WARNING: not useful, is consistent with PharmVar and does not find a id when it is None
+    print(variant)
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant, reference=reference)
     position = f"{va_variant[0].start - 10}:{va_variant[0].end + 10}" # Larger since position of target must be entirely in range TODO smarter range 
@@ -139,7 +140,14 @@ def is_silent_entrez(variant, ids):
         database='snp',
         max_results=1, 
     )
-    variants_data = parse_dbsnp_variants(result)
+    try:
+        variants_data = parse_dbsnp_variants(result)
+    except KeyError as e: 
+        warnings.warn(f"{variant} error: {e}") # TODO fix this
+        classification['exon'] = True
+        classification['non-synonymous'] = True
+        classification['splicing'] = True
+        return classification
     #  Convert possible annotations to boolean
     consequences = list(variants_data.coordinates.consequence)
     if len(consequences) != 1: # Wrong
