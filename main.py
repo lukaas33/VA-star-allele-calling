@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, print_classification, sort_types, is_silent_position
+from modules.calling import star_allele_calling_all, print_classification, sort_types, impact_position
 from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
 from modules.utils import validate_relations, validate_calling
 from modules.assets.generate_images import *
@@ -179,7 +179,7 @@ def test_get_id(variants, ids, reference):
 def test_variant_annotation_position(variants, supremals, functions):
     """Test if the position of the variant is consistent with the annotation."""
     for variant in variants:
-        classification = is_silent_position(variant, supremals, None)
+        classification = impact_position(variant, supremals, None)
         if functions[variant] is None or \
                 functions[variant] == '' or \
                 functions[variant] == 'splice defect': # No expectation on exon or intron

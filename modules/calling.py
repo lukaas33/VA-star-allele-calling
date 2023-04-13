@@ -30,23 +30,23 @@ def sort_types(v):
             return 3 # Variant
         return 5 # Personal variant
     
-def find_contained_alleles(start, cont_graph, eq_graph, matches, visited):
-    """Recursively the equivalent and contained sub- and corealleles from a given start node."""
+def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
+    """Recursively find the equivalent and contained variants from a given start node."""
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
-    if sort_types(start) in (1, 2): # Core or suballele
+    if sort_types(start) in find: # Need to find this type
         matches.append(start)
-    if sort_types(start) == 1: 
-        return # Stop here
-    # Find equivalent alleles
+    if stop is not None and sort_types(start) == stop: # Don't look further here
+        return 
+    # Find equivalents
     if start in eq_graph.nodes():
         for match in eq_graph[start]: 
-            find_contained_alleles(match, cont_graph, eq_graph, matches, visited) # Add equivalent alleles and maybe traverse
-    # Find contained alleles
+            find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add equivalents and maybe traverse
+    # Find contained
     if start in cont_graph.nodes():
         for match, _ in cont_graph.in_edges(start):
-            find_contained_alleles(match, cont_graph, eq_graph, matches, visited) # Add contained alleles and maybe traverse
-
+            find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained  and maybe traverse
+i = 4
 def find_best_match(sample, matches, functions):
     """Find the best matches from a list of matches.
     
@@ -82,25 +82,31 @@ def find_best_match(sample, matches, functions):
             if len(annotated["normal function"]) > 0:
                 sorted_matches.append(annotated["normal function"])
 
-    core_matches = [[m for m in match if sort_types(m) == 1] for match in sorted_matches]
-    if sum([len(m) for m in core_matches]) == 0: # No coreallele found
+    # Check certainty and consistency of matches
+    for match in sorted_matches:
+        n_cores = 0
+        for allele in match:
+            if sort_types(allele) == 1: # Coreallele
+                n_cores += 1
+            # check certainty
+            if len(matches['variants'][allele]['uncertain']) > 0:
+                # TODO how to express this to the user?
+                warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
+        if n_cores > 1: # Ambiguous
+            raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
+            # TODO handle unphased
+        if n_cores == 1: # Unambiguous
+            
+            break # No need to check further
+    else: # No cores found
         # Catch-all is the default allele
         # *1 will never be in contained so it is not prioritized over others
         sorted_matches.append(["CYP2D6*1"]) # QUESTION is this valid?
-    else: 
-        # Check if answer is ambiguous (has multiple corealleles)
-        for core_match in core_matches:
-            if len(core_match) == 0: # Skip
-                continue
-            if len(core_match) > 1: # Ambiguous
-                # TODO return multiple equally likely answers
-                raise Exception(f"{sample}: This should not happen, multiple corealleles found: {core_match}.")
-            else: # No ambiguity for best answer
-                break
-    # Look at variants to determine the certainty of the calling
-    # TODO how to express this to the user
-    if len(matches['variants']['uncertain']) > 0:
-        warnings.warn(f"{sample}: Uncertain variants found: {matches['variants']['uncertain']}.")
+    print(sorted_matches)
+    global i
+    i -= 1
+    if i == 0:
+        exit()
     return sorted_matches
 
 
@@ -123,15 +129,14 @@ def star_allele_calling(sample, nodes, edges, functions, supremals):
         "equivalent": [], 
         "contained": [], 
         "variants": {
-            "noise": [], 
-            "uncertain": []
+            
         }
     }
     # Find equivalent alleles
     contained = []
     if sample in eq_graph.nodes(): matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
     # Find contained alleles
-    find_contained_alleles(sample, cont_graph, eq_graph, contained, set())
+    find_contained_variants(sample, cont_graph, eq_graph, contained, set(), (1,2), 1)
     # Check if any contain another, keep most specific
     # TODO add to initial getting?
     for node1 in set(contained):
@@ -146,14 +151,30 @@ def star_allele_calling(sample, nodes, edges, functions, supremals):
             if node1 in matches["equivalent"]: # Skip equivalent alleles
                 continue
             matches["contained"].append(node1) # Keep match
-    # Split variants into types
-    variants = [match for match, _ in cont_graph.in_edges(sample) if sort_types(match) in (3, 5)]
-    for variant in variants:
-        if is_noise(variant, functions, supremals[variant]): # No evidence of relevance
-            matches["variants"]["noise"].append(variant)
-        else: # Evidence of possible protein impact
-            matches["variants"]["uncertain"].append(variant)
-    # TODO check interference with other variants (allele dependent)
+    # Check certainty of calling for each matched allele
+    vs = [] # All variants indirectly or directly contained in the sample
+    find_contained_variants(sample, cont_graph, eq_graph, vs, set(), (3, 5))
+    for match in matches["contained"] + matches["equivalent"]: # Equivalent added but these will be empty
+        matches["variants"][match] = {"noise": [], "uncertain": []}
+        # Find 'extra' variants: in the sample but not in the called allele
+        ws = [] # All variants indirectly or directly contained in the sample
+        find_contained_variants(match, cont_graph, eq_graph, ws, set(), (3, 5))
+        extra_variants = []
+        for v in vs: # In sample
+            if v in ws: # But not in this allele
+                continue
+            extra_variants.append(v) 
+        # Check if the extra variants can influence the calling
+        for variant in extra_variants:
+            # Check what the impact of the variant is
+            noise, function = is_noise(variant, functions, supremals[variant])
+            if noise: # No evidence of relevance
+                matches["variants"][match]["noise"].append(variant)
+                continue # TODO need to check interference here?
+            else: # Evidence of possible protein impact
+                matches["variants"][match]["uncertain"].append((variant, function))
+                # TODO Check interference with other variants (allele dependent)
+                # This can be limited to the impactful variants of the allele
     # Filter and return
     return find_best_match(sample, matches, functions) 
 
@@ -167,6 +188,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals):
 
 def matches_core(match):
     """Print the core allele from a match."""
+    # WARNING not in use since getting via traversal is better
     if sort_types(match) == 1:
         return match
     elif sort_types(match) == 2:
@@ -175,10 +197,11 @@ def matches_core(match):
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
 
-def is_silent_position(supremal):
+def impact_position(supremal):
     """Check if a variant is silent based on positions of variants.
     
     This is a different approach to the other methods since it doesn't rely on online sources.
+    Therefore it can be used on novel variants.
     Instead it uses the position of a variant to see if it can influence the protein.
     This is based on the intron-exon borders.
     """
@@ -221,15 +244,13 @@ def is_silent_position(supremal):
     # Check if supremal representation of variant (covers different placements) can influence the exon
     start = supremal.start + 1 # One-based position
     end = supremal.end # Closed end position
-    if in_exon(start, end):
-        return False # Possibly silent
-    elif overlap_exon(start, end):
-        return False # Possibly silent
-    elif overlap_splice_site(start, end):
-        return False # Possibly silent
-    return True # Silent
+    if overlap_splice_site(start, end):
+        return "possible splice defect"
+    if in_exon(start, end) or overlap_exon(start, end):
+        return "possible missense" # TODO make this more specific?
+    return None # Intronic and thus certainly silent TODO correct value?
 
-def is_noise(variant, functions, supremal): 
+def is_noise(variant, functions, supremal): # TODO rename to relevance?
     """Determine if a variant is noise.
     
     Noise is defined as not being relevant for calling.
@@ -237,23 +258,20 @@ def is_noise(variant, functions, supremal):
 
     This approach uses the online annotations but falls back on a sequence based approach.
     """
-    if variant in functions: # PharmVar variant 
-        function = functions[variant] 
-    else: # Personal variant
-        if is_silent_position(supremal): # Variant not in an exon
-            return True
-        else:
-            return False
-    if function == '': # QUESTION what is the correct interpretation of this (no change or unknown)?
-        function = None
-    # Check the PharmVar impact annotation for the variant
-    if function == 'splice defect': # Change in expression
-        return False
-    elif function == None: # QUESTION what is the correct interpretation (no change or unknown)?
-        return True
-    else: # Explicit change on protein level
-        # TODO split based on severity
-        return False
+    if variant in functions: function = functions[variant]  # PharmVar variant 
+    else: function = impact_position(supremal) # Personal variant
+    if function == '': function = None # QUESTION what is the correct interpretation of this (no change or unknown)?
+    # Check the impact of the variant
+    if function == None: # QUESTION what is the correct interpretation (no change or unknown)?
+        return True, None
+    elif 'splice defect' in function: # Change in expression
+        return False, function
+    else: # Explicit change on protein level TODO take severity into account?
+        # if "fs" == function[-2:]: # Frameshift
+        #     return False, "frameshift"
+        # elif "X" == function[-1]: # Stop codon
+        #     return False, "early stop"
+        return False, function # Missense mutation
 
 def print_classification(classifications, detail_level=0):
     """Print the classification of samples.
