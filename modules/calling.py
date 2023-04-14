@@ -249,7 +249,7 @@ def impact_position(supremal):
     start = supremal.start + 1 # One-based position
     end = supremal.end # Closed end position
     if overlap_splice_site(start, end):
-        return "possible splice defect"
+        return "possible splice defect" # TODO is this correct?
     if in_exon(start, end) or overlap_exon(start, end): 
         return "possible missense" 
         # TODO make this more specific: frameshift / missense / synonymous?
