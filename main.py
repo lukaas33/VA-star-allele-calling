@@ -292,9 +292,13 @@ def main():
     # Determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
-    # TODO extend to unphased
-    classifications = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
-    # print_classification(classifications, detail_level=0)
+    unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone)
+    # TODO don't remove doubles from unphased samples
+    # classifications_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
+    # print_classification(classifications_phased, detail_level=0)
+    print()
+    classifications_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
+    print_classification(classifications_unphased, detail_level=1)
     exit()
 
     # TEST 5 validate star allele calling

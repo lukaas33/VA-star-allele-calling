@@ -47,7 +47,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
         for match, _ in cont_graph.in_edges(start):
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained  and maybe traverse
         
-def find_best_match(sample, matches, functions):
+def find_best_match(sample, matches, functions, phased):
     """Find the best matches from a list of matches.
     
     Also return a measure of certainty.
@@ -91,9 +91,10 @@ def find_best_match(sample, matches, functions):
             if len(matches['variants'][allele]['uncertain']) > 0:
                 # TODO how to express this to the user?
                 # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
-                print(f"{sample}={allele}: {len(matches['variants'][allele]['uncertain'])} uncertain; {len(matches['variants'][allele]['noise'])} noise.")
+                pass
         if n_cores > 1: # Ambiguous
-            raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
+            if phased: # Phased sample
+                raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
             # TODO handle unphased
         if n_cores == 1: # Unambiguous
             break # No need to check further
@@ -104,7 +105,7 @@ def find_best_match(sample, matches, functions):
         sorted_matches.append(["CYP2D6*1"]) # QUESTION is this valid?
     return sorted_matches
 
-def star_allele_calling(sample, nodes, edges, functions, supremals):
+def star_allele_calling(sample, nodes, edges, functions, supremals, phased):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
@@ -177,18 +178,24 @@ def star_allele_calling(sample, nodes, edges, functions, supremals):
                 pass
             else: # Missense
                 # TODO check if interference with impactful variant (function dependent?)
-                print(function)
+                pass
             matches["variants"][match]["uncertain"].append((variant, function))
     # Filter and return
-    return find_best_match(sample, matches, functions) 
+    return find_best_match(sample, matches, functions, phased) 
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals):
-    classifications = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
+    """Iterate over samples and call star alleles for each."""
+    if phased: callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
+    else: callings = {}
     for sample in samples:
-        sample_source, phasing = sample[:-1], sample[-1]
-        classification = star_allele_calling(sample, nodes, edges, functions, supremals)
-        classifications[sample_source][phasing] = classification
-    return classifications
+        calling = star_allele_calling(sample, nodes, edges, functions, supremals, phased)
+        if phased: # For phased samples each allele has a single calling
+            sample_source, phasing = sample[:-1], sample[-1]
+            callings[sample_source][phasing] = calling
+        else: # Unphased samples have a single calling that has to be separated into two 
+            # TODO split into two callings (how/where?)
+            callings[sample] = {'A': calling} # TODO don't store in this format?
+    return callings
 
 def matches_core(match):
     """Print the core allele from a match."""

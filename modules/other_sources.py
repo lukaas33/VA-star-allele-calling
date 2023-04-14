@@ -105,6 +105,7 @@ def find_id_hgvs(variant, reference):
                     continue
                 relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
                 if relation == va.Relation.EQUIVALENT:
+                    print(f"{variant} = {other}")
                     ids.append(id)
                     break
     if len(ids) > 1:
