@@ -235,7 +235,7 @@ def main():
     # parse samples
     samples_source = parse_samples(reference_sequence) 
     try:
-        supremal_samples = cache_get("supremal_samples_with_doubles")
+        supremal_samples = cache_get("supremal_samples")
     except:
         supremal_samples = {}
         for sample, variants in samples_source.items():
@@ -258,21 +258,25 @@ def main():
                     raise e
         cache_set(supremal_samples, "supremal_samples")
 
-    # Filter out non-personal variants (are already in dataset)
+    # Filter out non-personal variants (are already in dataset and will appear in relations)
+    # TODO simplify or do earlier
     for sample, p_variants in samples_source.items():
-        for p_variant in list(p_variants.keys()):
-            if sort_types(p_variant) != 5:
-                continue
+        for p_variant, _ in p_variants:
             for variant in supremal_extended.keys():
                 if sort_types(variant) != 3:
                     continue
+                if p_variant in supremal_samples:
+                    continue
                 rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
-                if rel == va.Relation.EQUIVALENT: # Remove personal variants which already exist
-                    del supremal_samples[p_variant] # Already exists in dataset
-                    for sample2 in samples_source.keys(): # Remove everywhere
-                        if p_variant in samples_source[sample2].keys():
-                            del samples_source[sample2][p_variant]
-                    break
+                if rel != va.Relation.EQUIVALENT: # Remove personal variants which already exist in Pharmvar
+                    continue
+                del supremal_samples[p_variant] # Already exists in dataset
+                for sample2 in samples_source.keys(): # Remove everywhere TODO needed?
+                    for i, p_variant in enumerate(samples_source[sample2]):
+                        if p_variant[0] != p_variant:
+                            continue
+                        del samples_source[sample2][i]
+                break
 
     # Split into personal variants and samples
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
