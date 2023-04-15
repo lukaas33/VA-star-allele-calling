@@ -243,23 +243,27 @@ def impact_position(supremal):
         start <= s and e <= end # Interval is contained in exon
         for start, end in exons)
     # Check if a range overlaps with an exon 
-    overlap_exon = lambda s, e: any(( # TODO make more general, only works if above is false?
-        s < start and e >= start) or # interval falls outside left side of exon
-        (s <= end and e > end) # interval falls outside right side of exon
+    overlap_exon = lambda s, e: any(
+        max(s, start) <= min(e, end) # Interval overlaps with exon (highest begin is lowe than lowest end)
         for start, end in exons) 
     # Check if a range overlaps with a splice site
     overlap_splice_site = lambda s, e: any(
         s <= (start - len(splice_sites[0]) <= e) or # interval contains left splice site
         s <= (end + len(splice_sites[1])) <= e
         for start, end in exons)
+    # Check if a mutation disturbs triplets by itself
+    # difference (deleted or inserted) between area of influence and sequence is not a multiple of 3 
+    frameshift = lambda v: (abs(v.end - v.start - len(v.sequence)) % 3) != 0 # TODO is this correct?
     # Check if supremal representation of variant (covers different placements) can influence the exon
     start = supremal.start + 1 # One-based position
     end = supremal.end # Closed end position
     if overlap_splice_site(start, end):
-        return "possible splice defect" # TODO is this correct?
+        return "possible splice defect" # QUESTION is this correct or can splice sites occur in a different way as well?
     if in_exon(start, end) or overlap_exon(start, end): 
+        if frameshift(supremal): 
+            return "possible frameshift" # QUESTION is this correct
+        # TODO split further into synonymous and missense?
         return "possible missense" 
-        # TODO make this more specific: frameshift / missense / synonymous?
     return None # Intronic and thus certainly silent TODO correct value?
 
 def is_noise(variant, functions, supremal): # TODO rename to relevance?
@@ -278,7 +282,7 @@ def is_noise(variant, functions, supremal): # TODO rename to relevance?
         return True, None
     elif 'splice defect' in function: # Change in expression
         return False, function
-    else: # Explicit change on protein level TODO take severity into account?
+    else: # Explicit change on protein level
         return False, function # Missense mutation
 
 def print_classification(classifications, detail_level=0):
