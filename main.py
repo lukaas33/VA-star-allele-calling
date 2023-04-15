@@ -252,12 +252,11 @@ def main():
             except ValueError as e:
                 if "unorderable variants" in str(e):
                     warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
-                    print(*variants.keys())
+                    print(*variants)
                     # TODO how to handle for unphased
                 else:
                     raise e
         cache_set(supremal_samples, "supremal_samples")
-    exit()
 
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
@@ -292,6 +291,7 @@ def main():
 
     # Determine star allele calling
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
+    exit()
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone)
     # classifications_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)

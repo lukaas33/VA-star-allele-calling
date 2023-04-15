@@ -126,21 +126,21 @@ def parse_samples(reference):
             samples[phased_name] = phased_allele[i]
         # Add unphased 'allele' to samples
         # Also store double variants since this is relevant for calling
-        all = []
-        double = []
+        all = set()
+        double = set()
         for v in phased_allele[0] + phased_allele[1]:
             if v in all: # present twice
-                double.append(v)
+                double.add(v)
                 continue
             for v2 in all: # overlaps so cannot be in same allele QUESTION is this correct?
                 s, e = v[1].start, v[1].end
                 s2, e2 = v2[1].start, v2[1].end
                 if max(s, s2) <= min(e, e2): # overlap
-                    double.append(v)
+                    double.add(v)
                     break
             else: # no overlap and not already present
-                all.append(v)
-        samples[name] = all
+                all.add(v)
+        samples[name] = list(all)
         if len(double) > 0:
-            samples[name + '+'] = double 
+            samples[name + '+'] = list(double)
     return samples
