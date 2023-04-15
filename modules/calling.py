@@ -243,7 +243,7 @@ def impact_position(supremal):
         start <= s and e <= end # Interval is contained in exon
         for start, end in exons)
     # Check if a range overlaps with an exon 
-    overlap_exon = lambda s, e: any((
+    overlap_exon = lambda s, e: any(( # TODO make more general, only works if above is false?
         s < start and e >= start) or # interval falls outside left side of exon
         (s <= end and e > end) # interval falls outside right side of exon
         for start, end in exons) 

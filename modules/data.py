@@ -95,7 +95,7 @@ def parse_samples(reference):
     samples = {}
     for filename in os.listdir(directory):
         name = filename.split('.')[0]
-        phased_allele = [{}, {}]
+        phased_allele = [[], []]
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
             # QUESTION: what are the filter, quality, format, info fields?
@@ -117,13 +117,30 @@ def parse_samples(reference):
                 for i, phase in enumerate(phasing.split('|')):
                     if phase == '1':
                         hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
-                        phased_allele[i][hgvs] = variant
-        # Add phased sample to samples
+                        phased_allele[i].append((hgvs, variant))
+        # Add phased alleles to samples
         for i in range(2):
             phased_name = name + "AB"[i]
-            if len(phased_allele[i].values()) == 0: # Empty alleles will be treated as *1
+            if len(phased_allele[i]) == 0: # Empty alleles will be treated as *1
                 pass 
             samples[phased_name] = phased_allele[i]
-        # Add unphased sample to samples
-        samples[name] = phased_allele[0] | phased_allele[1]
+        # Add unphased 'allele' to samples
+        # Also store double variants since this is relevant for calling
+        all = []
+        double = []
+        for v in phased_allele[0] + phased_allele[1]:
+            if v in all: # present twice
+                double.append(v)
+                continue
+            for v2 in all: # overlaps so cannot be in same allele QUESTION is this correct?
+                s, e = v[1].start, v[1].end
+                s2, e2 = v2[1].start, v2[1].end
+                if max(s, s2) <= min(e, e2): # overlap
+                    double.append(v)
+                    break
+            else: # no overlap and not already present
+                all.append(v)
+        samples[name] = all
+        if len(double) > 0:
+            samples[name + '+'] = double 
     return samples

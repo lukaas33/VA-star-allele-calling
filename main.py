@@ -235,20 +235,20 @@ def main():
     # parse samples
     samples_source = parse_samples(reference_sequence) 
     try:
-        supremal_samples = cache_get("supremal_samples")
+        supremal_samples = cache_get("supremal_samples_with_doubles")
     except:
         supremal_samples = {}
         for sample, variants in samples_source.items():
-            if variants == {}: # TODO handle differently (as empty variant?)
+            if variants == []: # TODO handle differently (as empty variant?)
                 continue
             # Parse individual variants
-            for hgvs, variant in variants.items(): # Find supremal for individual variants
+            for hgvs, variant in variants: # Find supremal for individual variants
                 if hgvs in supremal_samples:
                     continue
                 supremal_samples[hgvs] = to_supremal([variant], reference_sequence)
             # Parse alleles (variants together)
             try:
-                supremal_samples[sample] = to_supremal(list(variants.values()), reference_sequence) # Try to find supremal for sample
+                supremal_samples[sample] = to_supremal([v[1] for v in variants], reference_sequence) # Try to find supremal for sample
             except ValueError as e:
                 if "unorderable variants" in str(e):
                     warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
@@ -257,6 +257,7 @@ def main():
                 else:
                     raise e
         cache_set(supremal_samples, "supremal_samples")
+    exit()
 
     # Filter out non-personal variants (are already in dataset)
     for sample, p_variants in samples_source.items():
@@ -293,7 +294,6 @@ def main():
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone)
-    # TODO don't remove doubles from unphased samples
     # classifications_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
     # print_classification(classifications_phased, detail_level=0)
     print()
