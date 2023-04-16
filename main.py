@@ -300,7 +300,7 @@ def main():
     # calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
     # print_classification(calling_phased, detail_level=0)
     calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
-    print_classification(calling_unphased, detail_level=0)
+    print_classification(calling_unphased, detail_level=1)
 
     # TEST 5 validate star allele calling
     # validate_calling(calling_phased, r"data\bastard.txt")
@@ -309,7 +309,7 @@ def main():
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["HG00337"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["HG01108", "HG01108+"], pruned_samples[1], as_edges=True)
     context = pruned_extended
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
     display_graph(pruned_nodes, pruned_edges, data)

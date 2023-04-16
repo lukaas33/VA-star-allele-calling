@@ -191,9 +191,10 @@ def unpack_unphased_calling(unphased_calling):
         # Use double variants for second allele
         doubles = sample + '+'
         if doubles in unphased_calling.keys():
-            phased_calling[sample]['A'] = unphased_calling[sample]
-            phased_calling[sample]['B'] = unphased_calling[doubles]
-            continue
+            if len(unphased_calling[doubles]) > 1: # TODO count cores
+                phased_calling[sample]['A'] = unphased_calling[sample]
+                phased_calling[sample]['B'] = unphased_calling[doubles]
+                continue
         # Use other allele in calling for second allele
         # print(sample, unphased_calling[sample])
         n_cores = 0
@@ -203,13 +204,14 @@ def unpack_unphased_calling(unphased_calling):
             phased_calling[sample]['B'].append([])
             for allele in alleles: 
                 if sort_types(allele) == 1: # Add highest priority core allele to one of the phased callings
-                    n_cores += 1
                     # QUESTION is this valid?
+                    n_cores += 1
                     if n_cores == 1: # First core allele
                         phased_calling[sample]['A'][-1].append(allele)
+                        continue
                     elif n_cores == 2: # Second core allele
                         phased_calling[sample]['B'][-1].append(allele)
-                    continue
+                        continue
                 # Add other alleles to both phased callings
                 # TODO possible to separate this?
                 phased_calling[sample]['A'][-1].append(allele)
