@@ -309,7 +309,7 @@ def main():
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["HG01108", "HG01108+"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["NA20509", "NA20509+", "NA20509A", "NA20509B"], pruned_samples[1], as_edges=True)
     context = pruned_extended
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
     display_graph(pruned_nodes, pruned_edges, data)

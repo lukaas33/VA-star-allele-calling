@@ -181,17 +181,9 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
-    for sample in samples:
-        # Use double variants for second allele
-        doubles = sample + '+'
-        if doubles in unphased_calling.keys():
-            if len(unphased_calling[doubles]) > 0 and unphased_calling[doubles] != [["CYP2D6*1"]]: # TODO handle earlier # TODO count cores
-                phased_calling[sample]['A'] = unphased_calling[sample]
-                phased_calling[sample]['B'] = unphased_calling[doubles]
-                continue
+    for sample in samples:                
         # Group matches to find phasing TODO do this at step star_allele_calling
         # Assumes that every sample has one optimal core match QUESTION is this always valid?
-        print(unphased_calling[sample])
         all_alleles = [allele for alleles in unphased_calling[sample] for allele in alleles]
         connected = nx.Graph()
         connected.add_nodes_from(all_alleles)
@@ -201,27 +193,31 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                     continue
                 if cont_graph.has_edge(allele, allele2):
                     connected.add_edge(allele, allele2)
-        groups = list(nx.connected_components(connected))
-        # Split by groups
-        phased_calling[sample]['A'] = copy.deepcopy(unphased_calling[sample])
-        phased_calling[sample]['B'] = copy.deepcopy(unphased_calling[sample]) 
+        groups = [list(c) for c in nx.connected_components(connected)]
+        groups.sort(key=lambda vs: max([sort_types(v) for v in vs])) # Sort by most significant functional annotation (again)
+        # Split by groups # TODO restore priority in 2D matrix?
         n_cores = 0
         for group in groups:
-            if all([sort_types(a) != 1 for a in group]): # Only Core groups can be split
-               continue 
-            n_cores += 1
-            phasing = 'AB'[-n_cores] # First core in A, second in B
-            # Remove alleles from this phase (group will only be present in one phase)
-            print(sample, phasing, group)
-            for i, alleles in enumerate(phased_calling[sample][phasing]):
-                for allele in alleles:
-                    if allele not in group:
-                        continue
-                    phased_calling[sample][phasing][i].remove(allele)
+            if any([sort_types(a) == 1 for a in group]): # Only Core groups can be split
+                if n_cores < 2:
+                    phasing = 'AB'[-n_cores] # First core in A, second in B 
+                    n_cores += 1
+                    phased_calling[sample][phasing].append(group)
+                    continue
+                # Phasing not determined, add to both
+                phased_calling[sample]['A'].append(group)
+                phased_calling[sample]['B'].append(group)
+        print(sample, phased_calling[sample])
+
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
-        if n_cores == 1:
-            phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer
+        if n_cores == 1: # One match found, possibly homozygous or one wildtype
+            # Use double variants for second allele
+            doubles = sample + '+'
+            if doubles in unphased_calling.keys() and len(unphased_calling[doubles]) > 0 and unphased_calling[doubles] != [["CYP2D6*1"]]: # TODO handle earlier; count cores
+                phased_calling[sample]['B'] = unphased_calling[doubles]
+            else: # No second found, resort to default
+                phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
