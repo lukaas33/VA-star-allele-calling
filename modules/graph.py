@@ -59,7 +59,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     },
                     layout={
                         "name": default_layout,
-                        "fit": False # TODO remove
+                        "fit": default_layout != 'preset' # TODO make dynamic
                     },
                     stylesheet = default_stylesheet,
                     elements = elements
@@ -222,7 +222,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, positions=None):
+def display_graph(nodes, edges, data, positions=None, default_layout="cose-bilkent"):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -274,7 +274,7 @@ def display_graph(nodes, edges, data, positions=None):
     cyto.load_extra_layouts()
     app = Dash(__name__)
     # Show graph
-    app.layout = layout_graph(elements, nodes, edges, default_layout="preset") # TODO change
+    app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout) 
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges)
     # Start webpage

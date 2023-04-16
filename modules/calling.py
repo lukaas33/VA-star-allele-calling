@@ -92,11 +92,11 @@ def find_best_match(sample, matches, functions, phased):
                 # TODO how to express this to the user?
                 # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
                 pass
-        if n_cores > 1: # Ambiguous
-            if phased: # Phased sample
-                raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
-            # TODO handle unphased
-        if n_cores == 1: # Unambiguous
+        if n_cores > 1 and phased or n_cores > 2 and not phased: # Ambiguous phased/unphased
+            raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
+        elif n_cores == 0: # No found yet
+            continue
+        else: # Unambiguous
             break # No need to check further
     else: # No cores found
         # Catch-all is the default allele
@@ -183,18 +183,56 @@ def star_allele_calling(sample, nodes, edges, functions, supremals, phased):
     # Filter and return
     return find_best_match(sample, matches, functions, phased) 
 
+def unpack_unphased_calling(unphased_calling):
+    """Unpack a calling of a unphased sample into two phased callings."""
+    samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
+    phased_calling = {sample: {'A': None, 'B': None} for sample in sorted(samples)} 
+    for sample in samples:
+        # Use double variants for second allele
+        doubles = sample + '+'
+        if doubles in unphased_calling.keys():
+            phased_calling[sample]['A'] = unphased_calling[sample]
+            phased_calling[sample]['B'] = unphased_calling[doubles]
+            continue
+        # Use other allele in calling for second allele
+        # print(sample, unphased_calling[sample])
+        n_cores = 0
+        phased_calling[sample]['A'], phased_calling[sample]['B'] = [], []
+        for alleles in unphased_calling[sample]:
+            phased_calling[sample]['A'].append([]) # Keep priority rank
+            phased_calling[sample]['B'].append([])
+            for allele in alleles: 
+                if sort_types(allele) == 1: # Add highest priority core allele to one of the phased callings
+                    n_cores += 1
+                    # QUESTION is this valid?
+                    if n_cores == 1: # First core allele
+                        phased_calling[sample]['A'][-1].append(allele)
+                    elif n_cores == 2: # Second core allele
+                        phased_calling[sample]['B'][-1].append(allele)
+                    continue
+                # Add other alleles to both phased callings
+                # TODO possible to separate this?
+                phased_calling[sample]['A'][-1].append(allele)
+                phased_calling[sample]['B'][-1].append(allele)
+        if n_cores == 0:
+            raise ValueError("No core allele found for sample {}.".format(sample))
+        elif n_cores == 1: # Only one found, other must be *1
+            phased_calling[sample]['B'][-1].append('CYP2D6*1') # TODO do earlier
+    return phased_calling
+
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
     """Iterate over samples and call star alleles for each."""
-    if phased: callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
-    else: callings = {}
-    for sample in samples:
-        calling = star_allele_calling(sample, nodes, edges, functions, supremals, phased)
-        if phased: # For phased samples each allele has a single calling
-            sample_source, phasing = sample[:-1], sample[-1]
-            callings[sample_source][phasing] = calling
-        else: # Unphased samples have a single calling that has to be separated into two 
-            # TODO split into two callings (how/where?)
-            callings[sample] = {'A': calling} # TODO don't store in this format?
+    if phased: # Alleles are treated separately
+        callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
+        for sample in samples:
+            calling = star_allele_calling(sample, nodes, edges, functions, supremals, phased)
+            if phased: # For phased samples each allele has a single calling
+                sample_source, phasing = sample[:-1], sample[-1]
+                callings[sample_source][phasing] = calling
+    else: # Unphased samples have a single calling that has to be separated into two 
+        callings = {sample: star_allele_calling(sample, nodes, edges, functions, supremals, phased) for sample in samples} 
+        # Split unphased into two callings (how/where?)  
+        callings = unpack_unphased_calling(callings)         
     return callings
 
 def matches_core(match):
@@ -220,7 +258,9 @@ def impact_position(supremal):
     # TODO find exons dynamically for any gene
     # Exon borders (one-based; closed end) 
     # Source? https://www.ncbi.nlm.nih.gov/genome/gdv/browser/gene/?id=1565
-    # QUESTION are there more exons sometimes? Does alternative splicing occur?
+    # QUESTION are there more exons sometimes?
+    # QUESTION Does alternative splicing occur?
+    # QUESTION are these fixed?
     exons = [ 
         (42126499, 42126752),
         (42126851, 42126992),
@@ -235,6 +275,7 @@ def impact_position(supremal):
     # Length of splice site
     # Part of intron that is used for recognition by spliceosome
     # Source: https://www.ncbi.nlm.nih.gov/gene/1565
+    # TODO get dynamically
     # QUESTION is this correct?
     splice_sites = ("GT", "AG") 
     # Functions for checking exon influence
@@ -262,7 +303,7 @@ def impact_position(supremal):
     if in_exon(start, end) or overlap_exon(start, end): 
         if frameshift(supremal): 
             return "possible frameshift" # QUESTION is this correct
-        # TODO split further into synonymous and missense?
+        # TODO split further into synonymous, early stop and missense?
         return "possible missense" 
     return None # Intronic and thus certainly silent TODO correct value?
 

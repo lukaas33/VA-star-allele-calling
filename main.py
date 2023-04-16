@@ -282,8 +282,8 @@ def main():
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
     # Find all relations with samples
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended_phased-oud")
-    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal-oud")
+    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
@@ -294,29 +294,29 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Determine star allele calling
-    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended-out")
+    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone)
-    classifications_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
-    # print_classification(classifications_phased, detail_level=0)
-    exit()
-    classifications_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
-    print_classification(classifications_unphased, detail_level=1)
-    exit()
+    # calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
+    # print_classification(calling_phased, detail_level=0)
+    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
+    print_classification(calling_unphased, detail_level=0)
 
     # TEST 5 validate star allele calling
-    # validate_calling(classifications, r"data\bastard.txt")
+    # validate_calling(calling_phased, r"data\bastard.txt")
+    validate_calling(calling_unphased, r"data\bastard.txt")
+    exit()
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context([], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["HG00337"], pruned_samples[1], as_edges=True)
     context = pruned_extended
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
     display_graph(pruned_nodes, pruned_edges, data)
 
     # Generate images
     # nodes, edges, positions = image_reduction_equivalence(relations_extended)
-    # display_graph(nodes, edges, data, positions=positions)
+    # display_graph(nodes, edges, data, positions=positions, default_layout="preset")
 
 if __name__ == "__main__":
     main()
