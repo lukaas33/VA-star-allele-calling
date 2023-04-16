@@ -3,6 +3,7 @@ import networkx as nx
 import warnings
 from .data import api_get
 import re
+import copy
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
 
@@ -105,20 +106,13 @@ def find_best_match(sample, matches, functions, phased):
         sorted_matches.append(["CYP2D6*1"]) # QUESTION is this valid?
     return sorted_matches
 
-def star_allele_calling(sample, nodes, edges, functions, supremals, phased):
+def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
     """
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
-    eq_graph = nx.Graph()
-    eq_graph.add_nodes_from(nodes)
-    eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
-    cont_graph = nx.DiGraph()
-    cont_graph.add_nodes_from(nodes)
-    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
-
     # All information of a calling
     matches = {
         "equivalent": [], # Equivalent alleles
@@ -183,58 +177,72 @@ def star_allele_calling(sample, nodes, edges, functions, supremals, phased):
     # Filter and return
     return find_best_match(sample, matches, functions, phased) 
 
-def unpack_unphased_calling(unphased_calling):
+def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
-    phased_calling = {sample: {'A': None, 'B': None} for sample in sorted(samples)} 
+    phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:
         # Use double variants for second allele
         doubles = sample + '+'
         if doubles in unphased_calling.keys():
-            if len(unphased_calling[doubles]) > 1: # TODO count cores
+            if len(unphased_calling[doubles]) > 0 and unphased_calling[doubles] != [["CYP2D6*1"]]: # TODO handle earlier # TODO count cores
                 phased_calling[sample]['A'] = unphased_calling[sample]
                 phased_calling[sample]['B'] = unphased_calling[doubles]
                 continue
-        # Use other allele in calling for second allele
-        # print(sample, unphased_calling[sample])
+        # Group matches to find phasing TODO do this at step star_allele_calling
+        # Assumes that every sample has one optimal core match QUESTION is this always valid?
+        print(unphased_calling[sample])
+        all_alleles = [allele for alleles in unphased_calling[sample] for allele in alleles]
+        connected = nx.Graph()
+        connected.add_nodes_from(all_alleles)
+        for allele in all_alleles:
+            for allele2 in all_alleles:
+                if allele == allele2:
+                    continue
+                if cont_graph.has_edge(allele, allele2):
+                    connected.add_edge(allele, allele2)
+        groups = list(nx.connected_components(connected))
+        # Split by groups
+        phased_calling[sample]['A'] = copy.deepcopy(unphased_calling[sample])
+        phased_calling[sample]['B'] = copy.deepcopy(unphased_calling[sample]) 
         n_cores = 0
-        phased_calling[sample]['A'], phased_calling[sample]['B'] = [], []
-        for alleles in unphased_calling[sample]:
-            phased_calling[sample]['A'].append([]) # Keep priority rank
-            phased_calling[sample]['B'].append([])
-            for allele in alleles: 
-                if sort_types(allele) == 1: # Add highest priority core allele to one of the phased callings
-                    # QUESTION is this valid?
-                    n_cores += 1
-                    if n_cores == 1: # First core allele
-                        phased_calling[sample]['A'][-1].append(allele)
+        for group in groups:
+            if all([sort_types(a) != 1 for a in group]): # Only Core groups can be split
+               continue 
+            n_cores += 1
+            phasing = 'AB'[-n_cores] # First core in A, second in B
+            # Remove alleles from this phase (group will only be present in one phase)
+            print(sample, phasing, group)
+            for i, alleles in enumerate(phased_calling[sample][phasing]):
+                for allele in alleles:
+                    if allele not in group:
                         continue
-                    elif n_cores == 2: # Second core allele
-                        phased_calling[sample]['B'][-1].append(allele)
-                        continue
-                # Add other alleles to both phased callings
-                # TODO possible to separate this?
-                phased_calling[sample]['A'][-1].append(allele)
-                phased_calling[sample]['B'][-1].append(allele)
+                    phased_calling[sample][phasing][i].remove(allele)
         if n_cores == 0:
-            raise ValueError("No core allele found for sample {}.".format(sample))
-        elif n_cores == 1: # Only one found, other must be *1
-            phased_calling[sample]['B'][-1].append('CYP2D6*1') # TODO do earlier
+            raise ValueError("No core alleles found in sample: {}".format(sample))
+        if n_cores == 1:
+            phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
+    eq_graph = nx.Graph()
+    eq_graph.add_nodes_from(nodes)
+    eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
+    cont_graph = nx.DiGraph()
+    cont_graph.add_nodes_from(nodes)
+    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
     """Iterate over samples and call star alleles for each."""
     if phased: # Alleles are treated separately
         callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
         for sample in samples:
-            calling = star_allele_calling(sample, nodes, edges, functions, supremals, phased)
+            calling = star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased)
             if phased: # For phased samples each allele has a single calling
                 sample_source, phasing = sample[:-1], sample[-1]
                 callings[sample_source][phasing] = calling
     else: # Unphased samples have a single calling that has to be separated into two 
-        callings = {sample: star_allele_calling(sample, nodes, edges, functions, supremals, phased) for sample in samples} 
+        callings = {sample: star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased) for sample in samples} 
         # Split unphased into two callings (how/where?)  
-        callings = unpack_unphased_calling(callings)         
+        callings = unpack_unphased_calling(callings, cont_graph)         
     return callings
 
 def matches_core(match):
