@@ -9,6 +9,7 @@ all_functions = ['unknown function', 'uncertain function', 'normal function', 'd
 
 def sort_function(f):
     """Sort function annotation based on severity."""
+    # TODO use enums
     # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
         raise Exception("Unknown function: " + f)
@@ -19,6 +20,7 @@ def sort_function(f):
 
 def sort_types(v):
     """Sort variant types in order of specificity (somewhat arbitrary)."""
+    # TODO use enums or types for the data
     if '*' in v:
         if '.' in v:
             return 2 # Suballele
@@ -36,18 +38,33 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
     if sort_types(start) in find: # Need to find this type
-        matches.append(start)
-    if stop is not None and sort_types(start) == stop: # Don't look further here
+        matches.add(start)
+    if stop is not None and sort_types(start) == stop: # Don't look further here (terminal nodes)
         return 
-    # Find equivalents
+    # Find equivalents (needed for finding equivalent suballeles and variants)
     if start in eq_graph.nodes():
         for match in eq_graph[start]: 
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add equivalents and maybe traverse
     # Find contained
-    if start in cont_graph.nodes():
+    if start in cont_graph.nodes(): 
         for match, _ in cont_graph.in_edges(start):
-            find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained  and maybe traverse
-        
+            find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained and maybe traverse
+
+def find_most_specific(matches, cont_graph):
+    """Find the most specific alleles from a list of contained alleles."""  
+    reduced = set()
+    for node1 in matches:
+        for node2 in matches:
+            if node1 == node2: # Skip self 
+                continue
+            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment of core in suballeles as this is expected
+                continue
+            if node1 in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
+                break # Skip this allele
+        else: # No issues 
+            reduced.add(node1) # Keep match
+    return reduced
+
 def find_best_match(sample, matches, functions, phased):
     """Find the best matches from a list of matches.
     
@@ -95,7 +112,7 @@ def find_best_match(sample, matches, functions, phased):
                 # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
                 pass
         if n_cores > 1 and phased or n_cores > 2 and not phased: # Ambiguous phased/unphased
-            raise Exception(f"{sample}: Multiple corealleles found with the same priority: {match}.")
+            warnings.warn(f"{sample}: Multiple corealleles found with the same priority: {match}.")
         elif n_cores == 0: # No found yet
             continue
         else: # Unambiguous
@@ -116,39 +133,26 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
     # QUESTION: is it needed to look at individual variants for calling?
     # All information of a calling
     matches = {
-        "equivalent": [], # Equivalent alleles
-        "contained": [], # Contained alleles
+        "equivalent": set(), # Equivalent alleles
+        "contained": set(), # Contained alleles
         "variants": {
             # extra variants for each allele
         }
     }
     # Find equivalent alleles
-    contained = []
-    if sample in eq_graph.nodes(): matches["equivalent"] = [match for match in eq_graph[sample] if sort_types(match) != 5]
+    if sample in eq_graph.nodes(): matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) != 5])
     # Find contained alleles
-    find_contained_variants(sample, cont_graph, eq_graph, contained, set(), (1,2), 1)
-    # Check if any contain another, keep most specific
-    # TODO take phasing into account (cannot filter all)
-    # TODO add to initial getting?
-    for node1 in set(contained):
-        for node2 in contained:
-            if node1 == node2: # Skip self 
-                continue
-            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment of core in suballeles as this is expected
-                continue
-            if node1 in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
-                break # Skip this allele
-        else: # No issues 
-            if node1 in matches["equivalent"]: # Skip equivalent alleles
-                continue
-            matches["contained"].append(node1) # Keep match
+    find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
+    matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
+    matches["contained"] = find_most_specific(matches["contained"], cont_graph) # Remove alleles contained in others TODO (re)move
     # Check certainty of calling for each matched allele
-    vs = [] # All variants indirectly or directly contained in the sample 
+    # TODO change extra variant definition to be more strict
+    vs = set() # All variants indirectly or directly contained in the sample 
     find_contained_variants(sample, cont_graph, eq_graph, vs, set(), (3, 5)) # TODO get from PharmVar?
-    for match in matches["contained"] + matches["equivalent"]: # Equivalent added but these will be empty
+    for match in matches["contained"] | matches["equivalent"]: # Equivalent added but these will be empty
         matches["variants"][match] = {"noise": [], "uncertain": []}
         # Find 'extra' variants: in the sample but not in the called allele
-        ws = [] # All variants indirectly or directly contained in the sample
+        ws = set() # All variants indirectly or directly contained in the sample
         find_contained_variants(match, cont_graph, eq_graph, ws, set(), (3, 5)) # TODO get from PharmVar?
         extra_variants = []
         for v in vs: # In sample
@@ -181,6 +185,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
 
 def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
+    raise Exception("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:                
@@ -309,6 +314,7 @@ def impact_position(supremal):
     Instead it uses the position of a variant to see if it can influence the protein.
     This is based on the intron-exon borders.
     """
+    # TODO retire this function
     # TODO do earlier for all personal variants (and more?)
     # TODO find exons dynamically for any gene
     # Exon borders (one-based; closed end) 
@@ -370,8 +376,9 @@ def is_noise(variant, functions, supremal): # TODO rename to relevance?
 
     This approach uses the online annotations but falls back on a sequence based approach.
     """
+    # TODO use new method
     if variant in functions: function = functions[variant]  # PharmVar variant 
-    else: function = impact_position(supremal) # Personal variant
+    else: function = impact_position(supremal) # Personal variant TODO don't do this
     if function == '': function = None # QUESTION what is the correct interpretation of this (no change or unknown)?
     # Check the impact of the variant
     if function == None: # QUESTION what is the correct interpretation (no change or unknown)?
@@ -388,6 +395,7 @@ def print_classification(classifications, detail_level=0):
     0: Only print best core match
     1: Simplify to core matches
     2: Print all matches
+    3: Print all matches and their contained alleles
     """
     for sample, classification in classifications.items():
         selected_alleles = {'A': [], 'B': []}
