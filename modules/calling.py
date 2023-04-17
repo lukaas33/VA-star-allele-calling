@@ -181,10 +181,10 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
 
 def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
-    # TODO why not stable?
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:                
+        n_cores = 0
         # Group matches to find phasing TODO do this at step star_allele_calling
         # Assumes that every sample has one optimal core match QUESTION is this always valid?
         all_alleles = [allele for alleles in unphased_calling[sample] for allele in alleles]
@@ -198,7 +198,6 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                     connected.add_edge(allele, allele2)
         groups = [c for c in nx.connected_components(connected)]
         # Split phasing by groups TODO do this neater
-        n_cores = 0
         designate = {}
         for alleles in unphased_calling[sample]:
             n_cores_sub = 0
@@ -241,6 +240,7 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                     first[phase] = False
 
         if n_cores == 1: # One match found, possibly homozygous or one wildtype
+            # TODO what is the ordering between these steps?
             # Use double variants to find homozygous
             doubles = sample + '+'
             if doubles in unphased_calling.keys():
@@ -262,11 +262,11 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
         # if sample == "NA19207":
-            # print(unphased_calling[sample])
-            # print(phased_calling[sample])
-            # print(groups)
-            # print(designate)
-            # exit()
+        #     print(unphased_calling[sample])
+        #     print(phased_calling[sample])
+        #     print(groups)
+        #     print(designate)
+        #     exit()
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
