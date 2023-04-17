@@ -128,6 +128,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
     # Find contained alleles
     find_contained_variants(sample, cont_graph, eq_graph, contained, set(), (1,2), 1)
     # Check if any contain another, keep most specific
+    # TODO take phasing into account (cannot filter all)
     # TODO add to initial getting?
     for node1 in set(contained):
         for node2 in contained:
@@ -217,7 +218,7 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                         for other in group:
                             designate[other] = phasing
                     n_cores += 1
-        # Add alleles to correct phasing based on grouping
+        # Add alleles to phasing based on grouping
         # Unknown groupings have to be placed in both
         # Keeps priority ranks determined earlier
         first = {'A': True, 'B': True}
@@ -260,12 +261,12 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                 phased_calling[sample]['B'].append({"CYP2D6*1",}) # resort to wildtype
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
-        # if sample == "HG00276":
-        #     print(groups)
-        #     print(unphased_calling[sample])
-        #     print(phased_calling[sample])
-        #     print(designate)
-        #     exit()
+        # if sample == "NA19207":
+            # print(unphased_calling[sample])
+            # print(phased_calling[sample])
+            # print(groups)
+            # print(designate)
+            # exit()
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
