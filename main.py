@@ -300,7 +300,7 @@ def main():
     # calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
     # print_classification(calling_phased, detail_level=0)
     calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
-    print_classification(calling_unphased, detail_level=1)
+    # print_classification(calling_unphased, detail_level=1)
 
     # TEST 5 validate star allele calling
     # validate_calling(calling_phased, r"data\bastard.txt")

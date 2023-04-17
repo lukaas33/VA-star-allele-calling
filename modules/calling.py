@@ -179,6 +179,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
 
 def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
+    # TODO why not stable?
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:                
@@ -194,7 +195,9 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                 if cont_graph.has_edge(allele, allele2):
                     connected.add_edge(allele, allele2)
         groups = [list(c) for c in nx.connected_components(connected)]
-        groups.sort(key=lambda vs: max([sort_types(v) for v in vs])) # Sort by most significant functional annotation (again)
+        # Sort by most significant functional annotation (again)
+        for group in groups: group.sort(key=lambda a: sort_types(a))
+        groups.sort(key=lambda vs: max([sort_types(v) for v in vs])) 
         # Split by groups # TODO restore priority in 2D matrix?
         n_cores = 0
         for group in groups:
@@ -204,10 +207,13 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                     n_cores += 1
                     phased_calling[sample][phasing].append(group)
                     continue
-                # Phasing not determined, add to both
-                phased_calling[sample]['A'].append(group)
-                phased_calling[sample]['B'].append(group)
-        print(sample, phased_calling[sample])
+            # Phasing not determined, add to both
+            phased_calling[sample]['A'].append(group)
+            phased_calling[sample]['B'].append(group)
+        # if len(groups) > 1:
+        #     print(groups)
+        #     print(sample, phased_calling[sample])
+        #     exit()
 
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
@@ -215,9 +221,9 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
             # Use double variants for second allele
             doubles = sample + '+'
             if doubles in unphased_calling.keys() and len(unphased_calling[doubles]) > 0 and unphased_calling[doubles] != [["CYP2D6*1"]]: # TODO handle earlier; count cores
-                phased_calling[sample]['B'] = unphased_calling[doubles]
+                phased_calling[sample]['B'] = unphased_calling[doubles] # TODO append?
             else: # No second found, resort to default
-                phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer
+                phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer; append?
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
