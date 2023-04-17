@@ -146,16 +146,16 @@ def validate_calling(classifications, validate_filename):
             sample, classes = line.rstrip().split(' ')
             classes = set(["CYP2D6" + c for c in classes.split('/')])
             ref = set()
-            for classification in classifications[sample].values():
-                for class_ in classification: # Find first core per phase
-                    for allele in class_: # TODO do this nicer
+            for phasing in "AB":
+                found = False
+                for alleles in classifications[sample][phasing]: # Find first core
+                    for allele in alleles: # TODO do this nicer
                         if sort_types(allele) != 1:
                             continue
                         ref.add(allele)
+                        found = True # Keep adding cores of same priority
+                    if found: # Don't look at lower priority
                         break
-                    else:
-                        continue
-                    break
             if classes != ref:
                 print(f"Sample {sample} was predicted as {ref} but should be {classes}")
                 n_errors += 1

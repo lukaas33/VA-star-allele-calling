@@ -53,6 +53,7 @@ def find_best_match(sample, matches, functions, phased):
     
     Also return a measure of certainty.
     """
+    # TODO change to list of sets (since there is no order within a position)
     sorted_matches = []
     # Equivalent alleles are the best matches
     if len(matches["equivalent"]) > 0:
@@ -194,36 +195,77 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                     continue
                 if cont_graph.has_edge(allele, allele2):
                     connected.add_edge(allele, allele2)
-        groups = [list(c) for c in nx.connected_components(connected)]
-        # Sort by most significant functional annotation (again)
-        for group in groups: group.sort(key=lambda a: sort_types(a))
-        groups.sort(key=lambda vs: max([sort_types(v) for v in vs])) 
-        # Split by groups # TODO restore priority in 2D matrix?
+        groups = [c for c in nx.connected_components(connected)]
+        # Split phasing by groups TODO do this neater
         n_cores = 0
-        for group in groups:
-            if any([sort_types(a) == 1 for a in group]): # Only Core groups can be split
-                if n_cores < 2:
-                    phasing = 'AB'[-n_cores] # First core in A, second in B 
-                    n_cores += 1
-                    phased_calling[sample][phasing].append(group)
+        designate = {}
+        for alleles in unphased_calling[sample]:
+            n_cores_sub = 0
+            for allele in alleles:
+                if allele in designate:
                     continue
-            # Phasing not determined, add to both
-            phased_calling[sample]['A'].append(group)
-            phased_calling[sample]['B'].append(group)
-        # if len(groups) > 1:
-        #     print(groups)
-        #     print(sample, phased_calling[sample])
-        #     exit()
+                if sort_types(allele) == 1: # Keep one core in each phasing
+                    # Add core and grouped to only this phase
+                    n_cores_sub += 1
+                    if n_cores >= 2:
+                        continue
+                    phasing = "AB"[n_cores] 
+                    designate[allele] = phasing
+                    for group in groups: # Mark grouped as being in phase
+                        if allele not in group:
+                            continue
+                        for other in group:
+                            designate[other] = phasing
+                    n_cores += 1
+        # Add alleles to correct phasing based on grouping
+        # Unknown groupings have to be placed in both
+        # Keeps priority ranks determined earlier
+        first = {'A': True, 'B': True}
+        for alleles in unphased_calling[sample]:
+            phased_calling[sample]['A'].append(set()) # Keep priority ranks
+            phased_calling[sample]['B'].append(set())
+            for allele in alleles:
+                if allele in designate:
+                    phased_calling[sample][designate[allele]][-1].add(allele)
+                else:
+                    phased_calling[sample]['A'][-1].add(allele)
+                    phased_calling[sample]['B'][-1].add(allele)
+            # Test ambiguity
+            for phase in "AB":
+                test_n_cores = [sort_types(a) for a in phased_calling[sample][phase][-1]].count(1) # Number of cores in this position
+                if first[phase] and test_n_cores > 1: # Ambiguous first occurrence
+                    # TODO how to handle   
+                    warnings.warn(f"{sample}{phase} ambiguous calling: {phased_calling[sample][phase][-1]}")
+                if test_n_cores > 0: # First occurrence of core
+                    first[phase] = False
 
+        if n_cores == 1: # One match found, possibly homozygous or one wildtype
+            # Use double variants to find homozygous
+            doubles = sample + '+'
+            if doubles in unphased_calling.keys():
+                for alleles in unphased_calling[doubles]:
+                    for allele in alleles:
+                        if sort_types(allele) != 1: # Must contain a core
+                            continue
+                        if allele == "CYP2D6*1": # Must not be the default TODO don't return this 
+                            continue
+                        # Found core in doubles, make this the second phasing
+                        phased_calling[sample]['B'] = [set(al) for al in unphased_calling[doubles]] # TODO append/extend?
+                        n_cores += 1
+                        break
+                    else: # Not found yet
+                        continue
+                    break # Found
+        if n_cores == 1: # Not homozygous
+                phased_calling[sample]['B'].append({"CYP2D6*1",}) # resort to wildtype
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
-        if n_cores == 1: # One match found, possibly homozygous or one wildtype
-            # Use double variants for second allele
-            doubles = sample + '+'
-            if doubles in unphased_calling.keys() and len(unphased_calling[doubles]) > 0 and unphased_calling[doubles] != [["CYP2D6*1"]]: # TODO handle earlier; count cores
-                phased_calling[sample]['B'] = unphased_calling[doubles] # TODO append?
-            else: # No second found, resort to default
-                phased_calling[sample]['B'] = [["CYP2D6*1"]] # TODO do this nicer; append?
+        # if sample == "HG00276":
+        #     print(groups)
+        #     print(unphased_calling[sample])
+        #     print(phased_calling[sample])
+        #     print(designate)
+        #     exit()
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
