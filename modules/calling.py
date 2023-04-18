@@ -44,6 +44,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
     # Find equivalent (needed for finding all suballeles or all variants)
     if start in eq_graph.nodes():
         for match in eq_graph[start]: 
+
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add equivalents and maybe traverse
     # Find contained
     if start in cont_graph.nodes(): 
@@ -51,6 +52,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained and maybe traverse
 
 def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop=None, add=False):
+    # TODO don't iterate over samples and other's personal variants (also relevant for other functions?)
     """Recursively find the overlapping variants from a given start node."""
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
@@ -471,7 +473,7 @@ def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None
     for g in (cont_graph, eq_graph, overlap_graph):
         if s in g.nodes():
             for n in g[s]:
-                if sort_types(n) not in (1, 2, 3, 5): # Don't use samples for iteration
+                if sort_types(n) in (4, 5): # Don't use samples for iteration
                     continue
                 path.append(n)
                 result = find_path(n, t, cont_graph, eq_graph, overlap_graph, path, visited)
