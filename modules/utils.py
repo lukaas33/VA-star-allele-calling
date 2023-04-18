@@ -137,26 +137,16 @@ def validate_relations(data, variants, filename):
     
     print("No (further) differences found between the reference and the data relations")
 
-def validate_calling(classifications, validate_filename):
+def validate_calling(callings, validate_filename):
     """Validate if classifications match with the M&J method"""
     n_errors = 0
     with open(validate_filename, 'r') as validate:
         for line in validate:
             # convert to format of classifications
             sample, classes = line.rstrip().split(' ')
-            classes = set(["CYP2D6" + c for c in classes.split('/')])
-            ref = set()
-            for phasing in "AB":
-                found = False
-                for alleles in classifications[sample][phasing]: # Find first core
-                    for allele in alleles: # TODO do this nicer
-                        if sort_types(allele) != 1:
-                            continue
-                        ref.add(allele)
-                        found = True # Keep adding cores of same priority
-                    if found: # Don't look at lower priority
-                        break
-            if classes != ref:
+            classes = ["CYP2D6" + c for c in classes.split('/')]
+            ref = [*callings[sample]['A'], *callings[sample]['B']] # Get priority answer (assumes filtering has occurred already)      
+            if classes != ref and classes[::-1] != ref:
                 print(f"Sample {sample} was predicted as {ref} but should be {classes}")
                 n_errors += 1
     if n_errors > 0:

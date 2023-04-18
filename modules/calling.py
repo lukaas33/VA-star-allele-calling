@@ -57,11 +57,15 @@ def find_most_specific(matches, cont_graph):
         for node2 in matches:
             if node1 == node2: # Skip self 
                 continue
+            if node2 not in cont_graph.nodes(): # Skip alleles not in graph (in practice only *1)
+                continue
             if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment of core in suballeles as this is expected
                 continue
-            if node1 in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
-                break # Skip this allele
-        else: # No issues 
+            if node1 not in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
+                continue
+            # No issues 
+            break
+        else: # No break
             reduced.add(node1) # Keep match
     return reduced
 
@@ -80,7 +84,7 @@ def find_best_match(sample, matches, functions, phased):
     # Next step is the contained alleles
     if len(matches["contained"]) > 0:
         # In the case of multiple contained corealleles, a choice is made based on functional annotation
-        annotated = {f: [m for m in matches["contained"] if functions[m] == f] for f in all_functions}
+        annotated = {f: set([m for m in matches["contained"] if functions[m] == f]) for f in all_functions}
         # If the annotation is no function, this allele is most disruptive and is chosen
         if len(annotated["no function"]) > 0:	
             sorted_matches.append(annotated["no function"])
@@ -89,9 +93,9 @@ def find_best_match(sample, matches, functions, phased):
         if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
             # Put all in the same position of ordering
             sorted_matches.append(
-                annotated["decreased function"] +
-                annotated["normal function"] +
-                annotated["unknown function"] +
+                annotated["decreased function"] |
+                annotated["normal function"] |
+                annotated["unknown function"] |
                 annotated["uncertain function"]
             )
         else: # Ordering can be determined between normal and decreased function
@@ -101,27 +105,26 @@ def find_best_match(sample, matches, functions, phased):
             if len(annotated["normal function"]) > 0:
                 sorted_matches.append(annotated["normal function"])
     # Check certainty and consistency of matches
-    for match in sorted_matches:
-        n_cores = 0
-        for allele in match:
-            if sort_types(allele) == 1: # Coreallele
-                n_cores += 1
-            # check certainty
-            if len(matches['variants'][allele]['uncertain']) > 0:
-                # TODO how to express this to the user?
-                # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
-                pass
-        if n_cores > 1 and phased or n_cores > 2 and not phased: # Ambiguous phased/unphased
-            warnings.warn(f"{sample}: Multiple corealleles found with the same priority: {match}.")
-        elif n_cores == 0: # No found yet
-            continue
-        else: # Unambiguous
-            break # No need to check further
-    else: # No cores found
-        # Catch-all is the default allele
-        # *1 will never be in contained so it is not prioritized over others
-        # TODO also find uncertain variants here
-        sorted_matches.append(["CYP2D6*1"]) # QUESTION is this valid?
+    # for match in sorted_matches:
+    #     n_cores = 0
+    #     for allele in match:
+    #         if sort_types(allele) == 1: # Coreallele
+    #             n_cores += 1
+    #         # check certainty
+    #         if len(matches['variants'][allele]['uncertain']) > 0:
+    #             # TODO how to express this to the user?
+    #             # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
+    #             pass
+    #     if n_cores > 1 and phased or n_cores > 2 and not phased: # Ambiguous phased/unphased
+    #         warnings.warn(f"{sample}: Multiple corealleles found with the same priority: {match}.")
+    #     elif n_cores == 0: # No found yet
+    #         continue
+    #     else: # Unambiguous
+    #         break # No need to check further
+    # else: # No cores found
+    # Catch-all is the default allele and is in theory always present
+    # *1 will never be in contained so it is not prioritized over others
+    sorted_matches.append({"CYP2D6*1",})        
     return sorted_matches
 
 def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased):
@@ -144,7 +147,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
     # Find contained alleles
     find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
     matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
-    matches["contained"] = find_most_specific(matches["contained"], cont_graph) # Remove alleles contained in others TODO (re)move
+    # TODO find overlapping alleles
     # Check certainty of calling for each matched allele
     # TODO change extra variant definition to be more strict
     vs = set() # All variants indirectly or directly contained in the sample 
@@ -274,7 +277,7 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
         #     exit()
     return phased_calling
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True, detail_level=0):
     eq_graph = nx.Graph()
     eq_graph.add_nodes_from(nodes)
     eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
@@ -286,14 +289,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
         callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
         for sample in samples:
             calling = star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased)
-            if phased: # For phased samples each allele has a single calling
-                sample_source, phasing = sample[:-1], sample[-1]
-                callings[sample_source][phasing] = calling
+            sample_source, phasing = sample[:-1], sample[-1]
+            callings[sample_source][phasing] = calling
     else: # Unphased samples have a single calling that has to be separated into two 
+        raise NotImplementedError()
         callings = {sample: star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased) for sample in samples} 
         # Split unphased into two callings (how/where?)  
         callings = unpack_unphased_calling(callings, cont_graph)         
-    return callings
+    return calling_to_repr(callings, cont_graph, detail_level)
 
 def matches_core(match):
     """Print the core allele from a match."""
@@ -388,20 +391,32 @@ def is_noise(variant, functions, supremal): # TODO rename to relevance?
     else: # Explicit change on protein level
         return False, function # Missense mutation
 
-def print_classification(classifications, detail_level=0):
-    """Print the classification of samples.
+def calling_to_repr(callings, cont_graph, detail_level=0):
+    """Change the calling to a representation of a certain amount of detail.
     
     Different detail levels are available.
-    0: Only print best core match
-    1: Simplify to core matches
-    2: Print all matches
-    3: Print all matches and their contained alleles
+    0: Only print best core match(es)
+    1: Simplify to core matches only
+    2: Print core and suballele matches
+    3: Print all matches and their less specific contained alleles
     """
-    for sample, classification in classifications.items():
-        selected_alleles = {'A': [], 'B': []}
-        for phase, ordered_alleles in classification.items():
+    if detail_level != 3: # Remove matches contained in others
+        for sample in callings:
+            for phase in "AB":
+                all_alleles = set([a for al in callings[sample][phase] for a in al if al != None])
+                reduced_alleles = find_most_specific(all_alleles, cont_graph)
+                # print(sample, phase, callings[sample][phase])
+                for al in callings[sample][phase]:
+                    al &= reduced_alleles
+                # print(sample, phase, callings[sample][phase])
+                # print()
+        # exit()
+    selected_calling = {}
+    for sample, calling in callings.items():
+        selected_alleles = {'A': [], 'B': []} # Flatten into ordered list
+        for phase, ordered_alleles in calling.items():
             for alleles in ordered_alleles:
-                for allele in alleles: # TODO do this nicer
+                for allele in alleles:
                     if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
                         continue
                     selected_alleles[phase].append(allele)
@@ -410,5 +425,6 @@ def print_classification(classifications, detail_level=0):
                 else: # No break 
                     continue
                 break
-        # Print
-        print(f"{sample}: {','.join(selected_alleles['A'])}/{','.join(selected_alleles['B'])}")
+        selected_calling[sample] = selected_alleles
+    return selected_calling
+        

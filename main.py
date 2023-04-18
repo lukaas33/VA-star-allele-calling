@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, print_classification, sort_types, impact_position
+from modules.calling import star_allele_calling_all, calling_to_repr, sort_types, impact_position
 from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
 from modules.utils import validate_relations, validate_calling
 from modules.assets.generate_images import *
@@ -297,13 +297,14 @@ def main():
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
-    calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples)
-    print_classification(calling_phased, detail_level=2)
+    calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
+    for sample, line in calling_phased.items():
+        print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
     # print_classification(calling_unphased, detail_level=1)
 
     # TEST 5 validate star allele calling
-    validate_calling(calling_phased, r"data\bastard.txt")
+    validate_calling(star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
     # validate_calling(calling_unphased, r"data\bastard.txt")
     exit()
 
