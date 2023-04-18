@@ -297,20 +297,18 @@ def main():
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
-    calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
-    for sample, line in calling_phased.items():
-        print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
-    # print_classification(calling_unphased, detail_level=1)
 
     # TEST 5 validate star allele calling
-    validate_calling(star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
+    # validate_calling(star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
     # validate_calling(calling_unphased, r"data\bastard.txt")
-    exit()
+    # exit()
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["NA20509", "NA20509+", "NA20509A", "NA20509B"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["NA21105A", "NA21105B"], pruned_samples[1], as_edges=True)
     context = pruned_extended
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
     display_graph(pruned_nodes, pruned_edges, data)

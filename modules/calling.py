@@ -34,14 +34,14 @@ def sort_types(v):
         return 5 # Personal variant
     
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
-    """Recursively find the equivalent and contained variants from a given start node."""
+    """Recursively find the contained (and equivalent) variants from a given start node."""
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
     if sort_types(start) in find: # Need to find this type
         matches.add(start)
     if stop is not None and sort_types(start) == stop: # Don't look further here (terminal nodes)
         return 
-    # Find equivalents (needed for finding equivalent suballeles and variants)
+    # Find equivalent (needed for finding all suballeles or all variants)
     if start in eq_graph.nodes():
         for match in eq_graph[start]: 
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add equivalents and maybe traverse
@@ -49,6 +49,24 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
     if start in cont_graph.nodes(): 
         for match, _ in cont_graph.in_edges(start):
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained and maybe traverse
+
+def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop=None, add=False):
+    """Recursively find the overlapping variants from a given start node."""
+    if start in visited: return # Already visited
+    visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
+    if add and sort_types(start) in find: # Need to find this type
+        matches.add(start)
+    if stop is not None and sort_types(start) == stop: # Don't look further here (terminal nodes)
+        return 
+    # Find equivalent not needed (since everything is connected to core)
+    # Find contained
+    if start in cont_graph.nodes(): 
+        for match, _ in cont_graph.in_edges(start):
+            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop, add=False) # Don't add but traverse
+    # Find overlapping
+    if start in overlap_graph.nodes():
+        for match in overlap_graph[start]:
+            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop, add=True) # Add and traverse
 
 def find_most_specific(matches, cont_graph):
     """Find the most specific alleles from a list of contained alleles."""  
@@ -69,7 +87,7 @@ def find_most_specific(matches, cont_graph):
             reduced.add(node1) # Keep match
     return reduced
 
-def find_best_match(sample, matches, functions, phased):
+def prioritize_calling(sample, matches, functions, phased):
     """Find the best matches from a list of matches.
     
     Also return a measure of certainty.
@@ -124,10 +142,11 @@ def find_best_match(sample, matches, functions, phased):
     # else: # No cores found
     # Catch-all is the default allele and is in theory always present
     # *1 will never be in contained so it is not prioritized over others
+    # TODO do this somewhere else?
     sorted_matches.append({"CYP2D6*1",})        
     return sorted_matches
 
-def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased):
+def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
@@ -138,53 +157,61 @@ def star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phas
     matches = {
         "equivalent": set(), # Equivalent alleles
         "contained": set(), # Contained alleles
+        "overlap": set(), # Overlapping alleles
         "variants": {
             # extra variants for each allele
         }
     }
     # Find equivalent alleles
-    if sample in eq_graph.nodes(): matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) != 5])
-    # Find contained alleles
+    if sample in eq_graph.nodes(): matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)])
+    # Find contained
     find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
     matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
-    # TODO find overlapping alleles
+    # Find overlapping alleles
+    # TODO get indirect overlap?
+    find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlap"], set(), (1,2))
+    if "NA21105" in sample:
+        print(find_path("CYP2D6*7", "NA21105A", cont_graph, eq_graph, overlap_graph))
+        print(sample, matches["overlap"])
+    matches["contained"] |= matches["overlap"] # Add overlap to contained TODO change
+
     # Check certainty of calling for each matched allele
     # TODO change extra variant definition to be more strict
-    vs = set() # All variants indirectly or directly contained in the sample 
-    find_contained_variants(sample, cont_graph, eq_graph, vs, set(), (3, 5)) # TODO get from PharmVar?
-    for match in matches["contained"] | matches["equivalent"]: # Equivalent added but these will be empty
-        matches["variants"][match] = {"noise": [], "uncertain": []}
-        # Find 'extra' variants: in the sample but not in the called allele
-        ws = set() # All variants indirectly or directly contained in the sample
-        find_contained_variants(match, cont_graph, eq_graph, ws, set(), (3, 5)) # TODO get from PharmVar?
-        extra_variants = []
-        for v in vs: # In sample
-            if v in ws: # But not in this allele
-                continue
-            extra_variants.append(v) 
-        # Check if the extra variants can influence the calling
-        for variant in extra_variants:
-            # Check what the impact of the variant is
-            noise, function = is_noise(variant, functions, supremals[variant])
-            if noise: # No evidence of relevance
-                matches["variants"][match]["noise"].append(variant) # TODO annotate noise
-                continue # TODO need to check interference here?
-            # Evidence of possible protein impact
-            # Check if the impact could interfere with the calling in some way
-            if "splice defect" in function: # Splice defect, outcome uncertain
-                pass
-            elif "fs" == function[-2:]: # Frameshift
-                # TODO check if effect downstream
-                pass
-            elif "X" == function[-1]: # Stop codon
-                # TODO check if effect downstream
-                pass
-            else: # Missense
-                # TODO check if interference with impactful variant (function dependent?)
-                pass
-            matches["variants"][match]["uncertain"].append((variant, function))
+    # vs = set() # All variants indirectly or directly contained in the sample 
+    # find_contained_variants(sample, cont_graph, eq_graph, vs, set(), (3, 5)) # TODO get from PharmVar?
+    # for match in matches["contained"] | matches["equivalent"]: # Equivalent added but these will be empty
+    #     matches["variants"][match] = {"noise": [], "uncertain": []}
+    #     # Find 'extra' variants: in the sample but not in the called allele
+    #     ws = set() # All variants indirectly or directly contained in the sample
+    #     find_contained_variants(match, cont_graph, eq_graph, ws, set(), (3, 5)) # TODO get from PharmVar?
+    #     extra_variants = []
+    #     for v in vs: # In sample
+    #         if v in ws: # But not in this allele
+    #             continue
+    #         extra_variants.append(v) 
+    #     # Check if the extra variants can influence the calling
+    #     for variant in extra_variants:
+    #         # Check what the impact of the variant is
+    #         noise, function = is_noise(variant, functions, supremals[variant])
+    #         if noise: # No evidence of relevance
+    #             matches["variants"][match]["noise"].append(variant) # TODO annotate noise
+    #             continue # TODO need to check interference here?
+    #         # Evidence of possible protein impact
+    #         # Check if the impact could interfere with the calling in some way
+    #         if "splice defect" in function: # Splice defect, outcome uncertain
+    #             pass
+    #         elif "fs" == function[-2:]: # Frameshift
+    #             # TODO check if effect downstream
+    #             pass
+    #         elif "X" == function[-1]: # Stop codon
+    #             # TODO check if effect downstream
+    #             pass
+    #         else: # Missense
+    #             # TODO check if interference with impactful variant (function dependent?)
+    #             pass
+    #         matches["variants"][match]["uncertain"].append((variant, function))
     # Filter and return
-    return find_best_match(sample, matches, functions, phased) 
+    return prioritize_calling(sample, matches, functions, phased) 
 
 def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
@@ -284,11 +311,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
     cont_graph = nx.DiGraph()
     cont_graph.add_nodes_from(nodes)
     cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
+    overlap_graph = nx.DiGraph()
+    overlap_graph.add_nodes_from(nodes)
+    overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     """Iterate over samples and call star alleles for each."""
     if phased: # Alleles are treated separately
         callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
         for sample in samples:
-            calling = star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased)
+            calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased)
             sample_source, phasing = sample[:-1], sample[-1]
             callings[sample_source][phasing] = calling
     else: # Unphased samples have a single calling that has to be separated into two 
@@ -400,6 +430,7 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
     2: Print core and suballele matches
     3: Print all matches and their less specific contained alleles
     """
+    # TODO only print *1 if other present
     if detail_level != 3: # Remove matches contained in others
         for sample in callings:
             for phase in "AB":
@@ -428,3 +459,23 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
         selected_calling[sample] = selected_alleles
     return selected_calling
         
+def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
+    """Find a path from s to t in the graphs"""
+    # TODO integrate in web interface
+    if path is None: path = [s]
+    if visited is None: visited = set()
+    if s in visited: return None
+    visited.add(s)
+    if s == t:
+        return path
+    for g in (cont_graph, eq_graph, overlap_graph):
+        if s in g.nodes():
+            for n in g[s]:
+                if sort_types(n) not in (1, 2, 3, 5): # Don't use samples for iteration
+                    continue
+                path.append(n)
+                result = find_path(n, t, cont_graph, eq_graph, overlap_graph, path, visited)
+                if result is not None:
+                    return result
+                path.pop()
+    return None

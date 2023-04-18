@@ -3,7 +3,6 @@ import difflib
 from itertools import chain, combinations
 from .data import cache_get
 import warnings
-from .calling import sort_types
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
@@ -151,3 +150,5 @@ def validate_calling(callings, validate_filename):
                 n_errors += 1
     if n_errors > 0:
         print(f"{n_errors} errors found in the classifications")
+                
+
