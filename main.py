@@ -201,7 +201,7 @@ def main():
     # TODO use datastructure with less redundant information and for consistency
     # TODO add wild type relations (will be disjoint with all other variants)
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
-    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type TODO do this nicer
+    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type TODO do this more nicely
     suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
     variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
     # Save information of alleles and variants
@@ -234,52 +234,43 @@ def main():
     # parse samples
     samples_phased = parse_samples("data/samples", reference_sequence, phased=True) 
     samples_unphased = parse_samples("data/samples_unphased", reference_sequence) 
+    # TODO move to function
     try:
         supremal_samples = cache_get("supremal_samples")
     except:
         supremal_samples = {}
         for sample, variants in (samples_phased | samples_unphased).items():
-            if variants == []: 
+            if variants == {}:
                 supremal_samples[sample] = []
                 continue
-            # Parse individual variants
-            for hgvs, variant in variants: # Find supremal for individual variants
-                if hgvs in supremal_samples:
-                    continue
-                supremal_samples[hgvs] = [to_supremal([variant], reference_sequence)]
             # Parse alleles (variants together)
             try:
-                supremal_samples[sample] = [to_supremal([v[1] for v in variants], reference_sequence)] # Try to find supremal for sample
+                supremal_samples[sample] = [to_supremal(list(variants.values()), reference_sequence)] # Try to find supremal for sample
             except ValueError as e:
                 # TODO can assume that overlapping variants are in different phases?
                 # TODO use different placement for the overlapping variants?
                 if "unorderable variants" in str(e):
                     warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
-                    print(*[v[0] for v in variants])
+                    print(*variants.keys())
                 else:
                     raise e
+            # Parse individual variants
+            for hgvs, variant in list(variants.items()): # Find supremal for individual variants
+                if hgvs in supremal_samples:
+                    continue
+                supremal_v = to_supremal([variant], reference_sequence)
+                # Filter out variants that are in the database (not personal)
+                # Relations with these variants will show up later
+                for v in supremal_extended:
+                    if sort_types(v) != 3:
+                        continue
+                    rel = va.relations.supremal_based.compare(reference_sequence, supremal_v, supremal_extended[v])
+                    if rel == va.Relation.EQUIVALENT: # Not personal
+                        del variants[hgvs] # Can delete since already parsed as allele
+                        break
+                else: # Personal variant is saved individually
+                    supremal_samples[hgvs] = [supremal_v]
         cache_set(supremal_samples, "supremal_samples")
-    exit()
-
-    # Filter out non-personal variants (are already in dataset and will appear in relations)
-    # TODO simplify or do earlier
-    for sample, p_variants in samples_source.items():
-        for p_variant, _ in p_variants:
-            for variant in supremal_extended.keys():
-                if sort_types(variant) != 3:
-                    continue
-                if p_variant in supremal_samples:
-                    continue
-                rel = va.relations.supremal_based.compare(reference_sequence, supremal_extended[variant], supremal_samples[p_variant])
-                if rel != va.Relation.EQUIVALENT: # Remove personal variants which already exist in Pharmvar
-                    continue
-                del supremal_samples[p_variant] # Already exists in dataset
-                for sample2 in samples_source.keys(): # Remove everywhere TODO needed?
-                    for i, p_variant in enumerate(samples_source[sample2]):
-                        if p_variant[0] != p_variant:
-                            continue
-                        del samples_source[sample2][i]
-                break
 
     # Split into personal variants and samples
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
@@ -296,12 +287,15 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
-    # Determine star allele calling
+    # Determine star allele calling for phased samples
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
+    exit()
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
-    # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
     calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+
+    # Determine star allele calling for unphased samples
+    # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
 
     # TEST 5 validate star allele calling

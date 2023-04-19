@@ -98,9 +98,10 @@ def parse_samples(directory, reference, phased=False):
     for filename in os.listdir(directory):
         sample_name = filename.split('.')[0]
         if phased:
-            allele = {"A": [], "B": []} # First and second allele
+            allele = {"A": {}, "B": {}} # First and second allele
         else:
-            allele = {"hom": [], "het": [], "all": []} # Homozygous, heterozygous and all variants
+            allele = {"hom": {}, "het": {}, "all": {}} # Homozygous, heterozygous and all variants
+        # TODO check that no records are double
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
             # QUESTION: what are the filter, quality, format, info fields?
@@ -128,15 +129,18 @@ def parse_samples(directory, reference, phased=False):
                     # 1|1 
                     for p, phase in zip("AB", phasing.split('|')):
                         if phase == '1':
-                            allele[p].append((hgvs, variant))
+                            allele[p][hgvs] = variant
                 else:
                     if '|' in phasing:
                         raise ValueError("Sample is phased")
-                    allele["all"].append((hgvs, variant))
+                    # Add to unphased allele
+                    # 1/1 is homozygous, here perfect phasing information is available
+                    # 1/0 or 0/1 is heterozygous and no phasing information is available
+                    allele["all"][hgvs] = variant
                     if phasing == "1/1":
-                        allele["hom"].append((hgvs, variant))
+                        allele["hom"][hgvs] = variant
                     elif phasing == "1/0" or phasing == "0/1": # TODO handle 1/0 differently?
-                        allele["het"].append((hgvs, variant))
+                        allele["het"][hgvs] = variant
                     else:
                         raise ValueError("Unknown phasing", phasing)    
             # Add alleles to sample
