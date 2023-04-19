@@ -44,31 +44,35 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
     # Find equivalent (needed for finding all suballeles or all variants)
     if start in eq_graph.nodes():
         for match in eq_graph[start]: 
-
+            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
+                continue
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add equivalents and maybe traverse
     # Find contained
     if start in cont_graph.nodes(): 
         for match, _ in cont_graph.in_edges(start):
+            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
+                continue
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained and maybe traverse
 
-def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop=None, add=False):
-    # TODO don't iterate over samples and other's personal variants (also relevant for other functions?)
+def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop=None):
     """Recursively find the overlapping variants from a given start node."""
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
-    if add and sort_types(start) in find: # Need to find this type
-        matches.add(start)
     if stop is not None and sort_types(start) == stop: # Don't look further here (terminal nodes)
         return 
     # Find equivalent not needed (since everything is connected to core)
     # Find contained
     if start in cont_graph.nodes(): 
         for match, _ in cont_graph.in_edges(start):
-            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop, add=False) # Don't add but traverse
+            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
+                continue
+            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop) # Don't add but traverse
     # Find overlapping
     if start in overlap_graph.nodes():
         for match in overlap_graph[start]:
-            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop, add=True) # Add and traverse
+            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
+                continue
+            matches.add(match) # Add overlapping, don't traverse further
 
 def find_most_specific(matches, cont_graph):
     """Find the most specific alleles from a list of contained alleles."""  
@@ -170,12 +174,8 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
     matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
     # Find overlapping alleles
-    # TODO get indirect overlap?
     find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlap"], set(), (1,2))
-    if "NA21105" in sample:
-        print(find_path("CYP2D6*7", "NA21105A", cont_graph, eq_graph, overlap_graph))
-        print(sample, matches["overlap"])
-    matches["contained"] |= matches["overlap"] # Add overlap to contained TODO change
+    matches["contained"] |= matches["overlap"] # Add overlap to contained TODO change to lower priority?
 
     # Check certainty of calling for each matched allele
     # TODO change extra variant definition to be more strict
