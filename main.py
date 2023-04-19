@@ -232,35 +232,34 @@ def main():
     # test_variant_annotation_position(variants, supremal_extended, functions)
 
     # parse samples
-
     samples_phased = parse_samples("data/samples", reference_sequence, phased=True) 
-    print(len(samples_phased), samples_phased["HG00111_A"])
     samples_unphased = parse_samples("data/samples_unphased", reference_sequence) 
-    print(len(samples_unphased), samples_unphased.keys())
-    exit()
     try:
         supremal_samples = cache_get("supremal_samples")
     except:
         supremal_samples = {}
-        for sample, variants in samples_source.items():
-            if variants == []: # TODO handle differently (as empty variant?)
+        for sample, variants in (samples_phased | samples_unphased).items():
+            if variants == []: 
+                supremal_samples[sample] = []
                 continue
             # Parse individual variants
             for hgvs, variant in variants: # Find supremal for individual variants
                 if hgvs in supremal_samples:
                     continue
-                supremal_samples[hgvs] = to_supremal([variant], reference_sequence)
+                supremal_samples[hgvs] = [to_supremal([variant], reference_sequence)]
             # Parse alleles (variants together)
             try:
-                supremal_samples[sample] = to_supremal([v[1] for v in variants], reference_sequence) # Try to find supremal for sample
+                supremal_samples[sample] = [to_supremal([v[1] for v in variants], reference_sequence)] # Try to find supremal for sample
             except ValueError as e:
+                # TODO can assume that overlapping variants are in different phases?
+                # TODO use different placement for the overlapping variants?
                 if "unorderable variants" in str(e):
                     warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
-                    print(*variants)
-                    # TODO how to handle for unphased
+                    print(*[v[0] for v in variants])
                 else:
                     raise e
         cache_set(supremal_samples, "supremal_samples")
+    exit()
 
     # Filter out non-personal variants (are already in dataset and will appear in relations)
     # TODO simplify or do earlier
