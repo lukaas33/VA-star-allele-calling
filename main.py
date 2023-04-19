@@ -233,8 +233,11 @@ def main():
 
     # parse samples
 
+    samples_phased = parse_samples("data/samples", reference_sequence, phased=True) 
+    print(len(samples_phased), samples_phased["HG00111_A"])
+    samples_unphased = parse_samples("data/samples_unphased", reference_sequence) 
+    print(len(samples_unphased), samples_unphased.keys())
     exit()
-    samples_source = parse_samples(reference_sequence) 
     try:
         supremal_samples = cache_get("supremal_samples")
     except:

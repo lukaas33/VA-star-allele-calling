@@ -89,14 +89,18 @@ def pharmvar_get(target):
         cache_set(data, name)
         return data
 
-def parse_samples(reference):
+def parse_samples(directory, reference, phased=False):
     """ Parse sample VCF files as variant objects."""
+    # TODO detect if phased
+    # TODO handle mixed phasing
     # TODO handle unphased samples
-    directory = "data/samples"
     samples = {}
     for filename in os.listdir(directory):
-        name = filename.split('.')[0]
-        phased_allele = [[], []]
+        sample_name = filename.split('.')[0]
+        if phased:
+            allele = {"A": [], "B": []} # First and second allele
+        else:
+            allele = {"hom": [], "het": [], "all": []} # Homozygous, heterozygous and all variants
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
             # QUESTION: what are the filter, quality, format, info fields?
@@ -105,24 +109,37 @@ def parse_samples(reference):
                 # Validate if reference of vcf files is on the reference sequence
                 if record.REF != reference[record.start:record.end]:
                     raise ValueError("Reference sequence does not match")
-                if len(record.ALT) > 1: # TODO handle different alt values
-                    # Can have multiple values for different phases, etc.
-                    raise ValueError("Multiple ALT alleles not supported")
-                # Zero based half-open
-                variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
+                # Check ALT field. Can have multiple values for different phases, etc.
+                if len(record.ALT) > 1: 
+                    raise ValueError("Multiple ALT alleles not supported") # TODO handle different alt values?
+                # Check multiple samples
                 if len(record.samples) > 1:
-                    raise ValueError("Multiple samples not supported (how to interpret this?))")
+                    raise ValueError("Multiple samples not supported") # TODO handle
+                # Create variant with Zero based half-open positions
+                variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
+                hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
                 phasing = record.samples[0].data[0]
-                # Add to correct phased allele
-                # 0|1 is the same as 1|0 between samples (not within sample) 
-                for i, phase in enumerate(phasing.split('|')):
-                    if phase == '1':
-                        hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
-                        phased_allele[i].append((hgvs, variant))
-        # Add phased alleles to samples
-        for i in range(2):
-            phased_name = name + "AB"[i]
-            if len(phased_allele[i]) == 0: # Empty alleles will be treated as *1
-                pass 
-            samples[phased_name] = phased_allele[i]
+                # Store variant in correct alleles
+                if phased:
+                    if '|' not in phasing: 
+                        raise ValueError("Sample is not phased")
+                    # Add to correct phased allele
+                    # 0|1 or 1|0 shows that the variant is one of the two alleles, and can be used to group variants into two alleles
+                    # 1|1 
+                    for p, phase in zip("AB", phasing.split('|')):
+                        if phase == '1':
+                            allele[p].append((hgvs, variant))
+                else:
+                    if '|' in phasing:
+                        raise ValueError("Sample is phased")
+                    allele["all"].append((hgvs, variant))
+                    if phasing == "1/1":
+                        allele["hom"].append((hgvs, variant))
+                    elif phasing == "1/0" or phasing == "0/1": # TODO handle 1/0 differently?
+                        allele["het"].append((hgvs, variant))
+                    else:
+                        raise ValueError("Unknown phasing", phasing)    
+            # Add alleles to sample
+            for p in allele:
+                samples[f"{sample_name}_{p}"] = allele[p]
     return samples
