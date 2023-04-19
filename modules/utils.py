@@ -3,6 +3,7 @@ import difflib
 from itertools import chain, combinations
 from .data import cache_get
 import warnings
+import os
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
@@ -152,3 +153,17 @@ def validate_calling(callings, validate_filename):
         print(f"{n_errors} errors found in the classifications")
                 
 
+def make_samples_unphased():
+    """Make all samples unphased"""
+    directory = "data/samples"
+    new_directory = "data/samples_unphased"
+    if not os.path.exists(new_directory):
+        os.mkdir(new_directory)
+    for filename in os.listdir(directory):
+        with open(os.path.join(directory, filename), 'r') as file:
+            data = file.read()
+        data = data.replace("1|1", "1/1")
+        data = data.replace("0|1", "0/1")
+        data = data.replace("1|0", "0/1")
+        with open(os.path.join(new_directory, filename), 'w') as file:
+            file.write(data)

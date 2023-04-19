@@ -91,6 +91,7 @@ def pharmvar_get(target):
 
 def parse_samples(reference):
     """ Parse sample VCF files as variant objects."""
+    # TODO handle unphased samples
     directory = "data/samples"
     samples = {}
     for filename in os.listdir(directory):
@@ -124,23 +125,4 @@ def parse_samples(reference):
             if len(phased_allele[i]) == 0: # Empty alleles will be treated as *1
                 pass 
             samples[phased_name] = phased_allele[i]
-        # Add unphased 'allele' to samples
-        # Also store double variants since this is relevant for calling
-        all = set()
-        double = set()
-        for v in phased_allele[0] + phased_allele[1]:
-            if v in all: # present twice
-                double.add(v)
-                continue
-            for v2 in all: # overlaps so cannot be in same allele QUESTION is this correct?
-                s, e = v[1].start, v[1].end
-                s2, e2 = v2[1].start, v2[1].end
-                if max(s, s2) <= min(e, e2): # overlap
-                    double.add(v)
-                    break
-            else: # no overlap and not already present
-                all.add(v)
-        samples[name] = list(all)
-        if len(double) > 0:
-            samples[name + '+'] = list(double)
     return samples

@@ -7,7 +7,7 @@ from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, calling_to_repr, sort_types, impact_position
 from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
-from modules.utils import validate_relations, validate_calling
+from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import *
 import algebra as va
 
@@ -213,7 +213,6 @@ def main():
 
     # TEST 1: test if naming is consistent
     # test_naming(corealleles, suballeles)
-
     # Find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
@@ -224,7 +223,7 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
-    ids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
+    # ids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
@@ -233,6 +232,8 @@ def main():
     # test_variant_annotation_position(variants, supremal_extended, functions)
 
     # parse samples
+
+    exit()
     samples_source = parse_samples(reference_sequence) 
     try:
         supremal_samples = cache_get("supremal_samples")
