@@ -198,10 +198,9 @@ def main():
     gene = pharmvar_get("genes/CYP2D6") 
     # Group suballeles by core alleles and index by the star-allele notation of the core allele
     # QUESTION should variants within a suballele be disjoint?
-    # TODO use datastructure with less redundant information and for consistency
-    # TODO add wild type relations (will be disjoint with all other variants)
+    # TODO use datastructure with less redundant information
     corealleles = {allele["alleleName"]: allele for allele in gene["alleles"] if allele["alleleType"] == "Core"} 
-    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type TODO do this more nicely
+    corealleles |= {"CYP2D6*1": {"variants": [], "alleleName": "CYP2D6*1", "function": "normal function"}} # Add wild type so that the suballeles are added
     suballeles = {coreallele: {sub_allele["alleleName"]: sub_allele for sub_allele in gene["alleles"] if sub_allele["coreAllele"] == coreallele} for coreallele in corealleles.keys()}
     variants = {variant["hgvs"]: variant for allele in gene["alleles"] for variant in allele["variants"]}
     # Save information of alleles and variants
@@ -213,10 +212,12 @@ def main():
 
     # TEST 1: test if naming is consistent
     # test_naming(corealleles, suballeles)
+
     # Find the relation between all corealleles, suballeles and the contained variants
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
-    _, pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
+    pruned_extended[0].add("CYP2D6*1") # Add since it won't be found in the relations
 
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
@@ -240,12 +241,12 @@ def main():
     except:
         supremal_samples = {}
         for sample, variants in (samples_phased | samples_unphased).items():
-            if variants == {}:
-                supremal_samples[sample] = []
+            if variants == {}: # No supremal for empty, will be disjoint with everything, can be ignored
+                supremal_samples[sample] = None
                 continue
             # Parse alleles (variants together)
             try:
-                supremal_samples[sample] = [to_supremal(list(variants.values()), reference_sequence)] # Try to find supremal for sample
+                supremal_samples[sample] = to_supremal(list(variants.values()), reference_sequence) # Try to find supremal for sample
             except ValueError as e:
                 # TODO can assume that overlapping variants are in different phases?
                 # TODO use different placement for the overlapping variants?
@@ -269,7 +270,7 @@ def main():
                         del variants[hgvs] # Can delete since already parsed as allele
                         break
                 else: # Personal variant is saved individually
-                    supremal_samples[hgvs] = [supremal_v]
+                    supremal_samples[hgvs] = supremal_v
         cache_set(supremal_samples, "supremal_samples")
 
     # Split into personal variants and samples
@@ -289,6 +290,7 @@ def main():
 
     # Determine star allele calling for phased samples
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
+    pruned_samples[0] |= set([s for s, v in supremal_samples.items() if v is None]) # Add samples that are disjoint with everything
     exit()
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)

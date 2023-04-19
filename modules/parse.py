@@ -55,15 +55,15 @@ def extract_variants(reference_sequence, corealleles, suballeles=None, cache_nam
                 vs.append(variant["hgvs"])
                 if variant["hgvs"] in all_variants.keys(): # Skip if already parsed
                     continue
-                all_variants[variant["hgvs"]] = [parse_hgvs_supremal([variant["hgvs"]], reference_sequence)] # Store variant as supremal
+                all_variants[variant["hgvs"]] = parse_hgvs_supremal([variant["hgvs"]], reference_sequence) # Store variant as supremal
             try:
-                all_variants[allele["alleleName"]] = [parse_hgvs_supremal(vs, reference_sequence)] # Store allele as supremal
+                all_variants[allele["alleleName"]] = parse_hgvs_supremal(vs, reference_sequence) # Store allele as supremal
             except ValueError as e: # Fails for overlapping variants
                 if "unorderable variants" in str(e):
                     # TODO how to handle duplicates? And how to handle multiple variants at same position?
                     warnings.warn(f"Could not parse sample {allele['alleleName']} due to double/overlapping variants")
                 elif "empty" in str(e):
-                    all_variants[allele["alleleName"]] = []
+                    all_variants[allele["alleleName"]] = None # Will be disjoint with everything can leave out
                 else:
                     raise e
     if cache_name: cache_set(all_variants, cache_name)

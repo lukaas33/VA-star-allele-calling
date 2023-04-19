@@ -18,10 +18,13 @@ def find_relation(args):
     # Find relation for reconstructed variants
     relations = []
     reference = "".join(ref_chunks)
-    lhs = [] if sequences[left*3] is None else va.Variant(sequences[left*3], sequences[left*3+1], sequences[left*3+2])
+    lhs = None if sequences[left*3] is None else va.Variant(sequences[left*3], sequences[left*3+1], sequences[left*3+2])
     for right in range(start, len(sequences)//3):
-        rhs = [] if sequences[right*3] is None else va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
-        relation = va.relations.supremal_based.compare(reference, lhs, rhs)
+        rhs = None if sequences[right*3] is None else va.Variant(sequences[right*3], sequences[right*3+1], sequences[right*3+2])
+        if rhs is None or lhs is None: 
+            relation = va.Relation.DISJOINT
+        else:
+            relation = va.relations.supremal_based.compare(reference, lhs, rhs)
         relations.append((left, right, relation)) 
     # Print progress
     count[0] -= 1.0
@@ -56,12 +59,10 @@ def find_relations_all(reference_sequence, right_variants, left_variants={}, cac
         # Spread properties since variant can't be stored in shared memory
         spread = [] 
         for supremal in all_variants.values():
-            if supremal == []: # Empty variant
-                spread += [None, None, None] # TODO not a nice way
-                continue
-            else: # Supremal
-                supremal = supremal[0]
-            spread += [supremal.start, supremal.end, supremal.sequence]
+            if supremal is None:
+                spread += [None, None, None]
+            else:
+                spread += [supremal.start, supremal.end, supremal.sequence]
         seqs = smn.ShareableList(spread)
         total = len(left_variants)
         if total == 0: total = len(right_variants)
