@@ -121,7 +121,6 @@ def is_silent_entrez(variant, ids):
     classification = {"exon": False, "non-synonymous": False, "splicing": False}
     # QUESTION are these default values correct? (not if data is incomplete)
     # Find id of variant
-    # TODO possible for unknown/personal variants?
     id = ids[variant]
     if id is None or id == '': # No information available, assume worst
         warnings.warn(f"{variant} has no id: '{id}'")

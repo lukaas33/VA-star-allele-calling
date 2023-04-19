@@ -18,13 +18,13 @@ def api_get(url, params={}):
         response = result.text
     return response
 
-def reference_get():
+def reference_get(name):
     """ Get reference sequence
     """
     # TODO find proper API, is now hardcoded on web request
     url = "https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file&log$=seqview&db=nuccore&report=fasta&id=568815576&&ncbi_phid=null"
     foldername = "data"
-    filename = f"{foldername}/NC000022.11.fasta"
+    filename = f"{foldername}/{name}.fasta"
     if not os.path.isfile(filename):
         response = api_get(url)
         if not os.path.exists(foldername):

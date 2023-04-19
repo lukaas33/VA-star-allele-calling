@@ -167,8 +167,6 @@ def test_variant_annotation_entrez(variants, ids, functions):
 
 def test_get_id(variants, ids, reference):
     """Test if the getting of the id works"""
-    # TODO further investigate cases None/None
-    # TODO check for personal variants
     for variant in variants:
         found_id = find_id_hgvs(variant, reference)
         id = ids[variant] 
@@ -191,7 +189,7 @@ def test_variant_annotation_position(variants, supremals, functions):
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
-    reference_sequence = reference_get()
+    reference_sequence = reference_get(reference_name)
     # List genes as symbols in Pharmvar
     genes = pharmvar_get("genes/list") 
     # All information associated with the (current) gene of interest
@@ -276,6 +274,13 @@ def main():
     # Split into personal variants and samples
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
+
+    for vp in personal_variants:
+        hgvs = f"{reference_name}:g.{vp}"
+        id = find_id_hgvs(hgvs, reference_sequence)
+        print(hgvs, id)
+    exit()
+
     # Find all relations with samples
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
@@ -291,7 +296,6 @@ def main():
     # Determine star allele calling for phased samples
     pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
     pruned_samples[0] |= set([s for s, v in supremal_samples.items() if v is None]) # Add samples that are disjoint with everything
-    exit()
     phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
     calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")

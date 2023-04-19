@@ -75,7 +75,10 @@ def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matche
             matches.add(match) # Add overlapping, don't traverse further
 
 def find_most_specific(matches, cont_graph):
-    """Find the most specific alleles from a list of contained alleles."""  
+    """Find the most specific alleles from a list of contained alleles.
+    
+    Filter out alleles that are contained in other alleles.
+    """  
     reduced = set()
     for node1 in matches:
         for node2 in matches:
@@ -157,6 +160,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
     """
+    # QUESTION does this method work directly for unphased data?
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
     # All information of a calling
@@ -217,7 +221,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
 
 def unpack_unphased_calling(unphased_calling, cont_graph):
     """Unpack a calling of a unphased sample into two phased callings."""
-    raise Exception("Not implemented yet")
+    raise NotImplementedError("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:                
@@ -349,7 +353,7 @@ def impact_position(supremal):
     Instead it uses the position of a variant to see if it can influence the protein.
     This is based on the intron-exon borders.
     """
-    # TODO retire this function
+    raise DeprecationWarning("Will not be finished since annotations are used")
     # TODO do earlier for all personal variants (and more?)
     # TODO find exons dynamically for any gene
     # Exon borders (one-based; closed end) 
@@ -411,6 +415,7 @@ def is_noise(variant, functions, supremal): # TODO rename to relevance?
 
     This approach uses the online annotations but falls back on a sequence based approach.
     """
+    raise NotImplementedError("Will be replaced by new method")
     # TODO use new method
     if variant in functions: function = functions[variant]  # PharmVar variant 
     else: function = impact_position(supremal) # Personal variant TODO don't do this
