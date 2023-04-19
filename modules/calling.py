@@ -332,7 +332,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
 
 def matches_core(match):
     """Print the core allele from a match."""
-    # WARNING not in use since getting via traversal is better
+    raise DeprecationWarning("not in use since getting via traversal is better")
     if sort_types(match) == 1:
         return match
     elif sort_types(match) == 2:

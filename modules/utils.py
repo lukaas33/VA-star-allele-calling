@@ -68,6 +68,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 def validate_relations(data, variants, filename):
     """Validate if relations match with the M&J method"""
+    # TODO move
     data = set([
         (left, right, rel) 
             for left, right, rel in data 
@@ -139,6 +140,7 @@ def validate_relations(data, variants, filename):
 
 def validate_calling(callings, validate_filename):
     """Validate if classifications match with the M&J method"""
+    # TODO move
     n_errors = 0
     with open(validate_filename, 'r') as validate:
         for line in validate:
@@ -155,6 +157,7 @@ def validate_calling(callings, validate_filename):
 
 def make_samples_unphased():
     """Make all samples unphased"""
+    # TODO retire
     directory = "data/samples"
     new_directory = "data/samples_unphased"
     if not os.path.exists(new_directory):

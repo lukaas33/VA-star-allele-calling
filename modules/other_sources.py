@@ -5,23 +5,13 @@ from easy_entrez.parsing import parse_dbsnp_variants
 from .data import api_get
 import warnings
 
+# TODO don't use easy_entrez, use entrez directly
 entrez_api = EntrezAPI(
     'va-star-allele-calling',
     'lucas@vanosenbruggen.com', # TODO hide
     api_key="52181bc8fa51eacb5b70448a9e6fd6ae8209", # TODO hide
     return_type='json'
 )
-
-def classify_region(variant):
-    """Classify region that a variant is in as UTR, intron or exon based on HGVS."""
-    position = variant.split(':')[1].split('.')[1]
-    if position[0] == '-': # Left from coding region
-        return "5'UTR" # TODO use enums
-    elif position[0] == '*':
-        return "3'UTR"
-    elif re.match(r"[0-9]{1,}[-+][0-9]{1,}", position):
-        return "intron"
-    return "exon" 
 
 def is_silent_mutalyzer(variant):
     """Characterize a variant as silent or not.
@@ -33,7 +23,17 @@ def is_silent_mutalyzer(variant):
 
     Based on the Mutalyzer API which finds online annotations for the variant.
     """
-    # WARNING this method is not reliable since it does not find all annotations (bug in mutalyzer!)
+    raise DeprecationWarning("This method is not reliable since it does not find all annotations (bug in mutalyzer!")
+    def classify_region(variant):
+        """Classify region that a variant is in as UTR, intron or exon based on HGVS."""
+        position = variant.split(':')[1].split('.')[1]
+        if position[0] == '-': # Left from coding region
+            return "5'UTR" # TODO use enums
+        elif position[0] == '*':
+            return "3'UTR"
+        elif re.match(r"[0-9]{1,}[-+][0-9]{1,}", position):
+            return "intron"
+        return "exon" 
     classification = {'exon': False, 'non-synonymous': False, "splicing": False} # If not proven differently
     # Find equivalent representations of the variant
     data = api_get(f"https://mutalyzer.nl/api/normalize/{variant}") # TODO make faster with single call
@@ -65,8 +65,6 @@ def is_silent_mutalyzer(variant):
 
 def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
-    # WARNING: not useful, is consistent with PharmVar and does not find a id when it is None
-    print(variant)
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant, reference=reference)
     position = f"{va_variant[0].start - 10}:{va_variant[0].end + 10}" # Larger since position of target must be entirely in range TODO smarter range 
@@ -105,7 +103,6 @@ def find_id_hgvs(variant, reference):
                     continue
                 relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
                 if relation == va.Relation.EQUIVALENT:
-                    print(f"{variant} = {other}")
                     ids.append(id)
                     break
     if len(ids) > 1:
@@ -114,8 +111,6 @@ def find_id_hgvs(variant, reference):
     elif len(ids) == 0:
         return None 
     return ids[0]
-    
-
 
 def is_silent_entrez(variant, ids):
     """Characterize a variant as silent or not.

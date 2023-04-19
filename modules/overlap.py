@@ -1,5 +1,7 @@
 import algebra as va
 
+raise DeprecationWarning("This module is not useful for characterizing overlap.")
+
 def va_minimal_overlapping_allele(reference_sequence, lhs_allele, rhs_allele):
     """Minimize the size of overlapping alleles in order to make characterization more manageable.
     
