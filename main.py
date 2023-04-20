@@ -186,6 +186,13 @@ def test_variant_annotation_position(variants, supremals, functions):
             if classification:
                 warnings.warn(f"{variant} is annotated as '{functions[variant]}' but is in intron")
 
+def test_personal_variant_impact(personal_variants, reference_name, reference_sequence):
+    for vp in personal_variants:
+        hgvs = f"{reference_name}:g.{vp}"
+        id = find_id_hgvs(hgvs, reference_sequence)
+        impact = is_silent_entrez(hgvs, id)
+        print(f"{hgvs}, {id}, {impact}")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
@@ -275,21 +282,16 @@ def main():
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
 
-    print(len(personal_variants))
-    for vp in personal_variants:
-        hgvs = f"{reference_name}:g.{vp}"
-        id = find_id_hgvs(hgvs, reference_sequence)
-        impact = is_silent_entrez(hgvs, id)
-        print(f"{hgvs}, {id}, {impact}")
-    exit()
-
+    # TEST 4: check if more information can be found about personal variants.
+    # test_personal_variant_impact(personal_variants, reference_name, reference_sequence)
+ 
     # Find all relations with samples
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
-    # TEST 4: check if relations are consistent with atomic variants
+    # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
     # test_personal_variant_containment(samples_source, relations_samples)
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
@@ -306,7 +308,7 @@ def main():
     # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
 
-    # TEST 5 validate star allele calling
+    # TEST 6 validate star allele calling
     validate_calling(star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
     # validate_calling(calling_unphased, r"data\bastard.txt")
     exit()
