@@ -67,8 +67,8 @@ def find_id_hgvs(variant, reference):
     """Find the reference snp id of a variant based n hgvs."""
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant, reference=reference)
-    position = f"{va_variant[0].start - 10}:{va_variant[0].end + 10}" # Larger since position of target must be entirely in range TODO smarter range 
-    # Lookup ids at the same position
+    position = f"{va_variant[0].start - 25}:{va_variant[0].end + 25}" # Larger since position of target must be entirely in range TODO smarter range 
+    # Lookup ids around the position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
         database='snp',
@@ -77,58 +77,52 @@ def find_id_hgvs(variant, reference):
     # Check if any of these ids is the same as the variant
     ids = ["rs" + id for id in result.data['esearchresult']['idlist']]
     if len(ids) >= 1:
+        # Check matches
         result = entrez_api.fetch( # TODO make faster with single call
             ids, 
             database='snp',
             max_results=len(ids), 
         )  
-        # Find id that matches HGVS 
         ids = []
         try:
             variants_data = parse_dbsnp_variants(result)
         except KeyError as e:
-            warnings.warn(f"{variant} error: {e}") # TODO solve
-            return None
+            warnings.warn(f"{variant} error: {e}. Trying again.") 
+            # Seems to happen randomly, trying again should fix it.
+            return find_id_hgvs(variant, reference) 
+        # Find id that matches HGVS 
         for id, hgvs_lst in variants_data.summary.HGVS.items(): 
-            if variants_data.preferred_ids[id] != id: # Skip merged
+            if variants_data.preferred_ids[id] != id: # Skip merged snps
                 continue
+            # Check different representations TODO only check one?  
             for other in hgvs_lst:
-                if "NC" not in other or ".11" not in other: # Same reference TODO do nicer
+                if other.split(':')[0] != variant.split(':')[0]: # Same reference
                     continue
                 # Compare with va since format may be different
                 try:
                     va_other = va.variants.parse_hgvs(other, reference=reference)
                 except ValueError as e:
-                    warnings.warn(f"{other} could not be parsed: {e}")
+                    warnings.warn(f"{other} could not be parsed: {e}. Continuing with next.")
                     continue
-                relation = va.compare(reference, va_variant, va_other) # TODO fix this taking too long
+                relation = va.compare(reference, va_variant, va_other)
                 if relation == va.Relation.EQUIVALENT:
                     ids.append(id)
                     break
     if len(ids) > 1:
-        warnings.warn(f"{variant} multiple ids found: {ids}")
-        return None # TODO fix this
+        raise Exception(f"{variant} multiple ids found: {ids}")
     elif len(ids) == 0:
         return None 
     return ids[0]
 
-def is_silent_entrez(variant, ids):
+def is_silent_entrez(variant, id):
     """Characterize a variant as silent or not.
     
     Similar to mutalyzer method but using the entrez API.
     """
-    # TODO fix uid error that occurs sometimes
-    classification = {"exon": False, "non-synonymous": False, "splicing": False}
     # QUESTION are these default values correct? (not if data is incomplete)
     # Find id of variant
-    id = ids[variant]
-    if id is None or id == '': # No information available, assume worst
-        warnings.warn(f"{variant} has no id: '{id}'")
-        classification['exon'] = True
-        classification['non-synonymous'] = True
-        classification['splicing'] = True
-        # TODO is this correct?
-        return classification
+    if id is None or id == '': # No information available, assume worst TODO is this the correct interpretation?
+        raise Exception(f"{variant} no id found.")
     # Do lookup on entrez
     result = entrez_api.fetch( # TODO make faster with single call
         [id], 
@@ -138,15 +132,23 @@ def is_silent_entrez(variant, ids):
     try:
         variants_data = parse_dbsnp_variants(result)
     except KeyError as e: 
-        warnings.warn(f"{variant} error: {e}") # TODO fix this
-        classification['exon'] = True
-        classification['non-synonymous'] = True
-        classification['splicing'] = True
-        return classification
-    #  Convert possible annotations to boolean
+        warnings.warn(f"{variant} error: {e}. Trying again")
+        # Try again, this error seems to occur randomly
+        return is_silent_entrez(variant, id) 
+    # Convert possible annotations to boolean
+    # TODO check only correct variant
     consequences = list(variants_data.coordinates.consequence)
-    if len(consequences) != 1: # Wrong
-        raise Exception(f"Unexpected number of consequences: {consequences}")
+    if len(consequences) != 1:
+        raise Exception(f"{variant} wrong number of consequences found: {consequences}")
+    # TODO filter?
+    # TODO what is None in this case?
+    return consequences[0]
+
+
+def entrez_consequence_binary(consequences):
+    """Convert entrez consequence to binary."""
+    raise DeprecationWarning("Not used any more since it may be too simplistic")
+    classification = {"exon": False, "non-synonymous": False, "splicing": False}
     for consequence in consequences[0].split(','): 
         if consequence == "coding_sequence_variant": # Change in exon
             classification["exon"] = True
@@ -181,5 +183,5 @@ def is_silent_entrez(variant, ids):
             pass
         else:
             # TODO handle other possible consequences    
-            raise Exception(f"Unknown consequence for {variant} ({id}): {consequence}")
+            raise Exception(f"Unknown consequence {consequence}")
     return classification

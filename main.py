@@ -275,10 +275,15 @@ def main():
     personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
 
+    print(len(personal_variants))
     for vp in personal_variants:
         hgvs = f"{reference_name}:g.{vp}"
+        print(hgvs)
         id = find_id_hgvs(hgvs, reference_sequence)
-        print(hgvs, id)
+        print(id)
+        impact = is_silent_entrez(hgvs, id)
+        print(impact)
+        print()
     exit()
 
     # Find all relations with samples
