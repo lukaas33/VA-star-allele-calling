@@ -278,12 +278,9 @@ def main():
     print(len(personal_variants))
     for vp in personal_variants:
         hgvs = f"{reference_name}:g.{vp}"
-        print(hgvs)
         id = find_id_hgvs(hgvs, reference_sequence)
-        print(id)
         impact = is_silent_entrez(hgvs, id)
-        print(impact)
-        print()
+        print(f"{hgvs}, {id}, {impact}")
     exit()
 
     # Find all relations with samples

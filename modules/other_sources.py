@@ -6,6 +6,8 @@ from .data import api_get
 import warnings
 
 # TODO don't use easy_entrez, use entrez directly
+# TODO use variation service instead of entrez? 
+#       https://api.ncbi.nlm.nih.gov/variation/v0/
 entrez_api = EntrezAPI(
     'va-star-allele-calling',
     'lucas@vanosenbruggen.com', # TODO hide
@@ -146,7 +148,10 @@ def is_silent_entrez(variant, id):
 
 
 def entrez_consequence_binary(consequences):
-    """Convert entrez consequence to binary."""
+    """Convert entrez consequence to binary.
+    
+    https://www.ncbi.nlm.nih.gov/variation/docs/glossary/
+    """
     raise DeprecationWarning("Not used any more since it may be too simplistic")
     classification = {"exon": False, "non-synonymous": False, "splicing": False}
     for consequence in consequences[0].split(','): 
@@ -158,13 +163,13 @@ def entrez_consequence_binary(consequences):
         elif consequence == "stop_gained": # Early stop mutation
             classification["non-synonymous"] = True
             classification["exon"] = True
-        elif consequence == "frameshift_variant": # Frameshift (http://purl.obolibrary.org/obo/SO_0001589)
+        elif consequence == "frameshift_variant": # Frameshift 
             classification["non-synonymous"] = True
             classification["exon"] = True
-        elif consequence == "inframe_deletion": # Deletes amino acids (http://purl.obolibrary.org/obo/SO_0001822)
+        elif consequence == "inframe_deletion": # Deletes amino acids 
             classification["non-synonymous"] = True
             classification["exon"] = True
-        elif consequence == "inframe_insertion": # Inserts amino acids (http://purl.obolibrary.org/obo/SO_0001821)
+        elif consequence == "inframe_insertion": # Inserts amino acids 
             classification["non-synonymous"] = True
             classification["exon"] = True
         elif consequence == "splice_acceptor_variant": # Splice defect
