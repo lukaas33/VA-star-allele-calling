@@ -283,6 +283,7 @@ def main():
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
 
     # TEST 4: check if more information can be found about personal variants.
+    # TODO store and use
     # test_personal_variant_impact(personal_variants, reference_name, reference_sequence)
  
     # Find all relations with samples
@@ -298,10 +299,12 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Determine star allele calling for phased samples
-    pruned_samples = prune_relations(pruned_extended + relations_samples, cache_name="relations_pruned_samples_extended")
-    pruned_samples[0] |= set([s for s, v in supremal_samples.items() if v is None]) # Add samples that are disjoint with everything
-    phased_samples = [sample for sample in samples_source.keys() if sample[-1] in ("A", "B")] 
-    calling_phased = star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
+    pruned_samples = prune_relations(pruned_extended[1] + relations_samples, cache_name="relations_pruned_samples_extended")
+    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
+        if v is not None:
+            continue
+        pruned_samples[0].add(s)
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
 
     # Determine star allele calling for unphased samples
@@ -309,7 +312,7 @@ def main():
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
 
     # TEST 6 validate star allele calling
-    validate_calling(star_allele_calling_all(phased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
+    validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
     # validate_calling(calling_unphased, r"data\bastard.txt")
     exit()
 

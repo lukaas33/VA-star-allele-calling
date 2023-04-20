@@ -322,10 +322,10 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     """Iterate over samples and call star alleles for each."""
     if phased: # Alleles are treated separately
-        callings = {sample[:-1]: {'A': None, 'B': None} for sample in sorted(samples)} 
+        callings = {sample.split('_')[0]: {'A': None, 'B': None} for sample in sorted(samples)} 
         for sample in samples:
             calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased)
-            sample_source, phasing = sample[:-1], sample[-1]
+            sample_source, phasing = sample.split('_')
             callings[sample_source][phasing] = calling
     else: # Unphased samples have a single calling that has to be separated into two 
         raise NotImplementedError()
@@ -435,20 +435,17 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
     0: Only print best core match(es)
     1: Simplify to core matches only
     2: Print core and suballele matches
-    3: Print all matches and their less specific contained alleles
+    3: Print core and suballele matches and their less specific contained alleles
+    4: Print all matches including the default
+    TODO make this more flexible, flags independent of each other
     """
-    # TODO only print *1 if other present
     if detail_level != 3: # Remove matches contained in others
         for sample in callings:
             for phase in "AB":
                 all_alleles = set([a for al in callings[sample][phase] for a in al if al != None])
                 reduced_alleles = find_most_specific(all_alleles, cont_graph)
-                # print(sample, phase, callings[sample][phase])
                 for al in callings[sample][phase]:
-                    al &= reduced_alleles
-                # print(sample, phase, callings[sample][phase])
-                # print()
-        # exit()
+                    al &= reduced_alleles # Set overlap
     selected_calling = {}
     for sample, calling in callings.items():
         selected_alleles = {'A': [], 'B': []} # Flatten into ordered list
@@ -457,6 +454,9 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
                 for allele in alleles:
                     if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
                         continue
+                    if detail_level != 4:
+                        if allele == "CYP2D6*1" and len(selected_alleles[phase]) > 0: # Don't print *1 if other alleles present
+                            continue
                     selected_alleles[phase].append(allele)
                     if detail_level == 0: # Only display best
                         break
