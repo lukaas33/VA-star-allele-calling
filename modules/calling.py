@@ -322,7 +322,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     """Iterate over samples and call star alleles for each."""
     if phased: # Alleles are treated separately
-        callings = {sample.split('_')[0]: {'A': None, 'B': None} for sample in sorted(samples)} 
+        callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
         for sample in samples:
             calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased)
             sample_source, phasing = sample.split('_')
@@ -441,28 +441,29 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
     """
     if detail_level != 3: # Remove matches contained in others
         for sample in callings:
-            for phase in "AB":
-                all_alleles = set([a for al in callings[sample][phase] for a in al if al != None])
+            for phase in callings[sample]:
+                if callings[sample][phase] is None: # No call
+                    continue
+                all_alleles = set([a for al in callings[sample][phase] for a in al])
                 reduced_alleles = find_most_specific(all_alleles, cont_graph)
                 for al in callings[sample][phase]:
                     al &= reduced_alleles # Set overlap
     selected_calling = {}
     for sample, calling in callings.items():
-        selected_alleles = {'A': [], 'B': []} # Flatten into ordered list
+        selected_alleles = {t: [] for t in callings[sample]} 
         for phase, ordered_alleles in calling.items():
-            for alleles in ordered_alleles:
+            if ordered_alleles is None: # No call
+                continue
+            for alleles in ordered_alleles: # Flatten matrix into ordered list
                 for allele in alleles:
                     if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
                         continue
-                    if detail_level != 4:
-                        if allele == "CYP2D6*1" and len(selected_alleles[phase]) > 0: # Don't print *1 if other alleles present
+                    if detail_level != 4: # Don't print *1 if other alleles present
+                        if allele == "CYP2D6*1" and len(selected_alleles[phase]) > 0: 
                             continue
                     selected_alleles[phase].append(allele)
-                    if detail_level == 0: # Only display best
-                        break
-                else: # No break 
-                    continue
-                break
+                if detail_level == 0 and len(selected_alleles[phase]) > 0: # Only display best
+                    break
         selected_calling[sample] = selected_alleles
     return selected_calling
         

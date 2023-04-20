@@ -147,7 +147,9 @@ def validate_calling(callings, validate_filename):
             # convert to format of classifications
             sample, classes = line.rstrip().split(' ')
             classes = ["CYP2D6" + c for c in classes.split('/')]
-            ref = [*callings[sample]['A'], *callings[sample]['B']] # Get priority answer (assumes filtering has occurred already)      
+            ref = [] # Get priority answer (assumes filtering has occurred already with representation method)  
+            for c in callings[sample].values():
+                ref.extend(c)
             if classes != ref and classes[::-1] != ref:
                 print(f"Sample {sample} was predicted as {ref} but should be {classes}")
                 n_errors += 1

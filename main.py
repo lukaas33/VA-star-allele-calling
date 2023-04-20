@@ -291,6 +291,11 @@ def main():
     relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    pruned_samples = prune_relations(pruned_extended[1] + relations_samples, cache_name="relations_pruned_samples_extended")
+    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
+        if v is not None:
+            continue
+        pruned_samples[0].add(s)
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -298,22 +303,21 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
-    # Determine star allele calling for phased samples
-    pruned_samples = prune_relations(pruned_extended[1] + relations_samples, cache_name="relations_pruned_samples_extended")
-    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
-        if v is not None:
-            continue
-        pruned_samples[0].add(s)
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=1)
+    # EXPERIMENT 1: Determine star allele calling for phased samples
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-
-    # Determine star allele calling for unphased samples
-    # unphased_samples = [sample for sample in samples_source.keys() if sample[-1] not in ("A", "B")] # TODO use types for this (this is error prone for new data)
-    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, phased=False)
-
-    # TEST 6 validate star allele calling
+    # TEST 6 validate phased star allele calling
     validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
-    # validate_calling(calling_unphased, r"data\bastard.txt")
+    exit()
+
+    # EXPERIMENT 2: Determine star allele calling for unphased samples
+    # EXPERIMENT 2.1: use all variants in one allele
+    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
+    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
+
+    # TEST 7 validate unphased star allele calling
+    validate_calling(calling_unphased, r"data\bastard.txt") # TODO replace with call
     exit()
 
     # VISUALIZE some context with information of interest
