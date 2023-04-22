@@ -476,6 +476,7 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
     """Find a path from s to t in the graphs"""
+    raise NotImplementedError("Implementation contains bugs")
     # TODO integrate in web interface
     if path is None: path = [s]
     if visited is None: visited = set()
