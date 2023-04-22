@@ -2,6 +2,7 @@ import networkx as nx
 import algebra as va
 from .data import cache_get, cache_set
 from .calling import sort_types
+import warnings
 
 # TODO use consistent datastructure with OOP
 
@@ -12,13 +13,17 @@ def find_context(nodes, edges, as_edges=False):
     context_edges = list()
     for node in nodes:
         context.add(node)
+        found = False
         for s, t, d in edges:
             if s == node or t == node:
+                found = True
                 if as_edges:
                     context_edges.append((s, t, d))
                 else:
                     context.add(s)
                     context.add(t)
+        if not found:
+            warnings.warn(f"Node {node} not found in edges.")
     if as_edges:
         return context_edges
     return context
