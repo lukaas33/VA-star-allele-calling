@@ -312,18 +312,17 @@ def main():
 
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in one allele
-    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
-    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
+    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
+    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
 
     # TEST 7 validate unphased star allele calling
-    validate_calling(calling_unphased, r"data\bastard.txt") # TODO replace with call
-    exit()
+    # validate_calling(calling_unphased, r"data\bastard.txt") # TODO replace with call
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["HG01680A", "HG01680B"], pruned_samples[1], as_edges=True)
-    context = pruned_extended
+    sample_context = find_context(["NA18484_A", "NA18484_B"], pruned_samples[1], as_edges=True)
+    context = pruned_extended[1]
     pruned_nodes, pruned_edges = prune_relations(context + sample_context)
     display_graph(pruned_nodes, pruned_edges, data)
 

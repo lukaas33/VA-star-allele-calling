@@ -101,18 +101,11 @@ def prioritize_calling(sample, matches, functions, phased):
     
     Also return a measure of certainty.
     """
-    # TODO change to list of sets (since there is no order within a position)
-    sorted_matches = []
-    # Equivalent alleles are the best matches
-    if len(matches["equivalent"]) > 0:
-        if len(matches["equivalent"]) > 1: # The same as some allele
-            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
-        sorted_matches.append(matches["equivalent"])
-    # Next step is the contained alleles
-    if len(matches["contained"]) > 0:
-        # In the case of multiple contained corealleles, a choice is made based on functional annotation
-        annotated = {f: set([m for m in matches["contained"] if functions[m] == f]) for f in all_functions}
-        # If the annotation is no function, this allele is most disruptive and is chosen
+    def add_by_priority(matches, sorted_matches):
+        """Add matches to sorted_matches by priority."""
+        # In the case of multiple matches, a choice is made based on functional annotation
+        annotated = {f: set([m for m in matches if functions[m] == f]) for f in all_functions}
+        # If the annotation is no function, this allele is most disruptive and is prioritized
         if len(annotated["no function"]) > 0:	
             sorted_matches.append(annotated["no function"])
         # If uncertain or unknown functions are present, the ordering after no function cannot be determined
@@ -125,12 +118,27 @@ def prioritize_calling(sample, matches, functions, phased):
                 annotated["unknown function"] |
                 annotated["uncertain function"]
             )
-        else: # Ordering can be determined between normal and decreased function
+        else: # Ordering can be determined between normal and decreased function when no uncertain or unknown functions are present
             # More disruptive alleles are chosen first
             if len(annotated["decreased function"]) > 0:
                 sorted_matches.append(annotated["decreased function"])
             if len(annotated["normal function"]) > 0:
                 sorted_matches.append(annotated["normal function"])
+
+    # TODO change to list of sets (since there is no order within a position)
+    sorted_matches = []
+    # Equivalent alleles are the best matches
+    if len(matches["equivalent"]) > 0:
+        if len(matches["equivalent"]) > 1: # The same as some allele
+            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+        sorted_matches.append(matches["equivalent"])
+    # Next step is the contained alleles
+    if len(matches["contained"]) > 0:
+        add_by_priority(matches["contained"], sorted_matches)
+    # Then the overlapping alleles
+    if len(matches["overlapping"]) > 0:
+        add_by_priority(matches["overlapping"], sorted_matches)
+
     # Check certainty and consistency of matches
     # for match in sorted_matches:
     #     n_cores = 0
@@ -167,7 +175,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     matches = {
         "equivalent": set(), # Equivalent alleles
         "contained": set(), # Contained alleles
-        "overlap": set(), # Overlapping alleles
+        "overlapping": set(), # Overlapping alleles
         "variants": {
             # extra variants for each allele
         }
@@ -178,8 +186,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
     matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
     # Find overlapping alleles
-    find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlap"], set(), (1,2))
-    matches["contained"] |= matches["overlap"] # Add overlap to contained TODO change to lower priority?
+    find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlapping"], set(), (1,2))
 
     # Check certainty of calling for each matched allele
     # TODO change extra variant definition to be more strict
