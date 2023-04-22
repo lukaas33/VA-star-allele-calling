@@ -446,7 +446,7 @@ def calling_to_repr(callings, cont_graph, detail_level=0):
     4: Print all matches including the default
     TODO make this more flexible, flags independent of each other
     """
-    if detail_level != 3: # Remove matches contained in others
+    if detail_level < 3: # Remove matches contained in others
         for sample in callings:
             for phase in callings[sample]:
                 if callings[sample][phase] is None: # No call

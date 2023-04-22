@@ -138,21 +138,26 @@ def validate_relations(data, variants, filename):
     
     print("No (further) differences found between the reference and the data relations")
 
-def validate_calling(callings, validate_filename):
+def validate_calling(callings, validate_filename, soft=False):
     """Validate if classifications match with the M&J method"""
     # TODO move
     n_errors = 0
     with open(validate_filename, 'r') as validate:
         for line in validate:
             # convert to format of classifications
-            sample, classes = line.rstrip().split(' ')
-            classes = ["CYP2D6" + c for c in classes.split('/')]
-            ref = [] # Get priority answer (assumes filtering has occurred already with representation method)  
+            sample, reference = line.rstrip().split(' ')
+            reference = ["CYP2D6" + c for c in reference.split('/')]
+            calling = [] # Get priority answer (assumes filtering has occurred already with representation method)  
             for c in callings[sample].values():
-                ref.extend(c)
-            if classes != ref and classes[::-1] != ref:
-                print(f"Sample {sample} was predicted as {ref} but should be {classes}")
-                n_errors += 1
+                calling.extend(c)
+            if soft: # Soft check, check if prediction contains correct answers
+                if all([r in calling for r in reference]):
+                    continue
+            else: # Hard check, exactly equal
+                if reference == calling or reference[::-1] == calling:
+                    continue
+            print(f"Sample {sample} was predicted as {calling} but should be {reference}")
+            n_errors += 1
     if n_errors > 0:
         print(f"{n_errors} errors found in the classifications")
                 
