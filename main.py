@@ -305,6 +305,7 @@ def main():
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
     calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    exit()
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # TEST 6 validate phased star allele calling
     validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")

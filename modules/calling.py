@@ -70,7 +70,7 @@ def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matche
     # Find overlapping
     if start in overlap_graph.nodes():
         for match in overlap_graph[start]:
-            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
+            if sort_types(match) not in find: 
                 continue
             matches.add(match) # Add overlapping, don't traverse further
 
@@ -176,53 +176,25 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
         "equivalent": set(), # Equivalent alleles
         "contained": set(), # Contained alleles
         "overlapping": set(), # Overlapping alleles
-        "variants": {
-            # extra variants for each allele
-        }
+        "variants": set()
     }
     # Find equivalent alleles
-    if sample in eq_graph.nodes(): matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)])
+    matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)]) if sample in eq_graph.nodes() else set()
     # Find contained
     find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
     matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
     # Find overlapping alleles
     find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlapping"], set(), (1,2))
-
-    # Check certainty of calling for each matched allele
-    # TODO change extra variant definition to be more strict
-    # vs = set() # All variants indirectly or directly contained in the sample 
-    # find_contained_variants(sample, cont_graph, eq_graph, vs, set(), (3, 5)) # TODO get from PharmVar?
-    # for match in matches["contained"] | matches["equivalent"]: # Equivalent added but these will be empty
-    #     matches["variants"][match] = {"noise": [], "uncertain": []}
-    #     # Find 'extra' variants: in the sample but not in the called allele
-    #     ws = set() # All variants indirectly or directly contained in the sample
-    #     find_contained_variants(match, cont_graph, eq_graph, ws, set(), (3, 5)) # TODO get from PharmVar?
-    #     extra_variants = []
-    #     for v in vs: # In sample
-    #         if v in ws: # But not in this allele
-    #             continue
-    #         extra_variants.append(v) 
-    #     # Check if the extra variants can influence the calling
-    #     for variant in extra_variants:
-    #         # Check what the impact of the variant is
-    #         noise, function = is_noise(variant, functions, supremals[variant])
-    #         if noise: # No evidence of relevance
-    #             matches["variants"][match]["noise"].append(variant) # TODO annotate noise
-    #             continue # TODO need to check interference here?
-    #         # Evidence of possible protein impact
-    #         # Check if the impact could interfere with the calling in some way
-    #         if "splice defect" in function: # Splice defect, outcome uncertain
-    #             pass
-    #         elif "fs" == function[-2:]: # Frameshift
-    #             # TODO check if effect downstream
-    #             pass
-    #         elif "X" == function[-1]: # Stop codon
-    #             # TODO check if effect downstream
-    #             pass
-    #         else: # Missense
-    #             # TODO check if interference with impactful variant (function dependent?)
-    #             pass
-    #         matches["variants"][match]["uncertain"].append((variant, function))
+    # Find extra variants to check if they can influence the calling
+    # Extra variants are variants that are in the sample but not in any of the called alleles
+    variants = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]) if sample in cont_graph.nodes() else set()
+    # Check relevance of variants
+    # TODO also check impact
+    for variant in variants:
+        for allele in matches["equivalent"] | matches["contained"] | matches["overlapping"]:
+            if supremals[allele].start <= supremals[variant].start < supremals[variant].end <= supremals[allele].end: # Variant is contained in allele's supremal representation
+                # Variant can alter the calling since it can disturb the allele's definition.
+                matches["variants"].add(variant)
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
 
