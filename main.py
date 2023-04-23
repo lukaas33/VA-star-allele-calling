@@ -6,7 +6,7 @@ from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, calling_to_repr, sort_types, impact_position
-from modules.other_sources import is_silent_mutalyzer, is_silent_entrez, find_id_hgvs
+from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import *
 import algebra as va
@@ -161,7 +161,7 @@ def test_variant_annotation_entrez(variants, ids, functions):
     """Check if PharmVar annotations are consistent with the Entrez annotations."""
     for variant in variants:
         # Find classification 
-        classification = is_silent_entrez(variant, ids)
+        classification = get_annotation_entrez(variant, ids)
         # Compare against PharmVar annotation
         _test_pharmvar_annotation(variant, functions[variant], classification)
 
@@ -190,13 +190,14 @@ def test_personal_variant_impact(personal_variants, reference_name, reference_se
     for vp in personal_variants:
         hgvs = f"{reference_name}:g.{vp}"
         id = find_id_hgvs(hgvs, reference_sequence)
-        impact = is_silent_entrez(hgvs, id)
+        impact = get_annotation_entrez(hgvs, id)
         print(f"{hgvs}, {id}, {impact}")
 
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
+    reference = {"name": reference_name, "sequence": reference_sequence}
     # List genes as symbols in Pharmvar
     genes = pharmvar_get("genes/list") 
     # All information associated with the (current) gene of interest
@@ -304,7 +305,7 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples,   reference, detail_level=0)
     exit()
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # TEST 6 validate phased star allele calling

@@ -104,7 +104,7 @@ def find_id_hgvs(variant, reference):
                 try:
                     va_other = va.variants.parse_hgvs(other, reference=reference)
                 except ValueError as e:
-                    warnings.warn(f"{other} could not be parsed: {e}. Continuing with next.")
+                    warnings.warn(f"{other} could not be parsed: {e}. Continuing with next hgvs.")
                     continue
                 relation = va.compare(reference, va_variant, va_other)
                 if relation == va.Relation.EQUIVALENT:
@@ -116,10 +116,8 @@ def find_id_hgvs(variant, reference):
         return None 
     return ids[0]
 
-def is_silent_entrez(variant, id):
-    """Characterize a variant as silent or not.
-    
-    Similar to mutalyzer method but using the entrez API.
+def get_annotation_entrez(variant, id):
+    """Get impact of a variant based on entrez annotations.
     """
     # QUESTION are these default values correct? (not if data is incomplete)
     # Find id of variant
@@ -134,16 +132,16 @@ def is_silent_entrez(variant, id):
     try:
         variants_data = parse_dbsnp_variants(result)
     except KeyError as e: 
-        warnings.warn(f"{variant} error: {e}. Trying again")
+        warnings.warn(f"{variant} error: {e}. Trying this again")
         # Try again, this error seems to occur randomly
-        return is_silent_entrez(variant, id) 
+        return get_annotation_entrez(variant, id) 
     # Convert possible annotations to boolean
     # TODO check only correct variant
     consequences = list(variants_data.coordinates.consequence)
     if len(consequences) != 1:
         raise Exception(f"{variant} wrong number of consequences found: {consequences}")
     # TODO filter?
-    # TODO what is None in this case?
+    # QUESTION what is None in this case?
     return consequences[0]
 
 

@@ -2,6 +2,7 @@ import algebra as va
 import networkx as nx
 import warnings
 from .data import api_get
+from .other_sources import find_id_hgvs, get_annotation_entrez
 import re
 import copy
 
@@ -138,32 +139,13 @@ def prioritize_calling(sample, matches, functions, phased):
     # Then the overlapping alleles
     if len(matches["overlapping"]) > 0:
         add_by_priority(matches["overlapping"], sorted_matches)
-
-    # Check certainty and consistency of matches
-    # for match in sorted_matches:
-    #     n_cores = 0
-    #     for allele in match:
-    #         if sort_types(allele) == 1: # Coreallele
-    #             n_cores += 1
-    #         # check certainty
-    #         if len(matches['variants'][allele]['uncertain']) > 0:
-    #             # TODO how to express this to the user?
-    #             # warnings.warn(f"{sample}={allele}: Uncertain variants found: {matches['variants'][allele]['uncertain']}.")
-    #             pass
-    #     if n_cores > 1 and phased or n_cores > 2 and not phased: # Ambiguous phased/unphased
-    #         warnings.warn(f"{sample}: Multiple corealleles found with the same priority: {match}.")
-    #     elif n_cores == 0: # No found yet
-    #         continue
-    #     else: # Unambiguous
-    #         break # No need to check further
-    # else: # No cores found
     # Catch-all is the default allele and is in theory always present
     # *1 will never be in contained so it is not prioritized over others
     # TODO do this somewhere else?
     sorted_matches.append({"CYP2D6*1",})        
     return sorted_matches
 
-def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased):
+def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased):
     """Determine star allele calling for a sample based on va relations.
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
@@ -189,12 +171,29 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     # Extra variants are variants that are in the sample but not in any of the called alleles
     variants = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]) if sample in cont_graph.nodes() else set()
     # Check relevance of variants
-    # TODO also check impact
+    # TODO make into function
+    # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
     for variant in variants:
+        print(variant, end=' ')
+        # Check if variant possibly overlaps with any allele
+        interference = False
         for allele in matches["equivalent"] | matches["contained"] | matches["overlapping"]:
-            if supremals[allele].start <= supremals[variant].start < supremals[variant].end <= supremals[allele].end: # Variant is contained in allele's supremal representation
+            if max(supremals[allele].start, supremals[variant].start) <= min(supremals[allele].end, supremals[variant].end): # Overlap between variant and allele
                 # Variant can alter the calling since it can disturb the allele's definition.
-                matches["variants"].add(variant)
+                interference = True
+        if interference: print("overlap", end=' ')
+        if sort_types(variant) == 3: # normal
+            impact = functions[variant]
+        elif sort_types(variant) == 5: # personal
+            id = find_id_hgvs(f"{reference['name']}:g.{variant}", reference["sequence"]) 
+            if id is None:
+                raise Exception()
+            impact = get_annotation_entrez(variant, id)
+        print(impact, end=' ')
+        print()
+    if len(matches["variants"]) > 0:
+        print(sample, len(matches["variants"]))
+        exit()
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
 
@@ -289,7 +288,7 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
         #     exit()
     return phased_calling
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=True, detail_level=0):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
     eq_graph = nx.Graph()
     eq_graph.add_nodes_from(nodes)
     eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
@@ -303,7 +302,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, phased=
     if phased: # Alleles are treated separately
         callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
         for sample in samples:
-            calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, phased)
+            calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
             sample_source, phasing = sample.split('_')
             callings[sample_source][phasing] = calling
     else: # Unphased samples have a single calling that has to be separated into two 
