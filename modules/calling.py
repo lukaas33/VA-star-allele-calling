@@ -175,11 +175,8 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     for variant in variants:
         if is_relevant(variant, functions, supremals, alleles, reference):
             matches["variants"].add(variant)
-    if len(variants) > 0:
-        print(sample)
-        print(variants)
-        print(matches["variants"])
-        exit()
+    if len(matches["variants"]) > 0:
+        warnings.warn(f"{sample}: Extra variants found that could influence the calling: {[(v, functions[v]) for v in matches['variants']]}.")
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
 
@@ -266,12 +263,6 @@ def unpack_unphased_calling(unphased_calling, cont_graph):
                 phased_calling[sample]['B'].append({"CYP2D6*1",}) # resort to wildtype
         if n_cores == 0:
             raise ValueError("No core alleles found in sample: {}".format(sample))
-        # if sample == "NA19207":
-        #     print(unphased_calling[sample])
-        #     print(phased_calling[sample])
-        #     print(groups)
-        #     print(designate)
-        #     exit()
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
@@ -379,7 +370,6 @@ def is_relevant(variant, functions, supremals, alleles, reference):
     This approach uses the online annotations of variants.
     """
     # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
-    print(variant, end=' ')
     # Check if variant possibly interferes with any allele (overlaps with supremal)
     interference = False
     for allele in alleles:
