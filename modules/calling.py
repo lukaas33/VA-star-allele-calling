@@ -183,7 +183,6 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
 
 def separate_callings(unphased_calling):
     """Unpack a calling of a unphased sample into two phased callings."""
-    # TODO what is happing for HG00373 and NA18564?
     samples = list(unphased_calling.keys())
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     # Add phasing based on homozygosity
@@ -198,6 +197,10 @@ def separate_callings(unphased_calling):
                 # Match is phased
                 phased_calling[sample]['A'][-1].add(allele)
                 phased_calling[sample]['B'][-1].add(allele)
+        if sample == "HG00373":
+            print(phased_calling[sample])
+            print(unphased_calling[sample])
+            exit()
     return phased_calling
     raise NotImplementedError("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
@@ -283,6 +286,7 @@ def separate_callings(unphased_calling):
     return phased_calling
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
+    """Iterate over samples and call star alleles for each."""
     eq_graph = nx.Graph()
     eq_graph.add_nodes_from(nodes)
     eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
@@ -292,8 +296,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     overlap_graph = nx.DiGraph()
     overlap_graph.add_nodes_from(nodes)
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
-    """Iterate over samples and call star alleles for each."""
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
+    # TODO skip unparsable samples?
     for sample in samples:
         calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
         sample_source, phasing = sample.split('_')
