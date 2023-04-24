@@ -181,8 +181,24 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
 
-def unpack_unphased_calling(unphased_calling, cont_graph):
+def separate_callings(unphased_calling):
     """Unpack a calling of a unphased sample into two phased callings."""
+    # TODO what is happing for HG00373 and NA18564?
+    samples = list(unphased_calling.keys())
+    phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
+    # Add phasing based on homozygosity
+    for sample in samples:
+        for alleles in unphased_calling[sample]['all']:
+            phased_calling[sample]['A'].append(set()) # maintain priority ranks
+            phased_calling[sample]['B'].append(set())
+            for allele in alleles:
+                # Check if match was found using homozygous variants
+                if all([allele not in alls for alls in unphased_calling[sample]['hom']]):
+                    continue
+                # Match is phased
+                phased_calling[sample]['A'][-1].add(allele)
+                phased_calling[sample]['B'][-1].add(allele)
+    return phased_calling
     raise NotImplementedError("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
@@ -277,17 +293,13 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     overlap_graph.add_nodes_from(nodes)
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     """Iterate over samples and call star alleles for each."""
-    if phased: # Alleles are treated separately
-        callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
-        for sample in samples:
-            calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
-            sample_source, phasing = sample.split('_')
-            callings[sample_source][phasing] = calling
-    else: # Unphased samples have a single calling that has to be separated into two 
-        raise NotImplementedError()
-        callings = {sample: star_allele_calling(sample, eq_graph, cont_graph, functions, supremals, phased) for sample in samples} 
-        # Split unphased into two callings (how/where?)  
-        callings = unpack_unphased_calling(callings, cont_graph)         
+    callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
+    for sample in samples:
+        calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
+        sample_source, phasing = sample.split('_')
+        callings[sample_source][phasing] = calling
+    if not phased: # Single calling contains multiple matches which must be separated
+        callings = separate_callings(callings)
     return calling_to_repr(callings, cont_graph, detail_level)
 
 def matches_core(match):

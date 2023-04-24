@@ -297,6 +297,7 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
+    # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
     # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0)
     # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
@@ -312,20 +313,25 @@ def main():
 
     # EXPERIMENT 3: Determine star allele calling for unphased samples
     # EXPERIMENT 3.1: use all variants in single allele
-    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
-    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
+    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
+    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
     # EXPERIMENT 3.2: use homozygous variants alleles
-    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
-    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
+    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
+    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
     # EXPERIMENT 3.3: use heterozygous variants alleles
-    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
-    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
+    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
+    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
+    # EXPERIMENT 4: unphased star allele calling and trying to infer phasing
+    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
+    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate unphased star allele calling
-    # validate_calling(calling_unphased, r"data\bastard.txt", soft=True) # TODO replace with call
+    # TODO replace with call
+    validate_calling(calling_unphased, r"data\bastard.txt", soft=True) 
+    exit()
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
