@@ -218,6 +218,10 @@ def main():
     relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
     pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
     pruned_extended[0].add("CYP2D6*1") # Add since it won't be found in the relations
+    supremal_simple = extract_variants(reference_sequence, corealleles, cache_name="supremal")
+    relations_simple = find_relations_all(reference_sequence, supremal_simple, cache_name="relations_simple")
+    pruned_simple = prune_relations(relations_simple, cache_name="relations_pruned_simple")
+    pruned_simple[0].add("CYP2D6*1") # Add since it won't be found in the relations
 
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
@@ -281,15 +285,26 @@ def main():
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
  
     # Find all relations with samples
-    relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
-    relations_samples += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
-    relations_samples += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
-    relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples = prune_relations(pruned_extended[1] + relations_samples, cache_name="relations_pruned_samples_extended")
+    # TODO simplify this
+    relations_samples_extended = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
+    relations_samples_extended += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
+    relations_samples_extended += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
+    relations_samples_extended += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    pruned_samples = prune_relations(pruned_extended[1] + relations_samples_extended, cache_name="relations_pruned_samples_extended")
     for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
         if v is not None:
             continue
         pruned_samples[0].add(s)
+    relations_samples_simple = find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple")
+    relations_samples_simple += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
+    relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
+    relations_samples += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    pruned_samples_simple = prune_relations(pruned_simple[1] + relations_simple, cache_name="relations_pruned_samples_simple")
+    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
+        if v is not None:
+            continue
+        pruned_samples_simple[0].add(s)
+    exit()
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -326,12 +341,11 @@ def main():
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 4: unphased star allele calling and trying to infer phasing
-    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate unphased star allele calling
     # TODO replace with call
-    validate_calling(calling_unphased, r"data\bastard.txt", soft=True) 
-    exit()
+    # validate_calling(calling_unphased, r"data\bastard.txt", soft=True) 
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
