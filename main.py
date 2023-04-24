@@ -6,7 +6,7 @@ from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, calling_to_repr, sort_types, impact_position
-from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs
+from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import *
 import algebra as va
@@ -186,13 +186,6 @@ def test_variant_annotation_position(variants, supremals, functions):
             if classification:
                 warnings.warn(f"{variant} is annotated as '{functions[variant]}' but is in intron")
 
-def test_personal_variant_impact(personal_variants, reference_name, reference_sequence):
-    for vp in personal_variants:
-        hgvs = f"{reference_name}:g.{vp}"
-        id = find_id_hgvs(hgvs, reference_sequence)
-        impact = get_annotation_entrez(hgvs, id)
-        print(f"{hgvs}, {id}, {impact}")
-
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
@@ -213,6 +206,7 @@ def main():
     data = corealleles | variants
     for suballele in suballeles.values(): data = data | suballele
     # Get functional annotation of alleles and impact of variants
+    ids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
     functions = {a: d["function"] for a, d in data.items() if "function" in d}
     functions |= {a: d["impact"] for a, d in data.items() if "impact" in d}
 
@@ -230,7 +224,6 @@ def main():
     # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
-    # ids = {variant["hgvs"]: variant["rsId"] for allele in gene["alleles"] for variant in allele["variants"]}
     # test_functional_annotation(suballeles, functions)
     # test_core_annotation(corealleles, functions)
     # test_variant_annotation_mutalyzer(variants, functions)
@@ -284,8 +277,8 @@ def main():
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
 
     # TEST 4: check if more information can be found about personal variants.
-    # TODO store and use
-    # test_personal_variant_impact(personal_variants, reference_name, reference_sequence)
+    ids |= get_personal_ids(personal_variants, reference, cache_name="ids_personal")
+    functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
  
     # Find all relations with samples
     relations_samples = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")

@@ -171,28 +171,14 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     # Extra variants are variants that are in the sample but not in any of the called alleles
     variants = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]) if sample in cont_graph.nodes() else set()
     # Check relevance of variants
-    # TODO make into function
-    # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
+    alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
     for variant in variants:
-        print(variant, end=' ')
-        # Check if variant possibly overlaps with any allele
-        interference = False
-        for allele in matches["equivalent"] | matches["contained"] | matches["overlapping"]:
-            if max(supremals[allele].start, supremals[variant].start) <= min(supremals[allele].end, supremals[variant].end): # Overlap between variant and allele
-                # Variant can alter the calling since it can disturb the allele's definition.
-                interference = True
-        if interference: print("overlap", end=' ')
-        if sort_types(variant) == 3: # normal
-            impact = functions[variant]
-        elif sort_types(variant) == 5: # personal
-            id = find_id_hgvs(f"{reference['name']}:g.{variant}", reference["sequence"]) 
-            if id is None:
-                raise Exception()
-            impact = get_annotation_entrez(variant, id)
-        print(impact, end=' ')
-        print()
-    if len(matches["variants"]) > 0:
-        print(sample, len(matches["variants"]))
+        if is_relevant(variant, functions, supremals, alleles, reference):
+            matches["variants"].add(variant)
+    if len(variants) > 0:
+        print(sample)
+        print(variants)
+        print(matches["variants"])
         exit()
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
@@ -385,26 +371,44 @@ def impact_position(supremal):
         return "possible missense" 
     return None # Intronic and thus certainly silent TODO correct value?
 
-def is_noise(variant, functions, supremal): # TODO rename to relevance?
-    """Determine if a variant is noise.
+def is_relevant(variant, functions, supremals, alleles, reference): 
+    """Determine if a variant is relevant.
     
-    Noise is defined as not being relevant for calling.
-    The variant is noise if it has no impact on the protein through non-synonymous mutations or splicing effects.
+    Relevance is defined as being relevant for calling.
 
-    This approach uses the online annotations but falls back on a sequence based approach.
+    This approach uses the online annotations of variants.
     """
-    raise NotImplementedError("Will be replaced by new method")
-    # TODO use new method
-    if variant in functions: function = functions[variant]  # PharmVar variant 
-    else: function = impact_position(supremal) # Personal variant TODO don't do this
-    if function == '': function = None # QUESTION what is the correct interpretation of this (no change or unknown)?
-    # Check the impact of the variant
-    if function == None: # QUESTION what is the correct interpretation (no change or unknown)?
-        return True, None
-    elif 'splice defect' in function: # Change in expression
-        return False, function
-    else: # Explicit change on protein level
-        return False, function # Missense mutation
+    # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
+    print(variant, end=' ')
+    # Check if variant possibly interferes with any allele (overlaps with supremal)
+    interference = False
+    for allele in alleles:
+        if max(supremals[allele].start, supremals[variant].start) <= min(supremals[allele].end, supremals[variant].end): # Overlap between variant and allele
+            # Variant can alter the calling since it can disturb the allele's definition.
+            interference = True
+    # Check impact of variant individually
+    if sort_types(variant) == 3: # normal
+        impact = functions[variant]
+    elif sort_types(variant) == 5: # personal
+        id = find_id_hgvs(f"{reference['name']}:g.{variant}", reference["sequence"]) 
+        if id is None:
+            raise Exception("No id found for variant") # TODO handle this
+        impact = get_annotation_entrez(variant, id) # TODO use stored annotation
+    # Handle impact annotations
+    if impact is None: # Also includes None TODO what is the correct interpretation of this for both sources?
+        return False
+    if "fs" in impact or "frameshift" in impact: # Frameshift is always relevant
+        return True
+    if "splice" in impact: # Splice defect is always relevant
+        return True
+    if "stop_gained" in impact or re.match(r"[A-Z][0-9]*X", impact): # Stop gained is always relevant
+        return True
+    # Otherwise only relevant if it interferes with an allele
+    # Other impact annotations include: (non-)synonymous, missense/[A-Z][0-9]*[A-Z], inframe deletion/insertion, intron variant and coding sequence variant
+    # Since we are not predicting the protein sequence we assume the worse for them if they interfere with a allele
+    # QUESTION is this correct, can this be more precise?
+    # TODO handle all cases?
+    return interference 
 
 def calling_to_repr(callings, cont_graph, detail_level=0):
     """Change the calling to a representation of a certain amount of detail.

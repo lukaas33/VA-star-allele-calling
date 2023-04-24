@@ -2,7 +2,7 @@ import re
 import algebra as va
 from easy_entrez import EntrezAPI
 from easy_entrez.parsing import parse_dbsnp_variants
-from .data import api_get
+from .data import api_get, cache_get, cache_set
 import warnings
 
 # TODO don't use easy_entrez, use entrez directly
@@ -188,3 +188,34 @@ def entrez_consequence_binary(consequences):
             # TODO handle other possible consequences    
             raise Exception(f"Unknown consequence {consequence}")
     return classification
+
+def get_personal_ids(personal_variants, reference, cache_name=None):
+    """Get ids of personal variants."""
+    try: # Check if already calculated
+        if cache_name is not None: return cache_get(cache_name)
+    except:
+        pass
+    personal_ids = {}
+    for personal_variant in personal_variants:
+        hgvs = f"{reference['name']}:g.{personal_variant}"
+        id = find_id_hgvs(hgvs, reference["sequence"])
+        # TODO handle None
+        personal_ids |= {personal_variant: id}
+    if cache_name is not None: cache_set(personal_ids, cache_name)
+    return personal_ids
+
+def get_personal_impacts(personal_variants, ids, reference, cache_name=None):
+    """Get Entrez impact of personal variants."""
+    try: # Check if already calculated
+        if cache_name is not None: return cache_get(cache_name)
+    except:
+        pass
+    personal_impacts = {}
+    for personal_variant in personal_variants:
+        hgvs = f"{reference['name']}:g.{personal_variant}"
+        id = ids[personal_variant]
+        # TODO handle None
+        impact = get_annotation_entrez(hgvs, id)
+        personal_impacts |= {personal_variant: impact}
+    if cache_name is not None: cache_set(personal_impacts, cache_name)
+    return personal_impacts
