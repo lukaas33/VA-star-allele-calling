@@ -298,27 +298,33 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples,   reference, detail_level=0)
-    exit()
-    for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # TEST 6 validate phased star allele calling
-    validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0), r"data\bastard.txt")
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # validate phased star allele calling
+    # validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0), r"data\bastard.txt")
 
-    # EXPERIMENT 2: Determine star allele calling for unphased samples
-    # EXPERIMENT 2.1: use all variants in single allele
+    # EXPERIMENT 2: determine star allele calling for phased samples but with only corealleles
+    # TODO generate simpler relations for this (filtering difficult)
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # # validate phased star allele calling
+    # validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=0), r"data\bastard.txt")
+
+    # EXPERIMENT 3: Determine star allele calling for unphased samples
+    # EXPERIMENT 3.1: use all variants in single allele
     unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
     calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
     for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
-    # EXPERIMENT 2.2: use homozygous variants alleles
+    # EXPERIMENT 3.2: use homozygous variants alleles
     unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
     calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
     for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
-    # EXPERIMENT 2.2: use heterozygous variants alleles
+    # EXPERIMENT 3.3: use heterozygous variants alleles
     unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
     calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples, functions, supremal_extended | supremal_samples, detail_level=0)
     for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
-    # TEST 7 validate unphased star allele calling
+    # validate unphased star allele calling
     # validate_calling(calling_unphased, r"data\bastard.txt", soft=True) # TODO replace with call
 
     # VISUALIZE some context with information of interest

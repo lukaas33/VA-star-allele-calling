@@ -176,7 +176,8 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
         if is_relevant(variant, functions, supremals, alleles, reference):
             matches["variants"].add(variant)
     if len(matches["variants"]) > 0:
-        warnings.warn(f"{sample}: Extra variants found that could influence the calling: {[(v, functions[v]) for v in matches['variants']]}.")
+        # warnings.warn(f"{sample}: Extra variants found that could influence the calling: {[(v, functions[v]) for v in matches['variants']]}.")
+        pass
     # Filter and return
     return prioritize_calling(sample, matches, functions, phased) 
 
@@ -369,6 +370,8 @@ def is_relevant(variant, functions, supremals, alleles, reference):
 
     This approach uses the online annotations of variants.
     """
+    # QUESTION is this method valid?
+    # TODO can make less conservative?
     # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
     # Check if variant possibly interferes with any allele (overlaps with supremal)
     interference = False
@@ -381,7 +384,8 @@ def is_relevant(variant, functions, supremals, alleles, reference):
     # Annotations of personal variants retrieved from online sources
     impact = functions[variant]
     # Handle impact annotations
-    if impact is None: # Also includes None TODO what is the correct interpretation of this for both sources?
+    if impact is None: # Also includes None
+        # TODO what is the correct interpretation of this for both sources?
         return False
     if "fs" in impact or "frameshift" in impact: # Frameshift is always relevant
         return True
