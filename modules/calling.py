@@ -387,13 +387,9 @@ def is_relevant(variant, functions, supremals, alleles, reference):
             # Variant can alter the calling since it can disturb the allele's definition.
             interference = True
     # Check impact of variant individually
-    if sort_types(variant) == 3: # normal
-        impact = functions[variant]
-    elif sort_types(variant) == 5: # personal
-        id = find_id_hgvs(f"{reference['name']}:g.{variant}", reference["sequence"]) 
-        if id is None:
-            raise Exception("No id found for variant") # TODO handle this
-        impact = get_annotation_entrez(variant, id) # TODO use stored annotation
+    # Annotations of PharmVar variants are retrieved from the PharmVar database
+    # Annotations of personal variants retrieved from online sources
+    impact = functions[variant]
     # Handle impact annotations
     if impact is None: # Also includes None TODO what is the correct interpretation of this for both sources?
         return False
