@@ -456,6 +456,8 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
             return 0
         else:
             return int(match.split('*')[1])
+    def min_star_num(matches):
+        return min([star_num(match) for match in matches])
     def remove_contained(matches):
         """Filter out cores that are contained in other cores"""
         # TODO do this by not adding some cores in the first place
@@ -502,10 +504,8 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
             # Sort alleles based on star allele number
             representation[sample][phase].sort(key=star_num)
         # Sort phases based on start allele number
-        low_A = min([star_num(m) for m in representation[sample]['A']])
-        low_B = min([star_num(m) for m in representation[sample]['B']])
-        if low_A > low_B:
-            representation[sample]['A'], representation[sample]['B'] = representation[sample]['B'], representation[sample]['A']
+        sorted_alleles = sorted(representation[sample].values(), key=min_star_num)
+        representation[sample] = {p: sorted_alleles[i] for i, p in enumerate(representation[sample])}
     return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
