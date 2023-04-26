@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, calling_to_repr, sort_types, impact_position
+from modules.calling import star_allele_calling_all, sort_types, impact_position
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import *
@@ -313,10 +313,10 @@ def main():
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate phased star allele calling
-    validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0), r"data\bastard.txt")
+    validate_calling(calling_phased, r"data\bastard.txt")
     return
 
     # EXPERIMENT 2: determine star allele calling for phased samples but with only corealleles

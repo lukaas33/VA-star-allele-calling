@@ -36,6 +36,7 @@ def sort_types(v):
     
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
+    raise DeprecationWarning("This function is not used anymore")
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
     if sort_types(start) in find: # Need to find this type
@@ -55,31 +56,32 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
                 continue
             find_contained_variants(match, cont_graph, eq_graph, matches, visited, find, stop) # Add contained and maybe traverse
 
-def find_overlapping_variants(start, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop=None):
-    """Recursively find the overlapping variants from a given start node."""
-    if start in visited: return # Already visited
-    visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
-    if stop is not None and sort_types(start) == stop: # Don't look further here (terminal nodes)
-        return 
-    # Find equivalent not needed (since everything is connected to core)
-    # Find contained
-    if start in cont_graph.nodes(): 
-        for match, _ in cont_graph.in_edges(start):
-            if sort_types(match) not in (1, 2, 3): # TODO allow iteration over own personal variants?
-                continue
-            find_overlapping_variants(match, cont_graph, eq_graph, overlap_graph, matches, visited, find, stop) # Don't add but traverse
+def find_overlapping_variants(current, cont_graph, overlap_graph, find):
+    """Recursively find the overlapping variants from a given current node."""
     # Find overlapping
-    if start in overlap_graph.nodes():
-        for match in overlap_graph[start]:
-            if sort_types(match) not in find: 
+    matches = set()
+    if current in overlap_graph.nodes():
+        for match in overlap_graph[current]:
+            if sort_types(match) not in find: # Looking for this type
                 continue
-            matches.add(match) # Add overlapping, don't traverse further
+            matches.add(match) # Add overlapping, don't traverse this node further (direct overlap)
+    # Iterate over equivalent not needed (since everything is connected to core)
+    # Iterate over contained to find most specific overlaps
+    if current in cont_graph.nodes(): 
+        for node, _ in cont_graph.in_edges(current): # Go over variants contained in this
+            if sort_types(node) == 4: # skip samples
+                continue
+            # Find more specific overlaps
+            for n in find_overlapping_variants(node, cont_graph, overlap_graph, find):
+                matches.add(n)
+    return matches
 
 def find_most_specific(matches, cont_graph):
     """Find the most specific alleles from a list of contained alleles.
     
     Filter out alleles that are contained in other alleles.
     """  
+    raise DeprecationWarning("This function is redundant now")
     reduced = set()
     for node1 in matches:
         for node2 in matches:
@@ -97,91 +99,89 @@ def find_most_specific(matches, cont_graph):
             reduced.add(node1) # Keep match
     return reduced
 
-def prioritize_calling(sample, matches, functions, phased):
-    """Find the best matches from a list of matches.
-    
-    Also return a measure of certainty.
+def prioritize_calling(matches, functions):
+    """Prioritize matches with the same rank based on functional annotation.
+
+    Returns list of sets where each index is the priority level and may contain several matches.
     """
-    def add_by_priority(matches, sorted_matches):
-        """Add matches to sorted_matches by priority."""
-        # In the case of multiple matches, a choice is made based on functional annotation
-        annotated = {f: set([m for m in matches if functions[m] == f]) for f in all_functions}
-        # If the annotation is no function, this allele is most disruptive and is prioritized
-        if len(annotated["no function"]) > 0:	
-            sorted_matches.append(annotated["no function"])
-        # If uncertain or unknown functions are present, the ordering after no function cannot be determined
-        # An unknown function could be no function and thus no allele should be preferred.
-        if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
-            # Put all in the same position of ordering
-            sorted_matches.append(
-                annotated["decreased function"] |
-                annotated["normal function"] |
-                annotated["unknown function"] |
-                annotated["uncertain function"]
-            )
-        else: # Ordering can be determined between normal and decreased function when no uncertain or unknown functions are present
-            # More disruptive alleles are chosen first
-            if len(annotated["decreased function"]) > 0:
-                sorted_matches.append(annotated["decreased function"])
-            if len(annotated["normal function"]) > 0:
-                sorted_matches.append(annotated["normal function"])
+    # Find annotation for all matches
+    prioritized_matching = []
+    annotated = {f: set([m for m in matches if functions[m] == f]) for f in all_functions}
+    # If the annotation is no function, this allele is most disruptive and is prioritized over everything
+    if len(annotated["no function"]) > 0:	
+        prioritized_matching.append(annotated["no function"])
+    # If uncertain or unknown functions are present, the ordering after no function cannot be determined
+    # An unknown function could be as bad as no function.
+    if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
+        # Put all in the same position of ordering
+        prioritized_matching.append(
+            annotated["decreased function"] |
+            annotated["normal function"] |
+            annotated["unknown function"] |
+            annotated["uncertain function"]
+        )
+    else: # No uncertain or unknown functions
+        # Ordering can be determined between normal and decreased function when no uncertain or unknown functions are present
+        # More disruptive alleles are chosen first
+        if len(annotated["decreased function"]) > 0:
+            prioritized_matching.append(annotated["decreased function"])
+        if len(annotated["normal function"]) > 0:
+            prioritized_matching.append(annotated["normal function"])
+    return prioritized_matching
 
-    # TODO change to list of sets (since there is no order within a position)
-    sorted_matches = []
-    # Equivalent alleles are the best matches
-    if len(matches["equivalent"]) > 0:
-        if len(matches["equivalent"]) > 1: # The same as some allele
-            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
-        sorted_matches.append(matches["equivalent"])
-    # Next step is the contained alleles
-    if len(matches["contained"]) > 0:
-        add_by_priority(matches["contained"], sorted_matches)
-    # Then the overlapping alleles
-    if len(matches["overlapping"]) > 0:
-        add_by_priority(matches["overlapping"], sorted_matches)
-    # Catch-all is the default allele and is in theory always present
-    # *1 will never be in contained so it is not prioritized over others
-    # TODO do this somewhere else?
-    sorted_matches.append({"CYP2D6*1",})        
-    return sorted_matches
-
-def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased):
+def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference):
     """Determine star allele calling for a sample based on va relations.
     
-    Find based on pruned graph containing relations between samples and alleles and between themselves.
+    Find matches based on pruned graph.
+    Graph must contain relations between all samples and PharmVar alleles.
+    Graph must also contain relations between all PharmVar alleles.
+
+    Returns a list of allele matches ordered by the strength of the relation.
     """
-    if sample not in supremals: # Don't predict unparsable samples
-        return [{'CYP2D6*?',}]
     # QUESTION does this method work directly for unphased data?
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
+    # Don't predict unparsable samples
+    # Would be predicted as *1 otherwise
+    # Empty alleles are in the supremal dictionary with None as a value
+    if sample not in supremals: 
+        return [{'CYP2D6*?',}]
     # All information of a calling
-    matches = {
-        "equivalent": set(), # Equivalent alleles
-        "contained": set(), # Contained alleles
-        "overlapping": set(), # Overlapping alleles
-        "variants": set()
-    }
-    # Find equivalent alleles
-    matches["equivalent"] = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)]) if sample in eq_graph.nodes() else set()
-    # Find contained
-    find_contained_variants(sample, cont_graph, eq_graph, matches["contained"], set(), (1,2))
-    matches["contained"] = set([m for m in matches["contained"] if m not in matches["equivalent"]]) # Remove equivalent from here
-    # Find overlapping alleles
-    find_overlapping_variants(sample, cont_graph, eq_graph, overlap_graph, matches["overlapping"], set(), (1,2))
-    # Find extra variants to check if they can influence the calling
-    # Extra variants are variants that are in the sample but not in any of the called alleles
-    variants = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]) if sample in cont_graph.nodes() else set()
-    # Check relevance of variants
-    alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
-    for variant in variants:
-        if is_relevant(variant, functions, supremals, alleles, reference):
-            matches["variants"].add(variant)
-    if len(matches["variants"]) > 0:
-        # warnings.warn(f"{sample}: Extra variants found that could influence the calling: {[(v, functions[v]) for v in matches['variants']]}.")
-        pass
-    # Filter and return
-    return prioritize_calling(sample, matches, functions, phased) 
+    matches = []
+    # Find equivalent allele if present
+    if sample in eq_graph.nodes() and len(eq_graph[sample]) != 0:
+        m_eq = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)]) 
+        if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
+            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+        matches.append(m_eq) # Strongest match
+    # Find directly contained alleles
+    if sample in cont_graph.nodes() and len(cont_graph.in_edges(sample)) != 0:
+        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (1, 2)])
+        matches.append(m_cont) # Less strong match
+    # Find directly overlapping alleles
+    # also need to check contained alleles because of most specific pruning
+    m_ov = find_overlapping_variants(sample, cont_graph, overlap_graph, (1, 2))
+    if len(m_ov) > 0:
+        matches.append(m_ov) # Least strong match (can treat the same as contained?)
+    # Add default allele, will have the lowest priority
+    matches.append({"CYP2D6*1",})
+
+    # # TODO move elsewhere
+    # # Find extra variants to check if they can influence the calling
+    # # TODO finalise based on notes
+    # # TODO visualise
+    # # Extra variants are variants that are in the sample but not in any of the called alleles
+    # variants = []
+    # if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
+    # if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
+    # # Check relevance of variants
+    # alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
+    # for variant in variants:
+    #     if is_relevant(variant, functions, supremals, alleles, reference):
+    #         matches["variants"].add(variant)
+
+    # Return all matches to be filtered later (based on detail level)
+    return matches
 
 def separate_callings(unphased_calling):
     """Unpack a calling of a unphased sample into two phased callings."""
@@ -203,7 +203,6 @@ def separate_callings(unphased_calling):
             print(phased_calling[sample])
             print(unphased_calling[sample])
             exit()
-    return phased_calling
     raise NotImplementedError("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
@@ -300,15 +299,17 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
     for sample in samples:
-        calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
+        calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference)
         sample_source, phasing = sample.split('_')
         callings[sample_source][phasing] = calling
     if not phased: # Single calling contains multiple matches which must be separated
         callings = separate_callings(callings)
-    return calling_to_repr(callings, cont_graph, detail_level)
+    # Create a textual representation of the calling based on the amount of detail needed
+    representation = calling_to_repr(callings, cont_graph, functions, **detail_from_level(detail_level))
+    return representation
 
-def matches_core(match):
-    """Print the core allele from a match."""
+def find_core_string(match):
+    """Get the core allele from a match string wise."""
     raise DeprecationWarning("not in use since getting via traversal is better")
     if sort_types(match) == 1:
         return match
@@ -317,6 +318,22 @@ def matches_core(match):
     else:
         raise Exception(f"Unexpected match type: {match}")
         # QUESTION needed to also handle variants?
+
+def find_core_traversal(match, cont_graph):
+    """Get the coreallele(s) from a match based on traversal.
+    
+    Returns a set since a suballele can contain more corealleles.
+    Will not return indirectly contained corealleles.
+    This won't find the corealleles that are not contained in the suballele by design.
+    """
+    cores = []
+    if match in cont_graph.nodes(): # Only have to check contained since everything is connected to the core
+        for node, _ in cont_graph.in_edges(match):
+            if sort_types(node) == 1: # Found core contained in match, don't traverse further
+                cores.append(node)
+            elif sort_types(node) == 2: # Traverse further
+                cores.extend(find_core_traversal(node, cont_graph))
+    return cores
 
 def impact_position(supremal):
     """Check if a variant is silent based on positions of variants.
@@ -384,11 +401,12 @@ def is_relevant(variant, functions, supremals, alleles, reference):
     """Determine if a variant is relevant.
     
     Relevance is defined as being relevant for calling.
-
+    It is not complete but tries to filter out variants that are definitely not relevant.
+    These variants can then be ignored in visualisations
     This approach uses the online annotations of variants.
     """
+    raise NotImplementedError("Not finished")
     # QUESTION is this method valid?
-    # TODO can make less conservative?
     # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
     # Check if variant possibly interferes with any allele (overlaps with supremal)
     interference = False
@@ -402,8 +420,8 @@ def is_relevant(variant, functions, supremals, alleles, reference):
     impact = functions[variant]
     # Handle impact annotations
     if impact is None: # Also includes None
-        # TODO what is the correct interpretation of this for both sources?
-        return False
+        # TODO check if this is correct
+        return True # No annotation available, assume relevant
     if "fs" in impact or "frameshift" in impact: # Frameshift is always relevant
         return True
     if "splice" in impact: # Splice defect is always relevant
@@ -417,44 +435,76 @@ def is_relevant(variant, functions, supremals, alleles, reference):
     # TODO handle all cases?
     return interference 
 
-def calling_to_repr(callings, cont_graph, detail_level=0):
-    """Change the calling to a representation of a certain amount of detail.
+def detail_from_level(level):
+    """Return a dictionary of options for a specific detail level
     
+    The output corresponds to the options of calling_to_repr.
+
     Different detail levels are available.
     0: Only print best core match(es)
-    1: Simplify to core matches only
-    2: Print core and suballele matches
-    3: Print core and suballele matches and their less specific contained alleles
-    4: Print all matches including the default
-    TODO make this more flexible, flags independent of each other
+    TODO implement more levels
     """
-    if detail_level < 3: # Remove matches contained in others
-        for sample in callings:
-            for phase in callings[sample]:
-                if callings[sample][phase] is None: # No call
-                    continue
-                all_alleles = set([a for al in callings[sample][phase] for a in al])
-                reduced_alleles = find_most_specific(all_alleles, cont_graph)
-                for al in callings[sample][phase]:
-                    al &= reduced_alleles # Set overlap
-    selected_calling = {}
-    for sample, calling in callings.items():
-        selected_alleles = {t: [] for t in callings[sample]} 
-        for phase, ordered_alleles in calling.items():
-            if ordered_alleles is None: # No call
-                continue
-            for alleles in ordered_alleles: # Flatten matrix into ordered list
+    kwargs = {}
+    kwargs["find_cores"] = True 
+    if level == 0:
+        kwargs["suballeles"] = False 
+        kwargs["default"] = False 
+        kwargs["prioritize_function"] = True
+        kwargs["prioritize_strength"] = True
+    return kwargs
+
+def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
+    """Change the calling to a representation of a certain amount of detail.
+    
+    Each calling contains all direct matches which can be suballeles or core alleles.
+    The amount of detail in a representation can be made more or less specific.
+    The representation will show an unordered list of matches.
+
+    These are the options:
+    find_cores: find the corealleles of each suballele
+    suballeles: show suballeles or not
+    default: show the default allele always or only if no other allele is found
+    prioritize_function: prioritize alleles based on functional annotation.
+    prioritize_strength: prioritize alleles based on relation strength.
+    """
+    # TODO add indirectly found alleles
+    # TODO add alternative descriptions
+    # TODO add prioritization of alleles based on relation strength
+    print(find_cores)
+    representation = {}
+    for sample in callings:
+        representation[sample] = {} # Keep structure
+        for phase in callings[sample]:
+            representation[sample][phase] = [] # Flatten into single list
+            for alleles in callings[sample][phase]:
                 for allele in alleles:
-                    if detail_level in (0, 1) and sort_types(allele) != 1: # Only core
+                    # Add detail
+                    if find_cores and sort_types(allele) == 2: # Find cores of suballeles
+                        cores = find_core_traversal(allele, cont_graph) # Cores of suballele
+                        for core in cores: # Filter out some cores
+                            for core2 in representation[sample][phase]:
+                                if core == core2: # Already added
+                                    break # Don't add this core again
+                                if core in nx.ancestors(cont_graph, core2): # This core is already contained in an earlier found core
+                                    break # Don't add this core since it is less specific
+                                elif core2 in nx.ancestors(cont_graph, core): # This core contains one of the earlier found cores
+                                    representation[sample][phase].remove(core2) # Keep new more specific
+                            else: # No break
+                                representation[sample][phase].append(core)
+                    # Remove detail
+                    if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
                         continue
-                    if detail_level != 4: # Don't print *1 if other alleles present
-                        if allele == "CYP2D6*1" and len(selected_alleles[phase]) > 0: 
+                    if not default and allele == "CYP2D6*1": # Don't represent default allele if there are other matches
+                        if len(representation[sample][phase]) > 0: # Works since default is always last
                             continue
-                    selected_alleles[phase].append(allele)
-                if detail_level == 0 and len(selected_alleles[phase]) > 0: # Only display best
+                    representation[sample][phase].append(allele) # Add match
+                if prioritize_strength and len(representation[sample][phase]) > 0: # Only keep strongest related alleles
                     break
-        selected_calling[sample] = selected_alleles
-    return selected_calling
+            # Prioritize alleles of equal rank (after filtering)
+            if prioritize_function and len(representation[sample][phase]) > 1:
+                prioritized = prioritize_calling(representation[sample][phase], functions)
+                representation[sample][phase] = prioritized[0] # Only keep the first priority
+    return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
     """Find a path from s to t in the graphs"""
