@@ -459,12 +459,11 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     def remove_contained(matches):
         """Filter out cores that are contained in other cores"""
         # TODO do this by not adding some cores in the first place
-        for i1, match1 in enumerate(matches):  
-            for i2, match2 in enumerate(matches):
-                if i1 == i2:
+        matches = list(set(matches)) # Remove duplicates
+        for match1 in set(matches):  
+            for match2 in set(matches):
+                if match1 == match2:
                     continue
-                if match1 == match2: # Duplicates
-                    matches.remove(match1)
                 if sort_types(match2) == 2: # Cores can be contained in subs
                     continue
                 if match1 in nx.ancestors(cont_graph, match2): # match1 is contained in match2
