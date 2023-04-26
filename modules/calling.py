@@ -456,6 +456,21 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
             return 0
         else:
             return int(match.split('*')[1])
+    def remove_contained(matches):
+        """Filter out cores that are contained in other cores"""
+        # TODO do this by not adding some cores in the first place
+        for i1, match1 in enumerate(matches):  
+            for i2, match2 in enumerate(matches):
+                if i1 == i2:
+                    continue
+                if match1 == match2: # Duplicates
+                    matches.remove(match1)
+                if sort_types(match2) == 2: # Cores can be contained in subs
+                    continue
+                if match1 in nx.ancestors(cont_graph, match2): # match1 is contained in match2
+                    matches.remove(match1)
+                    break
+        return matches
     # TODO add indirectly found alleles
     # TODO add alternative descriptions
     representation = {}
@@ -468,16 +483,7 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
                     # Add detail
                     if find_cores and sort_types(allele) == 2: # Find cores of suballeles
                         cores = find_core_traversal(allele, cont_graph) # Cores of suballele
-                        for core in cores: # Filter out some cores
-                            for core2 in representation[sample][phase]:
-                                if core == core2: # Already added
-                                    break # Don't add this core again
-                                if core in nx.ancestors(cont_graph, core2): # This core is already contained in an earlier found core
-                                    break # Don't add this core since it is less specific
-                                elif core2 in nx.ancestors(cont_graph, core): # This core contains one of the earlier found cores
-                                    representation[sample][phase].remove(core2) # Keep new more specific
-                            else: # No break
-                                representation[sample][phase].append(core)
+                        representation[sample][phase].extend(cores)
                     # Remove detail
                     if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
                         continue
@@ -487,6 +493,9 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
                     representation[sample][phase].append(allele) # Add match
                 if prioritize_strength and len(representation[sample][phase]) > 0: # Only keep strongest related alleles
                     break
+            # Remove cores contained in other cores 
+            # These can occur because of get_core_traversal
+            representation[sample][phase] = remove_contained(representation[sample][phase])
             # Prioritize alleles of equal rank (after filtering)
             if prioritize_function and len(representation[sample][phase]) > 1:
                 prioritized = prioritize_calling(representation[sample][phase], functions)
