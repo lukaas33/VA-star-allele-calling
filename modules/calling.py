@@ -272,7 +272,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     cont_graph = nx.DiGraph()
     cont_graph.add_nodes_from(nodes)
     cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
-    overlap_graph = nx.DiGraph()
+    overlap_graph = nx.Graph()
     overlap_graph.add_nodes_from(nodes)
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
@@ -420,15 +420,15 @@ def detail_from_level(level):
 
     Different detail levels are available.
     0: Only print best core match(es)
+    1: Print all direct core matches
     TODO implement more levels
     """
     kwargs = {}
     kwargs["find_cores"] = True 
-    if level == 0:
-        kwargs["suballeles"] = False 
-        kwargs["default"] = False 
-        kwargs["prioritize_function"] = True
-        kwargs["prioritize_strength"] = True
+    kwargs["prioritize_function"] = level <= 0
+    kwargs["prioritize_strength"] = level <= 0
+    kwargs["suballeles"] = not (level <= 1)
+    kwargs["default"] = not (level <= 1)
     return kwargs
 
 def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
@@ -436,7 +436,7 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     
     Each calling contains all direct matches which can be suballeles or core alleles.
     The amount of detail in a representation can be made more or less specific.
-    The representation will show an unordered list of matches.
+    The representation will show an list of matches ordered on start allele number.
 
     These are the options:
     find_cores: find the corealleles of each suballele
@@ -445,10 +445,13 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     prioritize_function: prioritize alleles based on functional annotation.
     prioritize_strength: prioritize alleles based on relation strength.
     """
+    def star_num(match):
+        if '?' in match:
+            return 0
+        else:
+            return int(match.split('*')[1])
     # TODO add indirectly found alleles
     # TODO add alternative descriptions
-    # TODO add prioritization of alleles based on relation strength
-    print(find_cores)
     representation = {}
     for sample in callings:
         representation[sample] = {} # Keep structure
@@ -482,6 +485,13 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
             if prioritize_function and len(representation[sample][phase]) > 1:
                 prioritized = prioritize_calling(representation[sample][phase], functions)
                 representation[sample][phase] = prioritized[0] # Only keep the first priority
+            # Sort alleles based on star allele number
+            representation[sample][phase].sort(key=star_num)
+        # Sort phases based on start allele number
+        low_A = min([star_num(m) for m in representation[sample]['A']])
+        low_B = min([star_num(m) for m in representation[sample]['B']])
+        if low_A > low_B:
+            representation[sample]['A'], representation[sample]['B'] = representation[sample]['B'], representation[sample]['A']
     return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
