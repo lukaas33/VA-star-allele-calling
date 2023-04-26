@@ -427,14 +427,16 @@ def detail_from_level(level):
     Different detail levels are available.
     0: Only print best core match(es)
     1: Print all direct core matches
-    TODO implement more levels
+    2: Also print suballeles 
+    3: Print all matches
+    TODO implement more levels?
     """
     kwargs = {}
     kwargs["find_cores"] = True 
     kwargs["prioritize_function"] = level <= 0
     kwargs["prioritize_strength"] = level <= 0
     kwargs["suballeles"] = not (level <= 1)
-    kwargs["default"] = not (level <= 1)
+    kwargs["default"] = not (level <= 2)
     return kwargs
 
 def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
@@ -452,10 +454,10 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     prioritize_strength: prioritize alleles based on relation strength.
     """
     def star_num(match):
-        if '?' in match:
+        num = match.split('*')[1]
+        if num =='?':
             return 0
-        else:
-            return int(match.split('*')[1])
+        return float(num)
     def min_star_num(matches):
         return min([star_num(match) for match in matches])
     def remove_contained(matches):
