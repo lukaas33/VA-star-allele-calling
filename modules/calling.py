@@ -150,6 +150,8 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     
     Find based on pruned graph containing relations between samples and alleles and between themselves.
     """
+    if sample not in supremals: # Don't predict unparsable samples
+        return [{'CYP2D6*?',}]
     # QUESTION does this method work directly for unphased data?
     # QUESTION: is it needed to look at suballeles for calling?
     # QUESTION: is it needed to look at individual variants for calling?
@@ -297,7 +299,6 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     overlap_graph.add_nodes_from(nodes)
     overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
-    # TODO skip unparsable samples?
     for sample in samples:
         calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference, phased)
         sample_source, phasing = sample.split('_')

@@ -316,11 +316,12 @@ def main():
     calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=1)
     for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate phased star allele calling
-    # validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0), r"data\bastard.txt")
+    validate_calling(star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0), r"data\bastard.txt")
+    return
 
     # EXPERIMENT 2: determine star allele calling for phased samples but with only corealleles
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_simple| supremal_samples, reference, detail_level=1)
-    for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_simple| supremal_samples, reference, detail_level=1)
+    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate phased star allele calling
     # validate_calling(calling_phased, r"data\bastard.txt")
     exit()
