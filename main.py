@@ -313,14 +313,15 @@ def main():
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    validate_calling(calling_phased, r"data\bastard.txt") # validate phased star allele calling
+   
+    # EXPERIMENT 2: determine star allele calling for phased samples but with only corealleles
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_simple| supremal_samples, reference, detail_level=0)
     # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate_calling(calling_phased, r"data\bastard.txt") # validate phased star allele calling
-
-    # EXPERIMENT 2: determine star allele calling for phased samples but with only corealleles
-    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_simple| supremal_samples, reference, detail_level=1)
-    for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # validate_calling(calling_phased, r"data\bastard.txt") # validate phased star allele calling
+    # TODO investigate NA07348 and NA10865
 
     # EXPERIMENT 3: Determine star allele calling for unphased samples
     # EXPERIMENT 3.1: use all variants in single allele
@@ -342,11 +343,10 @@ def main():
     # validate unphased star allele calling
     # TODO replace with call
     # validate_calling(calling_unphased, r"data\bastard.txt", soft=True) 
-    return
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["NA19777_A", "NA19777_B"], pruned_samples[1], as_edges=True)
+    sample_context = find_context(["NA07348_A", "NA07348_B"], pruned_samples[1], as_edges=True)
     context = pruned_extended[1]
     display_graph(*prune_relations(context + sample_context), data)
 

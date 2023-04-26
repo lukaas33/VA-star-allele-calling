@@ -125,22 +125,28 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     if sample not in supremals: 
         return [{'CYP2D6*?',}]
     # All information of a calling
+    start = [sample]
     matches = []
     # Find equivalent allele if present
     if sample in eq_graph.nodes() and len(eq_graph[sample]) != 0:
-        m_eq = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)]) 
+        m_eq = [match for match in eq_graph[sample] if sort_types(match) in (1, 2)]
         if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
             raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
-        matches.append(m_eq) # Strongest match
+        if len(m_eq) == 1: 
+            matches.append(set(m_eq)) # Strongest match
+            start.append(m_eq[0]) # Also look for contained/overlapping from equivalent allele
     # Find directly contained alleles
-    if sample in cont_graph.nodes() and len(cont_graph.in_edges(sample)) != 0:
-        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (1, 2)])
-        matches.append(m_cont) # Less strong match
+    m_cont = set()
+    for eq in start:
+        if eq in cont_graph.nodes() and len(cont_graph.in_edges(eq)) != 0:
+            m_cont |= set([m for m, _ in cont_graph.in_edges(eq) if sort_types(m) in (1, 2)])
+    if len(m_cont) > 0: matches.append(m_cont) # Less strong match
     # Find directly overlapping alleles
     # also need to check contained alleles because of most specific pruning
-    m_ov = find_overlapping_variants(sample, cont_graph, overlap_graph, (1, 2))
-    if len(m_ov) > 0:
-        matches.append(m_ov) # Least strong match (can treat the same as contained?)
+    m_ov = set()
+    for eq in start:
+        m_ov |= find_overlapping_variants(eq, cont_graph, overlap_graph, (1, 2))
+    if len(m_ov) > 0: matches.append(m_ov) # Least strong match (can treat the same as contained?)
     # Add default allele, will have the lowest priority
     matches.append({"CYP2D6*1",})
 
@@ -484,7 +490,7 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
             # Prioritize alleles of equal rank (after filtering)
             if prioritize_function and len(representation[sample][phase]) > 1:
                 prioritized = prioritize_calling(representation[sample][phase], functions)
-                representation[sample][phase] = prioritized[0] # Only keep the first priority
+                representation[sample][phase] = list(prioritized[0]) # Only keep the first priority
             # Sort alleles based on star allele number
             representation[sample][phase].sort(key=star_num)
         # Sort phases based on start allele number
