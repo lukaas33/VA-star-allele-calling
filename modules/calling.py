@@ -10,6 +10,7 @@ all_functions = ['unknown function', 'uncertain function', 'normal function', 'd
 
 def sort_function(f):
     """Sort function annotation based on severity."""
+    raise DeprecationWarning("This function is redundant now")
     # TODO use enums
     # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
@@ -75,29 +76,6 @@ def find_overlapping_variants(current, cont_graph, overlap_graph, find):
             for n in find_overlapping_variants(node, cont_graph, overlap_graph, find):
                 matches.add(n)
     return matches
-
-def find_most_specific(matches, cont_graph):
-    """Find the most specific alleles from a list of contained alleles.
-    
-    Filter out alleles that are contained in other alleles.
-    """  
-    raise DeprecationWarning("This function is redundant now")
-    reduced = set()
-    for node1 in matches:
-        for node2 in matches:
-            if node1 == node2: # Skip self 
-                continue
-            if node2 not in cont_graph.nodes(): # Skip alleles not in graph (in practice only *1)
-                continue
-            if sort_types(node1) == 1 and sort_types(node2) == 2: # Skip containment of core in suballeles as this is expected
-                continue
-            if node1 not in nx.ancestors(cont_graph, node2): # Node1 is contained in node2
-                continue
-            # No issues 
-            break
-        else: # No break
-            reduced.add(node1) # Keep match
-    return reduced
 
 def prioritize_calling(matches, functions):
     """Prioritize matches with the same rank based on functional annotation.
