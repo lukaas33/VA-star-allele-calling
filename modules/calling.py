@@ -171,7 +171,14 @@ def separate_callings(unphased_calling):
     """Unpack a calling of a unphased sample into two phased callings."""
     samples = list(unphased_calling.keys())
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
-    # Add phasing based on homozygosity
+    # Split into two callings as much as possible
+    for sample in samples:
+        for alleles in unphased_calling[sample]['hom']: # Add matches that are homozygous to both callings
+            # TODO filter out from _all
+            phased_calling[sample]['A'].append(alleles) # Maintain ranks
+            phased_calling[sample]['B'].append(alleles)
+    return phased_calling
+    raise NotImplementedError("Not implemented yet")
     for sample in samples:
         for alleles in unphased_calling[sample]['all']:
             phased_calling[sample]['A'].append(set()) # maintain priority ranks
@@ -187,7 +194,6 @@ def separate_callings(unphased_calling):
             print(phased_calling[sample])
             print(unphased_calling[sample])
             exit()
-    raise NotImplementedError("Not implemented yet")
     samples = sorted([s for s in unphased_calling.keys() if s[-1] != "+"])
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     for sample in samples:                
@@ -462,13 +468,15 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
         return min([star_num(match) for match in matches])
     def remove_contained(matches):
         """Filter out cores that are contained in other cores"""
-        # TODO do this by not adding some cores in the first place
+        # TODO do this by not adding some cores in the first place?
         matches = list(set(matches)) # Remove duplicates
-        for match1 in set(matches):  
-            for match2 in set(matches):
+        for match1 in matches:  
+            for match2 in matches:
                 if match1 == match2:
                     continue
                 if sort_types(match2) == 2: # Cores can be contained in subs
+                    continue
+                if match2 not in cont_graph.nodes():
                     continue
                 if match1 in nx.ancestors(cont_graph, match2): # match1 is contained in match2
                     matches.remove(match1)

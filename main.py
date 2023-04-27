@@ -332,8 +332,8 @@ def main():
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
-    # calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
-    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
+    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate unphased star allele calling
     # validate_calling(calling_unphased, r"data\bastard.txt", soft=True) 
 
