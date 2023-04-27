@@ -173,10 +173,22 @@ def separate_callings(unphased_calling):
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     # Split into two callings as much as possible
     for sample in samples:
+        # Handle unparsable samples
+        if [{'CYP2D6*?',}] == unphased_calling[sample]['all']:
+            phased_calling[sample] = {'A': [{'CYP2D6*?',}], 'B': [{'CYP2D6*?',}]}
+            continue
         for alleles in unphased_calling[sample]['hom']: # Add matches that are homozygous to both callings
-            # TODO filter out from _all
-            phased_calling[sample]['A'].append(alleles) # Maintain ranks
-            phased_calling[sample]['B'].append(alleles)
+            hom_alleles = set()
+            for allele in alleles:
+                if not any([allele in alls for alls in unphased_calling[sample]['all']]):
+                    # Match is not the smallest possible, likely the result of overlap 
+                    continue 
+                hom_alleles.add(allele)
+                hom_alleles.add(allele)
+            if len(hom_alleles) == 0:
+                continue
+            phased_calling[sample]['A'].append(hom_alleles) # maintain priority ranks
+            phased_calling[sample]['B'].append(hom_alleles)
     return phased_calling
     raise NotImplementedError("Not implemented yet")
     for sample in samples:
@@ -459,6 +471,7 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     prioritize_function: prioritize alleles based on functional annotation.
     prioritize_strength: prioritize alleles based on relation strength.
     """
+    # TODO hide unparsable?
     def star_num(match):
         num = match.split('*')[1]
         if num =='?':
