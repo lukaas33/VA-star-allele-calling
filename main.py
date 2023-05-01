@@ -313,9 +313,10 @@ def main():
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
-    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # validate_calling(calling_phased, r"data\bastard.txt") # validate phased star allele calling
+    calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    validate_calling(calling_phased, r"data\bastard.txt", soft=True) # validate phased star allele calling
+    return
 
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
