@@ -177,18 +177,53 @@ def separate_callings(unphased_calling):
         if [{'CYP2D6*?',}] == unphased_calling[sample]['all']:
             phased_calling[sample] = {'A': [{'CYP2D6*?',}], 'B': [{'CYP2D6*?',}]}
             continue
-        for alleles in unphased_calling[sample]['hom']: # Add matches that are homozygous to both callings
+        # Add largest homozygous matches to both callings
+        non_default_calling = False
+        for alleles in unphased_calling[sample]['hom']: 
             hom_alleles = set()
             for allele in alleles:
                 if not any([allele in alls for alls in unphased_calling[sample]['all']]):
                     # Match is not the smallest possible, likely the result of overlap 
-                    continue 
+                    continue
                 hom_alleles.add(allele)
                 hom_alleles.add(allele)
             if len(hom_alleles) == 0:
                 continue
+            if any([find_core_string(a) != "CYP2D6*1" for a in hom_alleles]): # Non-default calling found
+                non_default_calling = True
             phased_calling[sample]['A'].append(hom_alleles) # maintain priority ranks
             phased_calling[sample]['B'].append(hom_alleles)
+        # Try new method if no homozygous matches (besides default) found 
+        # TODO need cores
+        # TODO allow for alternatives
+        # TODO handle more phases
+        # TODO need to move?
+        if non_default_calling:
+            continue
+        # Add other callings to one phase
+        phased_calling[sample]['A'].clear()
+        phased_calling[sample]['B'].clear()
+        phase = 0
+        for alleles in unphased_calling[sample]['all']:
+            split_alleles = {'A': set(), 'B': set()}
+            for allele in alleles:
+                # *1 alleles not out of phase since *1 is present in both as lowest priority
+                if "CYP2D6*1" == find_core_string(allele):
+                    split_alleles['A'].add(allele)
+                    split_alleles['B'].add(allele)
+                    continue 
+                if phase >= 2: 
+                    raise Exception(f"{sample}: could not apply split method")
+                # Add allele to one phase
+                print(allele)
+                split_alleles["AB"[phase]].add(allele)
+                phase += 1
+            phased_calling[sample]['A'].append(split_alleles['A']) # maintain priority ranks
+            phased_calling[sample]['B'].append(split_alleles['B'])
+    if sample == "HG00421":
+        print(phased_calling[sample])
+        print(unphased_calling[sample])
+        exit()
     return phased_calling
     raise NotImplementedError("Not implemented yet")
     for sample in samples:
@@ -312,14 +347,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
 
 def find_core_string(match):
     """Get the core allele from a match string wise."""
-    raise DeprecationWarning("not in use since getting via traversal is better")
     if sort_types(match) == 1:
         return match
     elif sort_types(match) == 2:
-        return match[:-4] # QUESTION is this the best way to get the core?
+        return match[:-4]
     else:
         raise Exception(f"Unexpected match type: {match}")
-        # QUESTION needed to also handle variants?
 
 def find_core_traversal(match, cont_graph):
     """Get the coreallele(s) from a match based on traversal.

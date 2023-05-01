@@ -327,15 +327,15 @@ def main():
     # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
     # EXPERIMENT 2.3: use heterozygous variants alleles
-    unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
-    calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
-    return
+    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
+    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
-    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
+    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=1)
     for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
+    # validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
+    return
 
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     for phase in ('het', 'hom', 'all', 'A', 'B'):
@@ -345,7 +345,6 @@ def main():
         sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended,functions, supremal_simple | supremal_samples, reference, detail_level=1)
         if sel_calling_simple != sel_calling_extended:
             warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
-    return
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
