@@ -167,17 +167,41 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     # Return all matches to be filtered later (based on detail level)
     return matches
 
-def separate_callings(unphased_calling):
+def separate_callings(unphased_calling, cont_graph, functions):
     """Unpack a calling of a unphased sample into two phased callings."""
     samples = list(unphased_calling.keys())
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
-    # Split into two callings as much as possible
+    # Infer phasing or guess
     for sample in samples:
         # Handle unparsable samples
         if [{'CYP2D6*?',}] == unphased_calling[sample]['all']:
-            phased_calling[sample] = {'A': [{'CYP2D6*?',}], 'B': [{'CYP2D6*?',}]}
+            phased_calling[sample]['A'] = [{"CYP2D6*?",}]
+            phased_calling[sample]['B'] = [{"CYP2D6*?",}]
             continue
         # Add largest homozygous matches to both callings
+        representation = calling_to_repr(unphased_calling[sample], cont_graph, functions, **detail_from_level(1))
+        if representation['all'] == representation['hom']:
+            phased_calling[sample]['A'].append(set(representation['hom']))
+            phased_calling[sample]['B'].append(set(representation['hom']))
+            print(sample, phased_calling[sample])
+            continue
+        # Add other callings to one phase
+        if len(representation['all']) > 2:
+            warnings.warn(f"{sample}: More than two matches found, cannot find calling.")
+            # TODO handle this
+            phased_calling[sample]['A'] = [{"CYP2D6*?",}]
+            phased_calling[sample]['B'] = [{"CYP2D6*?",}]
+            continue
+        phase = 0
+        for match in representation['all']:
+            phased_calling[sample]["AB"[phase]].append({match,}) # Two matches found, one in each phase
+            # TODO is this valid?
+            phase += 1
+        if phase == 1: 
+            phased_calling[sample]["B"].append({"CYP2D6*1",}) # Not homozygous and one found, other must be *1
+        # TODO convert back to calling instead of representation
+        continue
+        raise NotImplementedError()
         non_default_calling = False
         for alleles in unphased_calling[sample]['hom']: 
             hom_alleles = set()
@@ -339,10 +363,10 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference)
         sample_source, phasing = sample.split('_')
         callings[sample_source][phasing] = calling
-    if not phased: # Single calling contains multiple matches which must be separated
-        callings = separate_callings(callings)
+    if not phased: # Single calling of unphased data contains multiple matches which must be separated
+        callings = separate_callings(callings, cont_graph, functions)
     # Create a textual representation of the calling based on the amount of detail needed
-    representation = calling_to_repr(callings, cont_graph, functions, **detail_from_level(detail_level))
+    representation = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
     return representation
 
 def find_core_string(match):
@@ -490,7 +514,7 @@ def detail_from_level(level):
     kwargs["default"] = not (level <= 2)
     return kwargs
 
-def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
+def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
     """Change the calling to a representation of a certain amount of detail.
     
     Each calling contains all direct matches which can be suballeles or core alleles.
@@ -512,8 +536,6 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
         if num =='?':
             return 0
         return float(num)
-    def min_star_num(matches):
-        return min([star_num(match) for match in matches])
     def remove_contained(matches, cont_graph):
         """Filter out cores that are contained in other cores"""
         # TODO do this by not adding some cores in the first place?
@@ -531,37 +553,35 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
                     break
         return matches
     representation = {}
-    for sample in callings:
-        representation[sample] = {} # Keep structure
-        for phase in callings[sample]:
-            representation[sample][phase] = [] # Flatten into single list
-            for alleles in callings[sample][phase]:
-                for allele in alleles:
-                    # Add detail
-                    if find_cores and sort_types(allele) == 2: # Find cores of suballeles
-                        cores = find_core_traversal(allele, cont_graph) # Cores of suballele
-                        representation[sample][phase].extend(cores)
-                    # Remove detail
-                    if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
+    for phase in calling:
+        representation[phase] = [] # Flatten into single list
+        for alleles in calling[phase]:
+            for allele in alleles:
+                # Add detail
+                if find_cores and sort_types(allele) == 2: # Find cores of suballeles
+                    cores = find_core_traversal(allele, cont_graph) # Cores of suballele
+                    representation[phase].extend(cores)
+                # Remove detail
+                if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
+                    continue
+                if not default and allele == "CYP2D6*1": # Don't represent default allele if there are other matches
+                    if len(representation[phase]) > 0: # Works since default is always last
                         continue
-                    if not default and allele == "CYP2D6*1": # Don't represent default allele if there are other matches
-                        if len(representation[sample][phase]) > 0: # Works since default is always last
-                            continue
-                    representation[sample][phase].append(allele) # Add match
-                if prioritize_strength and len(representation[sample][phase]) > 0: # Only keep strongest related alleles
-                    break
-            # Remove cores contained in other cores 
-            # These can occur because of get_core_traversal
-            representation[sample][phase] = remove_contained(representation[sample][phase], cont_graph)
-            # Prioritize alleles of equal rank (after filtering)
-            if prioritize_function and len(representation[sample][phase]) > 1:
-                prioritized = prioritize_calling(representation[sample][phase], functions)
-                representation[sample][phase] = list(prioritized[0]) # Only keep the first priority
-            # Sort alleles based on star allele number
-            representation[sample][phase].sort(key=star_num)
-        # Sort phases based on start allele number
-        sorted_alleles = sorted(representation[sample].values(), key=min_star_num)
-        representation[sample] = {p: sorted_alleles[i] for i, p in enumerate(representation[sample])}
+                representation[phase].append(allele) # Add match
+            if prioritize_strength and len(representation[phase]) > 0: # Only keep strongest related alleles
+                break
+        # Remove cores contained in other cores 
+        # These can occur because of get_core_traversal
+        representation[phase] = remove_contained(representation[phase], cont_graph)
+        # Prioritize alleles of equal rank (after filtering)
+        if prioritize_function and len(representation[phase]) > 1:
+            prioritized = prioritize_calling(representation[phase], functions)
+            representation[phase] = list(prioritized[0]) # Only keep the first priority
+        # Sort alleles based on star allele number
+        representation[phase].sort(key=star_num)
+    # Sort phases based on start allele number
+    sorted_alleles = sorted(representation.items(), key=lambda matches: min([star_num(match) for match in matches[1]]))
+    representation = {phase: matches for phase, matches in sorted_alleles}
     return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):

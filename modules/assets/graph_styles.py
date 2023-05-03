@@ -46,6 +46,7 @@ default_stylesheet = [
             "width": "65px", 
             "height": "15px",
             "shape": "round-rectangle",
+            # "display": "none"# TODO make an option
         }   
     }, {
         "selector": ".variant.observed",
