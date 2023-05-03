@@ -175,7 +175,7 @@ def separate_callings(unphased_calling, cont_graph, functions):
     for sample in samples:
         # Find groups
         groups = {}
-        representation = calling_to_repr(unphased_calling[sample], cont_graph, functions, **detail_from_level(1))["all"]
+        representation = calling_to_repr(unphased_calling[sample], cont_graph, functions, **detail_from_level(1), reorder=False)["all"]
         if len(representation) <= 2:
             groups[representation[0]] = "A"
             if len(representation) == 2:
@@ -184,8 +184,7 @@ def separate_callings(unphased_calling, cont_graph, functions):
             phased_calling[sample]['A'].append(set()) # Maintain relation strength rank
             phased_calling[sample]['B'].append(set())
             # Handle unparsable samples
-            if alleles == {'CYP2D6*?',} or \
-                    len(representation) > 2: # TODO handle more matches
+            if alleles == {'CYP2D6*?',}:
                 phased_calling[sample]['A'][-1].add("CYP2D6*?")
                 phased_calling[sample]['B'][-1].add("CYP2D6*?")
                 break
@@ -204,6 +203,10 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 phased_calling[sample]['B'][-1].add(allele)
             # Make a guess to phase the remaining alleles if no homozygous
             if len(phased_calling[sample]['A'][-1]) == 0:
+                if len(representation) > 2: # TODO handle more matches
+                    phased_calling[sample]['A'][-1].add("CYP2D6*?")
+                    phased_calling[sample]['B'][-1].add("CYP2D6*?")
+                    continue
                 for allele in alleles:
                     core = find_core_string(allele)
                     if core in groups:
@@ -383,7 +386,7 @@ def detail_from_level(level):
     kwargs["default"] = not (level <= 2)
     return kwargs
 
-def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength):
+def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder=True):
     """Change the calling to a representation of a certain amount of detail.
     
     Each calling contains all direct matches which can be suballeles or core alleles.
@@ -396,6 +399,7 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
     default: show the default allele always or only if no other allele is found
     prioritize_function: prioritize alleles based on functional annotation.
     prioritize_strength: prioritize alleles based on relation strength.
+    reorder: reorder alleles based on star allele number.
     # TODO add indirectly found alleles
     # TODO add alternative descriptions
     # TODO hide unparsable?
@@ -449,8 +453,8 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         # Sort alleles based on star allele number
         representation[phase].sort(key=star_num)
     # Sort phases based on start allele number
-    sorted_alleles = sorted(representation.items(), key=lambda matches: min([star_num(match) for match in matches[1]]))
-    representation = {phase: matches for phase, matches in sorted_alleles}
+    sorted_alleles = sorted(representation.values(), key=lambda matches: min([star_num(match) for match in matches]))
+    representation = {phase: matches for phase, matches in zip(representation.keys(), sorted_alleles)}
     return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
