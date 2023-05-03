@@ -332,10 +332,9 @@ def main():
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
-    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=1)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=1)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
-    return
 
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     for phase in ('het', 'hom', 'all', 'A', 'B'):
@@ -345,10 +344,13 @@ def main():
         sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended,functions, supremal_simple | supremal_samples, reference, detail_level=1)
         if sel_calling_simple != sel_calling_extended:
             warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
+            for simple, extended in zip(sel_calling_simple, sel_calling_extended):
+                if sel_calling_simple[simple] != sel_calling_extended[extended]:
+                    print(f"{simple}: simple {sel_calling_simple[simple][phase]} != extended {sel_calling_extended[extended][phase]}")
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["NA07348_A", "NA07348_B"], pruned_samples_extended[1], as_edges=True)
+    sample_context = find_context(["HG00421_all"], pruned_samples_extended[1], as_edges=True)
     context = pruned_extended[1]
     display_graph(*prune_relations(context + sample_context), data)
 

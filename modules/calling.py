@@ -479,7 +479,7 @@ def detail_from_level(level):
     0: Only print best core match(es)
     1: Print all direct core matches
     2: Also print suballeles 
-    3: Print all matches
+    3: Print direct all matches
     TODO implement more levels?
     """
     kwargs = {}
@@ -503,8 +503,10 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
     default: show the default allele always or only if no other allele is found
     prioritize_function: prioritize alleles based on functional annotation.
     prioritize_strength: prioritize alleles based on relation strength.
-    """
+    # TODO add indirectly found alleles
+    # TODO add alternative descriptions
     # TODO hide unparsable?
+    """
     def star_num(match):
         num = match.split('*')[1]
         if num =='?':
@@ -512,12 +514,12 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
         return float(num)
     def min_star_num(matches):
         return min([star_num(match) for match in matches])
-    def remove_contained(matches):
+    def remove_contained(matches, cont_graph):
         """Filter out cores that are contained in other cores"""
         # TODO do this by not adding some cores in the first place?
         matches = list(set(matches)) # Remove duplicates
-        for match1 in matches:  
-            for match2 in matches:
+        for match1 in matches[:]:  
+            for match2 in matches[:]:
                 if match1 == match2:
                     continue
                 if sort_types(match2) == 2: # Cores can be contained in subs
@@ -528,8 +530,6 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
                     matches.remove(match1)
                     break
         return matches
-    # TODO add indirectly found alleles
-    # TODO add alternative descriptions
     representation = {}
     for sample in callings:
         representation[sample] = {} # Keep structure
@@ -552,7 +552,7 @@ def calling_to_repr(callings, cont_graph, functions, find_cores, suballeles, def
                     break
             # Remove cores contained in other cores 
             # These can occur because of get_core_traversal
-            representation[sample][phase] = remove_contained(representation[sample][phase])
+            representation[sample][phase] = remove_contained(representation[sample][phase], cont_graph)
             # Prioritize alleles of equal rank (after filtering)
             if prioritize_function and len(representation[sample][phase]) > 1:
                 prioritized = prioritize_calling(representation[sample][phase], functions)
