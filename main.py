@@ -313,7 +313,7 @@ def main():
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=0)
     # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate_calling(calling_phased, r"data\bastard.txt", soft=True) # validate phased star allele calling
 
@@ -335,7 +335,6 @@ def main():
     calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
     for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
-    return
 
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     for phase in ('het', 'hom', 'all', 'A', 'B'):
@@ -351,7 +350,7 @@ def main():
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["NA19917_B", "NA19920_A"], pruned_samples_simple[1], as_edges=True)
+    sample_context = find_context(["HG03781_all"], pruned_samples_simple[1], as_edges=True)
     context = pruned_simple[1]
     display_graph(*prune_relations(context + sample_context), data)
 

@@ -180,6 +180,7 @@ def separate_callings(unphased_calling, cont_graph, functions):
             groups[representation[0]] = "A"
             if len(representation) == 2:
                 groups[representation[1]] = "B"
+        any_homozygous = False
         for alleles in unphased_calling[sample]['all']:
             phased_calling[sample]['A'].append(set()) # Maintain relation strength rank
             phased_calling[sample]['B'].append(set())
@@ -190,32 +191,31 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 break
             # Handle default allele
             if len(representation) == 0: # No core matches
-                phased_calling[sample]['A'][-1].add("CYP2D6*1")
-                phased_calling[sample]['B'][-1].add("CYP2D6*1")
                 break
             # Add largest homozygous matches to both callings
             for allele in alleles: # is largest instead of overlap
-                if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # is homozygous
+                if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
                 if find_core_string(allele) == "CYP2D6*1": # Skip default, is added when no other matches found
                     continue
                 phased_calling[sample]['A'][-1].add(allele)
                 phased_calling[sample]['B'][-1].add(allele)
-            # Make a guess to phase the remaining alleles if no homozygous
-            if len(phased_calling[sample]['A'][-1]) == 0:
-                if len(representation) > 2: # TODO handle more matches
-                    phased_calling[sample]['A'][-1].add("CYP2D6*?")
-                    phased_calling[sample]['B'][-1].add("CYP2D6*?")
-                    continue
+                any_homozygous = True
+            # Make a guess to phase the remaining alleles if no homozygous were found
+            if not any_homozygous:
                 for allele in alleles:
                     core = find_core_string(allele)
+                    if len(representation) > 2: # Cannot group, add all to single phase
+                        # TODO remove grouping altogether and instead use alternative callings
+                        phased_calling[sample]['A'][-1].add("CYP2D6*?")
+                        phased_calling[sample]['B'][-1].add(allele)
+                        continue
                     if core in groups:
                         phased_calling[sample][groups[core]][-1].add(allele)
-            for phase in "AB":
-                if len(phased_calling[sample][phase][-1]) == 0:
-                    phased_calling[sample][phase].pop() # Remove empty calling
-        # Add default allele as last priority
         for phase in "AB":
+            # remove empty
+            phased_calling[sample][phase] = [c for c in phased_calling[sample][phase] if len(c) > 0] 
+            # Add default allele as last priority
             phased_calling[sample][phase].append({"CYP2D6*1",})
     return phased_calling
 
@@ -453,8 +453,9 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         # Sort alleles based on star allele number
         representation[phase].sort(key=star_num)
     # Sort phases based on start allele number
-    sorted_alleles = sorted(representation.values(), key=lambda matches: min([star_num(match) for match in matches]))
-    representation = {phase: matches for phase, matches in zip(representation.keys(), sorted_alleles)}
+    if reorder:
+        sorted_alleles = sorted(representation.values(), key=lambda matches: min([star_num(match) for match in matches]))
+        representation = {phase: matches for phase, matches in zip(representation.keys(), sorted_alleles)}
     return representation
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
