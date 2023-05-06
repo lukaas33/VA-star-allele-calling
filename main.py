@@ -283,6 +283,8 @@ def main():
     # TEST 4: check if more information can be found about personal variants.
     ids |= get_personal_ids(personal_variants, reference, cache_name="ids_personal")
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
+    for variant in personal_variants:
+        print(f"{variant}, {ids[variant]}, {','.join(functions[variant])}")
     return
  
     # Find all relations with samples
