@@ -56,74 +56,54 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
             label="Network",
             children=[
                 html.Div(
-                    id='settings',
                     style = {
-                        "display": "flex", 
-                        "flexWrap": "wrap",
-                        "flex-direction": "column",
-                        "width": "10vw"
+                        "display": "flex",
                     },
                     children = [
-                        dcc.Input(
-                            id="filter",
-                            placeholder="CYP2D6*4, ...",
-                            type="text",
-                            debounce=True
-                        ),
-                        dcc.Dropdown(
-                            id='change-layout',
-                            value=default_layout,
-                            clearable=False,
-                            options=[{'label': name.capitalize(), 'value': name} for name in layouts]
-                        ),
-                        dcc.Dropdown(
-                            id='image-type',
-                            value='svg',
-                            clearable=False,
-                            options=[
-                                {'label': 'SVG', 'value': 'svg'},
-                                {'label': 'PNG', 'value': 'png'},
-                                {'label': 'JPEG', 'value': 'jpeg'},
+                        html.Div(
+                            style = {
+                                "display": "flex", 
+                                "flex-direction": "column",
+                                "width": "10vw",
+                                "height": "100%",
+                            },
+                            children = [
+                                dcc.Input(
+                                    id="filter",
+                                    placeholder="CYP2D6*4, ...",
+                                    type="text",
+                                    debounce=True
+                                ),
+                                dcc.Dropdown(
+                                    id='change-layout',
+                                    value=default_layout,
+                                    clearable=False,
+                                    options=[{'label': name.capitalize(), 'value': name} for name in layouts]
+                                ),
+                                dcc.Dropdown(
+                                    id='image-type',
+                                    value='svg',
+                                    clearable=False,
+                                    options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
+                                ),
+                                html.Button("Export image", id="image"),
+                                html.Button('Subgraph selection', id='subgraph'),
                             ]
                         ),
-                        html.Button("Export image", id="image"),
-                        html.Button('Subgraph selection', id='subgraph'),
+                        cyto.Cytoscape(
+                            id='graph',
+                            style = {
+                                "height": "90vh",
+                                "width": "90vw"
+                            },
+                            layout={
+                                "name": default_layout,
+                                "fit": default_layout != 'preset' 
+                            },
+                            stylesheet = default_stylesheet,
+                            elements = elements
+                        ),
                     ]
-                ),
-                cyto.Cytoscape(
-                    id='graph',
-                    style = {
-                        "height": "75vh",
-                        "width": "90vw"
-                    },
-                    layout={
-                        "name": default_layout,
-                        "fit": default_layout != 'preset' 
-                    },
-                    stylesheet = default_stylesheet,
-                    elements = elements
-                ),
-            ]
-        ),
-        dcc.Tab(
-            label="Statistics",
-            children=[
-                dcc.Graph(
-                    id="plot-arity",
-                    figure=plot_arity(nodes, edges)
-                ),
-                # TODO fix?
-                # dcc.Graph(
-                #     id="relation-counts",
-                #     figure=plot_relations(edges)
-                # ),
-                dcc.Graph(
-                    id="pruned-relation-counts",
-                    figure=plot_relations(edges, pruned=True)
-                ),                    
-                dcc.Graph(
-                    id="counts",
-                    figure=plot_counts(elements)
                 )
             ]
         ),
@@ -132,7 +112,30 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
             children=[
                 html.Pre(id='data')
             ]
-        )
+        ),
+        # TODO keep or remove?
+        # dcc.Tab(
+        #     label="Statistics",
+        #     children=[
+        #         dcc.Graph(
+        #             id="plot-arity",
+        #             figure=plot_arity(nodes, edges)
+        #         ),
+        #         # TODO fix?
+        #         # dcc.Graph(
+        #         #     id="relation-counts",
+        #         #     figure=plot_relations(edges)
+        #         # ),
+        #         dcc.Graph(
+        #             id="pruned-relation-counts",
+        #             figure=plot_relations(edges, pruned=True)
+        #         ),                    
+        #         dcc.Graph(
+        #             id="counts",
+        #             figure=plot_counts(elements)
+        #         )
+        #     ]
+        # ),
     ])
 
 def interactive_graph(app, original_elements, edges):
