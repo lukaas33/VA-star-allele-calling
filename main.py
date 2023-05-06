@@ -349,15 +349,14 @@ def main():
     # validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
 
     # Check the relevance of the extra variants 
-    # TODO visualise
-    # TODO check
-    variants_relevance = {sample: relevance(sample, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
+    # TODO use extended?
+    variants_relevance = {sample: relevance(sample, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
 
     # VISUALISATION 1: Visualise a specific calling and its context
-    visualised_sample = "NA19908_B"
+    visualised_sample = "HG01680_B"
     sample_context = find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)
     # sample_context = prune_relations(sample_context + pruned_simple[1])[1] # Add all other relations as well
-    # TODO use taxi edges
+    # TODO select sample (using search)
     display_graph(set([n[0] for n in sample_context]) | set([n[1] for n in sample_context]), sample_context, data, functions, default_layout="dagre", relevance=variants_relevance[visualised_sample])
     
     # VISUALISATION 2: Show all relations of PharmVar

@@ -345,8 +345,6 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
             severity = 1
         variants_relevance[variant] = severity != 1 # Only not relevant if benign and doesn't interfere
         # TODO be less conservative with unknown impact?
-        if severity > 1:
-            warnings.warn(f"{sample}: {variant} has impact {impact} and does {'' if interferes else 'not'} interfere with the calling")
     return variants_relevance
 
 def detail_from_level(level):
@@ -442,6 +440,7 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         
 def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
     """Find a path from s to t in the graphs"""
+    # TODO fix
     raise NotImplementedError("Implementation contains bugs")
     # TODO integrate in web interface
     if path is None: path = [s]
