@@ -186,6 +186,15 @@ def test_variant_annotation_position(variants, supremals, functions):
             if classification:
                 warnings.warn(f"{variant} is annotated as '{functions[variant]}' but is in intron")
 
+def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference):
+    for phase in ('het', 'hom', 'all', 'A', 'B'):
+        # TODO add inferred phasing experiment
+        sel_samples = [sample for sample in samples.keys() if sample.split('_')[1] == phase] 
+        sel_calling_simple = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_simple | supremal_samples, reference, detail_level=1)
+        sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+        if sel_calling_simple != sel_calling_extended:
+            warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
+
 def main():
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
@@ -312,13 +321,7 @@ def main():
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
-    for phase in ('het', 'hom', 'all', 'A', 'B'):
-        # TODO add inferred phasing experiment
-        sel_samples = [sample for sample in samples.keys() if sample.split('_')[1] == phase] 
-        sel_calling_simple = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_simple | supremal_samples, reference, detail_level=1)
-        sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended,functions, supremal_extended | supremal_samples, reference, detail_level=1)
-        if sel_calling_simple != sel_calling_extended:
-            warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
+    # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
@@ -347,7 +350,7 @@ def main():
 
     # VISUALIZE some context with information of interest
     # TODO only show context of samples?
-    sample_context = find_context(["HG03781_all"], pruned_samples_simple[1], as_edges=True)
+    sample_context = find_context(["NA19908_B"], pruned_samples_simple[1], as_edges=True)
     context = pruned_simple[1]
     display_graph(*prune_relations(context + sample_context), data, functions)
 

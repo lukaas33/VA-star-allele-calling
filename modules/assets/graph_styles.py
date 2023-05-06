@@ -1,6 +1,6 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
-selection_color = '#03A9F4' # Light blue 500
+selection_color = '#1E88E5' # Light blue 600
 adj_color = "#4FC3F7" # Light blue 300
 
 
@@ -19,6 +19,8 @@ default_stylesheet = [
         'selector': 'edge',
         'style': {
             'curve-style': 'taxi',
+            'taxi-direction': 'vertical',
+            # TODO is taxi or bezier the clearest?
         }
     }, {
         "selector": "node:selected",

@@ -340,6 +340,7 @@ def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, 
         if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
             severity = 1
         variants_relevance[variant] = severity != 1 # Only not relevant if benign and doesn't interfere
+        # TODO be less conservative with unknown impact?
     return variants_relevance
 
 def detail_from_level(level):
