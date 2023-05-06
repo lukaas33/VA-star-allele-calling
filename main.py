@@ -351,7 +351,7 @@ def main():
     # Check the relevance of the extra variants 
     # TODO visualise
     # TODO check
-    variants_relevance = {sample: relevance(sample, calling_phased[sample.split('_')[0]][sample.split('_')[1]], *pruned_samples_extended, functions, supremal_extended | supremal_samples) for sample in samples_phased}
+    variants_relevance = {sample: relevance(sample, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
 
     # VISUALISATION 1: Visualise a specific calling and its context
     visualised_sample = "NA19908_B"

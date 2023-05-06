@@ -313,21 +313,21 @@ def impact_position(supremal):
         return "possible missense" 
     return None # Intronic and thus certainly silent TODO correct value?
 
-def relevance(sample, alleles, nodes, edges, functions, supremals): 
+def relevance(sample, nodes, edges, functions, supremals, reference): 
     """Determine if extra variants may be relevant for calling."""
-    # TODO use calling to get alleles
-    # TODO fix, not checking all variant
     def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
-    cont_graph = nx.DiGraph()
-    cont_graph.add_nodes_from(nodes)
-    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
-    overlap_graph = nx.Graph()
-    overlap_graph.add_nodes_from(nodes)
-    overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
-    # Find extra variants: variants in the sample but not in any of the called alleles
+    # Get all called corealleles
+    # TODO Only cores needed?
+    alleles = star_allele_calling_all([sample], nodes, edges, functions, supremals, reference, detail_level=1)
+    alleles = alleles[sample.split("_")[0]][sample.split("_")[1]]
+    # Find extra variants: variants in the sample but not in any of the called alleles (pruned edges)
+    # TODO do this on a graph?
     variants = []
-    if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
-    if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
+    for edge in edges:
+        if edge[0] == sample and sort_types(edge[1]) in (3,5):
+            variants.append(edge[1])
+        elif edge[1] == sample and sort_types(edge[0]) in (3,5):
+            variants.append(edge[0])
     if len(variants) == 0: # No variants found
         return None
     # Check the relevance of each variant
