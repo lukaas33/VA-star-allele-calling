@@ -5,7 +5,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, sort_types, impact_position
+from modules.calling import star_allele_calling_all, sort_types, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import *
@@ -348,7 +348,17 @@ def main():
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
 
-    # VISUALIZE some context with information of interest
+    # Check the relevance of the extra variants 
+    # TODO visualise
+    # TODO check
+    variants_relevance = {sample: relevance(sample, calling_phased[sample.split('_')[0]][sample.split('_')[1]], *pruned_samples_extended, functions, supremal_extended | supremal_samples) for sample in samples_phased}
+    print(variants_relevance["NA19908_B"])
+    return
+
+    # VISUALIZE 
+    # Visualise a specific calling
+    
+    # Show all relations of PharmVar
     # TODO only show context of samples?
     sample_context = find_context(["NA19908_B"], pruned_samples_simple[1], as_edges=True)
     context = pruned_simple[1]

@@ -18,9 +18,7 @@ default_stylesheet = [
     }, {
         'selector': 'edge',
         'style': {
-            'curve-style': 'taxi',
-            'taxi-direction': 'vertical',
-            # TODO is taxi or bezier the clearest?
+            'curve-style': 'bezier'
         }
     }, {
         "selector": "node:selected",

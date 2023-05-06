@@ -235,12 +235,11 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # TODO create js page
     # TODO why does it call this function twice
     # TODO add link between phased samples
-    # TODOD add display filters
+    # TODO add display filters
     print("Displaying graph")
     # Convert to proper format for cytoscape
-    if positions is None: positions = [(0, 0) for _ in nodes]
     elements = []
-    for node, pos in zip(nodes, positions):
+    for i, node in enumerate(nodes):
         # TODO use enum or classes
         function, impact, severity = None, None, None
         if sort_types(node) == 1: # Core allele
@@ -264,7 +263,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             label = node
             impact = "; ".join(functions[node])
             severity = severity_GO(functions[node])
-        elements.append({            
+        element = {            
             "data": {
                 "id": node, 
                 "label": label,
@@ -274,16 +273,18 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 "severity": severity
             },
             "classes": category,
-            "position": {"x": pos[0], "y": pos[1]}
-        })
+        }
+        if positions is not None: element["position"] = positions[i]
+        elements.append(element)
     for node, other, relation in edges:
-        elements.append({
+        element = {
             "data": {
                 "source": node,
                 "target": other,
             },
             "classes": relation.name
-        })
+        }
+        elements.append(element)
     # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)

@@ -224,9 +224,6 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         callings = separate_callings(callings, cont_graph, functions)
     # Create a textual representation of the calling based on the amount of detail needed
     representation = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
-   # Check the relevance of the extra variants 
-    variants_relevance = {sample: relevance(sample, callings[sample.split('_')[0]][sample.split('_')[1]], cont_graph, overlap_graph, functions, supremals, reference) for sample in samples}
-    # TODO visualise
     return representation
 
 def find_core_string(match):
@@ -316,11 +313,17 @@ def impact_position(supremal):
         return "possible missense" 
     return None # Intronic and thus certainly silent TODO correct value?
 
-def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, reference): 
+def relevance(sample, alleles, nodes, edges, functions, supremals): 
     """Determine if extra variants may be relevant for calling."""
+    # TODO can do this on calling representation or need all?
     def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
+    cont_graph = nx.DiGraph()
+    cont_graph.add_nodes_from(nodes)
+    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
+    overlap_graph = nx.Graph()
+    overlap_graph.add_nodes_from(nodes)
+    overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     # Find extra variants: variants in the sample but not in any of the called alleles
-    alleles = [a for alls in calling for a in alls if a != "CYP2D6*1"] # Flatten 
     variants = []
     if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
     if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
@@ -330,7 +333,7 @@ def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, 
     variants_relevance = {}
     for variant in variants:
         # Check if variant possibly interferes with any allele (overlaps with supremal)
-        interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles])
+        interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles if allele != "CYP2D6*1"])
         # Find the impact of the variant
         impact = functions[variant]
         if sort_types(variant) == 5: # Personal variant
@@ -341,6 +344,8 @@ def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, 
             severity = 1
         variants_relevance[variant] = severity != 1 # Only not relevant if benign and doesn't interfere
         # TODO be less conservative with unknown impact?
+        if severity > 1:
+            warnings.warn(f"{sample}: {variant} has impact {impact} and does {'' if interferes else 'not'} interfere with the calling")
     return variants_relevance
 
 def detail_from_level(level):
