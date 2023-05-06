@@ -136,7 +136,7 @@ for severity, colour in impact_colours:
     })
 
 # Selection style
-def selection_stylesheet(nodes):
+def selection_stylesheet(nodes, layout):
     stylesheet = default_stylesheet.copy()
     stylesheet += [{
         "selector": 'node:unselected',
@@ -160,15 +160,17 @@ def selection_stylesheet(nodes):
         }]
     for source in nodes:
         for target in nodes:
-            stylesheet += [{
+            style = {
                 "selector": f"edge[source = '{source}'][target = '{target}']",
                 "style": {
-                    "curve-style": "taxi",
-                    "taxi-direction": "vertical",
                     "line-color": adj_color,
                     'target-arrow-color': adj_color,
                     'opacity': 1,
                     'z-index': 5000
                 }
-            }]
+            }
+            if layout == 'dagre':
+                style['style']['curve-style'] = 'taxi'
+                style['style']['taxi-direction'] = "vertical"
+            stylesheet.append(style)
     return stylesheet

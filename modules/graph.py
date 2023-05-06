@@ -49,46 +49,24 @@ def plot_counts(elements):
 
 def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
     """Returns the layout for the Dash graph"""
+    layouts = list(set(['grid', 'random', 'circle', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", "euler", "klay", default_layout]))
+    layouts.sort()
     return dcc.Tabs([
         dcc.Tab(
             label="Network",
             children=[
-                cyto.Cytoscape(
-                    id='graph',
-                    style = {
-                        "width": "100%",
-                        "height": "80vh"
-                    },
-                    layout={
-                        "name": default_layout,
-                        "fit": default_layout != 'preset' 
-                    },
-                    stylesheet = default_stylesheet,
-                    elements = elements
-                ),
                 html.Div(
                     id='settings',
                     style = {
                         "display": "flex", 
-                        "flexWrap": "wrap" # Inline
+                        "flexWrap": "wrap",
+                        "flex-direction": "column",
+                        "width": "10vw"
                     },
                     children = [
-                        dcc.Dropdown(
-                        id='image-type',
-                        value='svg',
-                        clearable=False,
-                        style={"width": "100px"},
-                        options=[
-                            {'label': 'SVG', 'value': 'svg'},
-                            {'label': 'PNG', 'value': 'png'},
-                            {'label': 'JPEG', 'value': 'jpeg'},
-                        ]
-                    ),
-                        html.Button("Export image", id="image"),
-                        html.Button('Subgraph selection', id='subgraph'),
                         dcc.Input(
                             id="filter",
-                            placeholder="Find allele or variant...",
+                            placeholder="CYP2D6*4, ...",
                             type="text",
                             debounce=True
                         ),
@@ -96,14 +74,34 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                             id='change-layout',
                             value=default_layout,
                             clearable=False,
-                            style={"width": "200px"},
+                            options=[{'label': name.capitalize(), 'value': name} for name in layouts]
+                        ),
+                        dcc.Dropdown(
+                            id='image-type',
+                            value='svg',
+                            clearable=False,
                             options=[
-                                # Layouts which load efficiently enough
-                                {'label': name.capitalize(), 'value': name}
-                                for name in set(['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", default_layout])
+                                {'label': 'SVG', 'value': 'svg'},
+                                {'label': 'PNG', 'value': 'png'},
+                                {'label': 'JPEG', 'value': 'jpeg'},
                             ]
-                        )
+                        ),
+                        html.Button("Export image", id="image"),
+                        html.Button('Subgraph selection', id='subgraph'),
                     ]
+                ),
+                cyto.Cytoscape(
+                    id='graph',
+                    style = {
+                        "height": "75vh",
+                        "width": "90vw"
+                    },
+                    layout={
+                        "name": default_layout,
+                        "fit": default_layout != 'preset' 
+                    },
+                    stylesheet = default_stylesheet,
+                    elements = elements
                 ),
             ]
         ),
@@ -166,14 +164,14 @@ def interactive_graph(app, original_elements, edges):
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
-        Input('graph', 'selectedNodeData'))
-    def generate_stylesheet(nodes):
+        [Input('graph', 'selectedNodeData'), Input('graph', 'layout')])
+    def generate_stylesheet(nodes, layout):
         if not nodes: # No input or resetting
             return default_stylesheet
         # SHow both incoming and outgoing containment (different from subgraph)
         # TODO use same neighbourhood definition?
         context = find_context([node["id"] for node in nodes], edges)
-        return selection_stylesheet(context)
+        return selection_stylesheet(context, layout["name"])
     @app.callback(
         Output("graph", "generateImage"),
         [Input("image", "n_clicks"), Input("image-type", "value")])
