@@ -151,9 +151,8 @@ def interactive_graph(app, original_elements, edges):
             return no_update
         settings = {}
         settings["name"] = new_layout
-        if new_layout == 'cose-bilkent' or new_layout == 'cose':
-            settings["nodeDimensionsIncludeLabels"] = True
-            settings["tile"] = False
+        settings["nodeDimensionsIncludeLabels"] = True
+        settings["tile"] = False
         settings["animate"] = False
         return settings
     # Display information about selection
@@ -171,25 +170,21 @@ def interactive_graph(app, original_elements, edges):
     def generate_stylesheet(nodes, layout):
         if not nodes: # No input or resetting
             return default_stylesheet
-        # SHow both incoming and outgoing containment (different from subgraph)
+        # hHow both incoming and outgoing containment (different from subgraph neighbourhood)
         # TODO use same neighbourhood definition?
         context = find_context([node["id"] for node in nodes], edges)
         return selection_stylesheet(context, layout["name"])
     @app.callback(
-        Output("graph", "generateImage"),
+        [Output("image", "n_clicks"), Output("graph", "generateImage")],
         [Input("image", "n_clicks"), Input("image-type", "value")])
     def get_image(n_clicks, type):
-        # TODO fix downloading on change
         if n_clicks is None:
             return no_update
-        return {
-            'type': type,
-            'action': 'download'
-            }
+        return [None, {'type': type, 'action': 'download'}]
     # Subgraph selection
     @app.callback(
-            [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
-            [Input('graph', 'selectedNodeData'), Input('subgraph', 'n_clicks')])
+        [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
+        [Input('graph', 'selectedNodeData'), Input('subgraph', 'n_clicks')])
     def subgraph(nodes, n_clicks):
         if n_clicks is None: # On initial load
             return [no_update, None]
@@ -213,7 +208,6 @@ def interactive_graph(app, original_elements, edges):
         Input('filter', 'value'))
     def filter(filterValues):
         # TODO inexact selection
-        # TODO fix filter
         if not filterValues:
             return no_update
         filterValues = [filterValue.strip() for filterValue in filterValues.split(",")]
@@ -225,7 +219,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent"):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -242,7 +236,8 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     elements = []
     for i, node in enumerate(nodes):
         # TODO use enum or classes
-        function, impact, severity = None, None, None
+        function, impact, severity = None, None, None, 
+        relevant = True
         if sort_types(node) == 1: # Core allele
             category = "core"
             label = "*" + node.split("*")[1]
@@ -256,6 +251,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             label = node.split(':')[1].split('.')[1]
             impact = functions[node]
             severity = severity_pharmvar(functions[node])
+            relevant = relevance[node] if relevance is not None and node in relevance else True
         elif sort_types(node) == 4: # Sample
             category = "sample"
             label = node
@@ -264,14 +260,17 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             label = node
             impact = "; ".join(functions[node])
             severity = severity_GO(functions[node])
+            relevant = relevance[node] if relevance is not None and node in relevance else True
         element = {            
+            # TODO don't store all fields
             "data": {
                 "id": node, 
                 "label": label,
                 "data": data[node] if node in data else None,
                 "function": function,
                 "impact": impact,
-                "severity": severity
+                "severity": severity,
+                "relevant": relevant 
             },
             "classes": category,
         }

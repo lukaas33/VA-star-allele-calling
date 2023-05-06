@@ -3,103 +3,114 @@
 selection_color = '#1E88E5' # Light blue 600
 adj_color = "#4FC3F7" # Light blue 300
 
-
-default_stylesheet = [
-    # General style of types
-    {
-        'selector': 'node',
-        'style': {
-            'content': 'data(label)',
-            'background-color': '#455A64',# Blue gray 700
-            "text-valign": "center",
-            "text-halign": "center",
-            "color": "white",
-        }
-    }, {
-        'selector': 'edge',
-        'style': {
-            'curve-style': 'bezier'
-        }
-    }, {
-        "selector": "node:selected",
-        "style": {
-            "background-color": selection_color,
-        }
-    }, {
-        "selector": ".core",
-        "style": {
-            "font-size": "15px",
-            "width": "40px",
-            "height": "40px",
-            "shape": "ellipse"
-        }
-    }, {
-        "selector": ".sub",
-        "style": {
-            "font-size": "5px",
-            "width": "25px",
-            "height": "25px",
-            "shape": "ellipse"
-        }
-    }, {
-        "selector": ".variant",
-        "style": {
-            "font-size": "3px",
-            "width": "30px", 
-            "height": "10px",
-            "shape": "round-rectangle",
-            "text-wrap": "ellipsis",
-            "text-max-width": "25px",
-        }   
-    }, {
-        "selector": ".variant.observed",
-        "style": {
-            "shape": "hexagon",
-        }
-    }, {
-        "selector": ".sample",
-        "style": {
-            "font-size": "10px",
-            "width": "75px", 
-            "height": "75px",
-            "shape": "hexagon",
-        }  
-    # Style for different relations
-    }, {
-        'selector': '.EQUIVALENT',
-        'style': {
-            'line-color': '#37474F', # Blue gray 800
-            'width': '3'
-        }
-    }, {
-        'selector': '.IS_CONTAINED',
-        'style': {
-            'target-arrow-shape': 'triangle',
-            'target-arrow-color': '#78909C', # Blue gray 400
-            'line-color': '#78909C',
-            'width': '1'
-        }
-    }, {
-        'selector': '.CONTAINS',  
-        'style': {
-            # Only display one arbitrary direction of containment, 
-            # the other direction follows
-            'display': 'none'
-        }     
-    }, {
-        'selector': '.OVERLAP',
-        'style': {
-            'line-color': '#90A4AE', # Blue gray 300
-            'width': '1',
-            'line-style': 'dashed'
-        }
-    }, {
-        'selector': '.DISJOINT',
-        'style': {
-            'display': 'none'
-        }
+default_stylesheet = []
+# General style of types
+default_stylesheet.append({
+    'selector': 'node',
+    'style': {
+        'content': 'data(label)',
+        'background-color': '#455A64',# Blue gray 700
+        "text-valign": "center",
+        "text-halign": "center",
+        "color": "white",
     }
-]
+})
+default_stylesheet.append({
+    'selector': 'edge',
+    'style': {
+        'curve-style': 'bezier'
+    }
+})
+default_stylesheet.append({
+    "selector": "node:selected",
+    "style": {
+        "background-color": selection_color,
+    }
+})
+default_stylesheet.append({
+    "selector": ".core",
+    "style": {
+        "font-size": "15px",
+        "width": "40px",
+        "height": "40px",
+        "shape": "ellipse"
+    }
+ })
+default_stylesheet.append({
+    "selector": ".sub",
+    "style": {
+        "font-size": "5px",
+        "width": "25px",
+        "height": "25px",
+        "shape": "ellipse"
+    }
+})
+default_stylesheet.append({
+    "selector": ".variant",
+    "style": {
+        "font-size": "3px",
+        "width": "30px", 
+        "height": "10px",
+        "shape": "round-rectangle",
+        "text-wrap": "ellipsis",
+        "text-max-width": "25px",
+    }   
+})
+default_stylesheet.append({
+    "selector": ".variant.observed",
+    "style": {
+        "shape": "hexagon",
+    }
+})
+default_stylesheet.append({
+    "selector": ".sample",
+    "style": {
+        "font-size": "10px",
+        "width": "75px", 
+        "height": "75px",
+        "shape": "hexagon",
+    }  
+})
+# Style for different relations
+default_stylesheet.append({
+    'selector': '.EQUIVALENT',
+    'style': {
+        'line-color': '#37474F', # Blue gray 800
+        'width': '3'
+    }
+})
+default_stylesheet.append({
+    'selector': '.IS_CONTAINED',
+    'style': {
+        'target-arrow-shape': 'triangle',
+        'target-arrow-color': '#78909C', # Blue gray 400
+        'line-color': '#78909C',
+        'width': '1'
+    }
+})
+default_stylesheet.append({
+    'selector': '.CONTAINS',  
+    'style': {
+        # Only display one arbitrary direction of containment, 
+        # the other direction follows
+        'display': 'none'
+    }     
+})
+default_stylesheet.append({
+    'selector': '.OVERLAP',
+    'style': {
+        'line-color': '#90A4AE', # Blue gray 300
+        'width': '1',
+        'line-style': 'dashed'
+    }
+})
+default_stylesheet.append({
+    'selector': '.DISJOINT',
+    'style': {
+        'display': 'none'
+    }
+})
+
 
 # Style for different functional annotations 
 function_colours = (
@@ -134,6 +145,16 @@ for severity, colour in impact_colours:
             "border-color": colour,
         }
     })
+
+# Style for relevance
+default_stylesheet.append({
+    # TODO how to display this
+    # TODO don't display?
+    "selector": "node[!relevant]",
+    "style": {
+        "background-blacken": -0.6, # Make darker to indicate not relevant
+    }
+})
 
 # Selection style
 def selection_stylesheet(nodes, layout):

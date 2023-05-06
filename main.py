@@ -351,21 +351,22 @@ def main():
     # Check the relevance of the extra variants 
     # TODO visualise
     # TODO check
-    # variants_relevance = {sample: relevance(sample, calling_phased[sample.split('_')[0]][sample.split('_')[1]], *pruned_samples_extended, functions, supremal_extended | supremal_samples) for sample in samples_phased}
-    # print(variants_relevance["NA19908_B"])
+    variants_relevance = {sample: relevance(sample, calling_phased[sample.split('_')[0]][sample.split('_')[1]], *pruned_samples_extended, functions, supremal_extended | supremal_samples) for sample in samples_phased}
 
-    # VISUALIZE 
-    # Visualise a specific calling
+    # VISUALISATION 1: Visualise a specific calling and its context
+    visualised_sample = "NA19908_B"
+    sample_context = find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)
+    # sample_context = prune_relations(sample_context + pruned_simple[1])[1] # Add all other relations as well
+    # TODO use taxi edges
+    display_graph(set([n[0] for n in sample_context]) | set([n[1] for n in sample_context]), sample_context, data, functions, default_layout="dagre", relevance=variants_relevance[visualised_sample])
     
-    # Show all relations of PharmVar
-    # TODO only show context of samples?
-    sample_context = find_context(["NA19908_B"], pruned_samples_simple[1], as_edges=True)
-    context = pruned_simple[1]
-    display_graph(*prune_relations(context + sample_context), data, functions)
+    # VISUALISATION 2: Show all relations of PharmVar
+    display_graph(*pruned_simple, data, functions)
 
-    # Generate images
+    # VISUALISATION 3: Generate images for report
+    # TODO automate more
     # nodes, edges, positions = image_reduction_equivalence(relations_extended)
-    # display_graph(nodes, edges, data, positions=positions, default_layout="preset")
+    # display_graph(nodes, edges, data, functions positions=positions, default_layout="preset")
 
 if __name__ == "__main__":
     main()

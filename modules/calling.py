@@ -315,7 +315,8 @@ def impact_position(supremal):
 
 def relevance(sample, alleles, nodes, edges, functions, supremals): 
     """Determine if extra variants may be relevant for calling."""
-    # TODO can do this on calling representation or need all?
+    # TODO use calling to get alleles
+    # TODO fix, not checking all variant
     def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
     cont_graph = nx.DiGraph()
     cont_graph.add_nodes_from(nodes)
