@@ -1,7 +1,7 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
-selection_color = '#0277BD' # Light blue 800
-adj_color = "#03A9F4" # Light blue 500
+selection_color = '#03A9F4' # Light blue 500
+adj_color = "#4FC3F7" # Light blue 300
 
 
 default_stylesheet = [
@@ -18,7 +18,7 @@ default_stylesheet = [
     }, {
         'selector': 'edge',
         'style': {
-            'curve-style': 'bezier'
+            'curve-style': 'taxi',
         }
     }, {
         "selector": "node:selected",
@@ -44,11 +44,12 @@ default_stylesheet = [
     }, {
         "selector": ".variant",
         "style": {
-            "font-size": "5px",
-            "width": "65px", 
-            "height": "15px",
+            "font-size": "3px",
+            "width": "30px", 
+            "height": "10px",
             "shape": "round-rectangle",
-            # "display": "none"# TODO make an option
+            "text-wrap": "ellipsis",
+            "text-max-width": "25px",
         }   
     }, {
         "selector": ".variant.observed",
@@ -118,7 +119,21 @@ for function, colour in function_colours:
         }
     })
 
-# TODO style for impact
+# Style for impact
+impact_colours = (
+    (0, '#BDBDBD'), # Gray 400
+    (1, '#4CAF50'), # Green 500
+    (2, '#FFEB3B'), # Yellow 500
+    (3, '#F44336'), # Red 500
+)
+for severity, colour in impact_colours:
+    default_stylesheet.append({
+        "selector": f"node[severity = {severity}]",
+        "style": {
+            "border-width": 1,
+            "border-color": colour,
+        }
+    })
 
 # Selection style
 def selection_stylesheet(nodes):

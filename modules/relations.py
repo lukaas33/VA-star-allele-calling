@@ -6,7 +6,7 @@ import warnings
 
 # TODO use consistent datastructure with OOP
 
-def find_context(nodes, edges, as_edges=False):
+def find_context(nodes, edges, as_edges=False, directional=False):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
     # TODO do this based on a networkx graph
     context = set()
@@ -15,13 +15,16 @@ def find_context(nodes, edges, as_edges=False):
         context.add(node)
         found = False
         for s, t, d in edges:
-            if s == node or t == node:
-                found = True
-                if as_edges:
-                    context_edges.append((s, t, d))
-                else:
-                    context.add(s)
-                    context.add(t)
+            if s != node and t != node:
+                continue
+            if directional and s == node and d == va.Relation.IS_CONTAINED: # Only add incoming directional edges 
+                continue
+            found = True
+            if as_edges:
+                context_edges.append((s, t, d))
+            else:
+                context.add(s)
+                context.add(t)
         if not found:
             warnings.warn(f"Node {node} not found in edges.")
     if as_edges:

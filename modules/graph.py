@@ -100,7 +100,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                             options=[
                                 # Layouts which load efficiently enough
                                 {'label': name.capitalize(), 'value': name}
-                                for name in set(['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', default_layout])
+                                for name in set(['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", default_layout])
                             ]
                         )
                     ]
@@ -152,9 +152,8 @@ def interactive_graph(app, original_elements, edges):
         settings["name"] = new_layout
         if new_layout == 'cose-bilkent' or new_layout == 'cose':
             settings["nodeDimensionsIncludeLabels"] = True
-            settings["idealEdgeLength"] = 250
             settings["tile"] = False
-            settings["animate"] = False
+        settings["animate"] = False
         return settings
     # Display information about selection
     @app.callback(
@@ -171,6 +170,8 @@ def interactive_graph(app, original_elements, edges):
     def generate_stylesheet(nodes):
         if not nodes: # No input or resetting
             return default_stylesheet
+        # SHow both incoming and outgoing containment (different from subgraph)
+        # TODO use same neighbourhood definition?
         context = find_context([node["id"] for node in nodes], edges)
         return selection_stylesheet(context)
     @app.callback(
@@ -194,7 +195,8 @@ def interactive_graph(app, original_elements, edges):
         if n_clicks >= 1 and nodes == []: # Reset
             # TODO fix resetting from filter
             return [original_elements, None]
-        context = find_context([node["id"] for node in nodes], edges)
+        # Only shows incoming containments in subgraph
+        context = find_context([node["id"] for node in nodes], edges, directional=True)
         # Translate to elements
         selected_elements = []
         for element in original_elements:
@@ -233,6 +235,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # TODO create js page
     # TODO why does it call this function twice
     # TODO add link between phased samples
+    # TODOD add display filters
     print("Displaying graph")
     # Convert to proper format for cytoscape
     if positions is None: positions = [(0, 0) for _ in nodes]
