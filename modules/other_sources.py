@@ -233,50 +233,6 @@ def severity_pharmvar(impact):
         return 2
     raise Exception(f"Unknown impact {impact}")
 
-def entrez_consequence_binary(consequences):
-    """Convert entrez consequence to binary.
-    
-    https://www.ncbi.nlm.nih.gov/variation/docs/glossary/
-    """
-    raise DeprecationWarning("Not used any more since it may be too simplistic")
-    classification = {"exon": False, "non-synonymous": False, "splicing": False}
-    for consequence in consequences[0].split(','): 
-        if consequence == "coding_sequence_variant": # Change in exon
-            classification["exon"] = True
-        elif consequence == "missense_variant": # Change in protein
-            classification["exon"] = True 
-            classification["non-synonymous"] = True
-        elif consequence == "stop_gained": # Early stop mutation
-            classification["non-synonymous"] = True
-            classification["exon"] = True
-        elif consequence == "frameshift_variant": # Frameshift 
-            classification["non-synonymous"] = True
-            classification["exon"] = True
-        elif consequence == "inframe_deletion": # Deletes amino acids 
-            classification["non-synonymous"] = True
-            classification["exon"] = True
-        elif consequence == "inframe_insertion": # Inserts amino acids 
-            classification["non-synonymous"] = True
-            classification["exon"] = True
-        elif consequence == "splice_acceptor_variant": # Splice defect
-            classification["splicing"] = True
-        elif consequence == "splice_donor_variant": # Splice defect
-            classification["splicing"] = True
-        elif consequence == "synonymous_variant": # No impact on protein
-            pass
-        elif consequence == "intron_variant": # Not in exon
-            pass
-        elif "upstream" in consequence: # Outside ORF (TODO check if this is correct)
-            pass
-        elif "downstream" in consequence: # Outside ORF (TODO check if this is correct)
-            pass
-        elif "UTR_variant" in consequence: # In UTR (TODO check if this is correct)
-            pass
-        else:
-            # TODO handle other possible consequences    
-            raise Exception(f"Unknown consequence {consequence}")
-    return classification
-
 def get_personal_ids(personal_variants, reference, cache_name=None):
     """Get ids of personal variants."""
     try: # Check if already calculated
