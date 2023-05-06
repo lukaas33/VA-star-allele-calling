@@ -7,6 +7,8 @@ import pandas
 from .utils import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
+from .other_sources import severity_GO, severity_pharmvar
+from .calling import sort_types
 
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
@@ -59,7 +61,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     },
                     layout={
                         "name": default_layout,
-                        "fit": default_layout != 'preset' # TODO make dynamic
+                        "fit": default_layout != 'preset' 
                     },
                     stylesheet = default_stylesheet,
                     elements = elements
@@ -98,7 +100,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                             options=[
                                 # Layouts which load efficiently enough
                                 {'label': name.capitalize(), 'value': name}
-                                for name in ['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', default_layout]
+                                for name in set(['grid', 'random', 'circle', 'cose', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', default_layout])
                             ]
                         )
                     ]
@@ -161,9 +163,7 @@ def interactive_graph(app, original_elements, edges):
     def displayTapNodeData(data):
         if not data:
             return no_update
-        if "data" not in data:
-            return no_update
-        return json.dumps(data["data"], indent=2)
+        return json.dumps(data, indent=2)
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -222,7 +222,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, positions=None, default_layout="cose-bilkent"):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent"):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -238,26 +238,37 @@ def display_graph(nodes, edges, data, positions=None, default_layout="cose-bilke
     if positions is None: positions = [(0, 0) for _ in nodes]
     elements = []
     for node, pos in zip(nodes, positions):
-        if "*" in node: # TODO use classes for this
+        # TODO use enum or classes
+        function, impact, severity = None, None, None
+        if sort_types(node) == 1: # Core allele
+            category = "core"
             label = "*" + node.split("*")[1]
-            if "." in node:
-                category = "sub"
-            else:
-                category = "core"
-        elif ":" in node:
-            label = node.split(':')[1].split('.')[1]
+            function = functions[node]
+        elif sort_types(node) == 2: # Suballele
+            category = "sub"
+            label = "*" + node.split("*")[1]
+            function = functions[node]
+        elif sort_types(node) == 3: # PharmVar variant
             category = "variant"
-        elif node[:2] in ('HG', 'NA'): 
-            label = node
+            label = node.split(':')[1].split('.')[1]
+            impact = functions[node]
+            severity = severity_pharmvar(functions[node])
+        elif sort_types(node) == 4: # Sample
             category = "sample"
-        else:
             label = node
+        elif sort_types(node) == 5: # Personal variant
             category = "observed variant"
+            label = node
+            impact = "; ".join(functions[node])
+            severity = severity_GO(functions[node])
         elements.append({            
             "data": {
                 "id": node, 
                 "label": label,
-                "data": data[node] if node in data else None
+                "data": data[node] if node in data else None,
+                "function": function,
+                "impact": impact,
+                "severity": severity
             },
             "classes": category,
             "position": {"x": pos[0], "y": pos[1]}

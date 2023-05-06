@@ -1,9 +1,11 @@
 # Define default style
-selection_color = "#6a1b9a" # Purple 800
-adj_color = '#B71C1C' # Red 900
+# Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
+selection_color = '#0277BD' # Light blue 800
+adj_color = "#03A9F4" # Light blue 500
 
 
 default_stylesheet = [
+    # General style of types
     {
         'selector': 'node',
         'style': {
@@ -61,6 +63,7 @@ default_stylesheet = [
             "height": "75px",
             "shape": "hexagon",
         }  
+    # Style for different relations
     }, {
         'selector': '.EQUIVALENT',
         'style': {
@@ -96,6 +99,26 @@ default_stylesheet = [
         }
     }
 ]
+
+# Style for different functional annotations 
+function_colours = (
+    ('no function', '#F44336'), # Red 500
+    ('decreased function', '#FFEB3B'), # Yellow 500
+    ('normal function', '#4CAF50'), # Green 500
+    ('function not assigned', '#E0E0E0'), # Gray 300
+    ('unknown function', '#BDBDBD'), # Gray 400
+    ('uncertain function', '#9E9E9E'), # Gray 500
+)
+for function, colour in function_colours:
+    default_stylesheet.append({
+        "selector": f"node[function = '{function}']",
+        "style": {
+            "border-width": 2,
+            "border-color": colour,
+        }
+    })
+
+# TODO style for impact
 
 # Selection style
 def selection_stylesheet(nodes):

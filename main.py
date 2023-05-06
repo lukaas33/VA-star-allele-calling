@@ -316,12 +316,9 @@ def main():
         # TODO add inferred phasing experiment
         sel_samples = [sample for sample in samples.keys() if sample.split('_')[1] == phase] 
         sel_calling_simple = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_simple | supremal_samples, reference, detail_level=1)
-        sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended,functions, supremal_simple | supremal_samples, reference, detail_level=1)
+        sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended,functions, supremal_extended | supremal_samples, reference, detail_level=1)
         if sel_calling_simple != sel_calling_extended:
             warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
-            for simple, extended in zip(sel_calling_simple, sel_calling_extended):
-                if sel_calling_simple[simple] != sel_calling_extended[extended]:
-                    print(f"{simple}: simple {sel_calling_simple[simple][phase]} != extended {sel_calling_extended[extended][phase]}")
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
@@ -352,7 +349,7 @@ def main():
     # TODO only show context of samples?
     sample_context = find_context(["HG03781_all"], pruned_samples_simple[1], as_edges=True)
     context = pruned_simple[1]
-    display_graph(*prune_relations(context + sample_context), data)
+    display_graph(*prune_relations(context + sample_context), data, functions)
 
     # Generate images
     # nodes, edges, positions = image_reduction_equivalence(relations_extended)

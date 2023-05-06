@@ -7,10 +7,10 @@ import re
 import copy
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
-
 def sort_function(f):
     """Sort function annotation based on severity."""
     raise DeprecationWarning("This function is redundant now")
+    # TODO handle function not assigned (doesn't occur in calling)
     # TODO use enums
     # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
@@ -226,6 +226,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     representation = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
    # Check the relevance of the extra variants 
     variants_relevance = {sample: relevance(sample, callings[sample.split('_')[0]][sample.split('_')[1]], cont_graph, overlap_graph, functions, supremals, reference) for sample in samples}
+    # TODO visualise
     return representation
 
 def find_core_string(match):
@@ -338,7 +339,7 @@ def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, 
             severity = severity_pharmvar(impact)
         if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
             severity = 1
-        variants_relevance[variant] = severity # Express relevance as severity
+        variants_relevance[variant] = severity != 1 # Only not relevant if benign and doesn't interfere
     return variants_relevance
 
 def detail_from_level(level):

@@ -229,7 +229,7 @@ def severity_pharmvar(impact):
        return 3
     if re.match(r"[A-Z][0-9]*X", impact): # Early stop
        return 3 
-    if re.match(r"[A-Z][0-9]*[A-Z]", impact): # Missense
+    if re.match(r"[A-Z][0-9]*([A-Z]|del|ins)", impact) or re.match(r"[0-9]*_[0-9]*[del|ins][A-Z]*", impact): # Missense
         return 2
     raise Exception(f"Unknown impact {impact}")
 
