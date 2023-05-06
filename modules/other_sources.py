@@ -65,11 +65,13 @@ def is_silent_mutalyzer(variant):
     # QUESTION can assume that when some equivalent representations are known, all are known?
     return classification # All were intronic, outside ORF or UTR
 
-def find_id_hgvs(variant, reference):
+def find_id_hgvs(variant, reference=None):
     """Find the reference snp id of a variant based n hgvs."""
-    chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
-    va_variant = va.variants.parse_hgvs(variant, reference=reference)
-    position = f"{va_variant[0].start - 25}:{va_variant[0].end + 25}" # Larger since position of target must be entirely in range TODO smarter range 
+    # TODO make more general
+    chromosome = re.findall(r"NC_0*([0-9]*)\.g", variant)[0]
+    va_variant = va.variants.parse_hgvs(variant) if reference is None else va.variants.parse_hgvs(variant, reference=reference)
+    # TODO smarter range 
+    position = f"{va_variant[0].start - 25}:{va_variant[0].end + 25}" # Larger since position of target must be entirely in range 
     # Lookup ids around the position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
@@ -80,10 +82,8 @@ def find_id_hgvs(variant, reference):
     ids = ["rs" + id for id in result.data['esearchresult']['idlist']]
     if len(ids) >= 1:
         # Check matches
-        result = entrez_api.fetch( # TODO make faster with single call
-            ids, 
-            database='snp',
-            max_results=len(ids), 
+        # TODO make faster with single call
+        result = entrez_api.fetch(ids, database='snp', max_results=len(ids), 
         )  
         ids = []
         try:
@@ -96,7 +96,8 @@ def find_id_hgvs(variant, reference):
         for id, hgvs_lst in variants_data.summary.HGVS.items(): 
             if variants_data.preferred_ids[id] != id: # Skip merged snps
                 continue
-            # Check different representations TODO only check one?  
+            # Check different representations 
+            # TODO only check one?  
             for other in hgvs_lst:
                 if other.split(':')[0] != variant.split(':')[0]: # Same reference
                     continue
@@ -119,24 +120,29 @@ def find_id_hgvs(variant, reference):
 def get_annotation_entrez(variant, id):
     """Get impact of a variant based on entrez annotations.
     """
-    # QUESTION are these default values correct? (not if data is incomplete)
+    # QUESTION are other transcripts and isoforms relevant?
     # Find id of variant
-    if id is None or id == '': # No information available, assume worst TODO is this the correct interpretation?
+    if id is None or id == '': # No information available
         raise Exception(f"{variant} no id found.")
     # Do lookup on entrez
-    result = entrez_api.fetch( # TODO make faster with single call
-        [id], 
-        database='snp',
-        max_results=1, 
-    )
+    # TODO make faster with single call
+    result = entrez_api.fetch([id], database='snp', max_results=1)
     try:
         variants_data = parse_dbsnp_variants(result)
     except KeyError as e: 
         warnings.warn(f"{variant} error: {e}. Trying this again")
         # Try again, this error seems to occur randomly
         return get_annotation_entrez(variant, id) 
+    for hgvs in variants_data.summary.HGVS[0]:
+        # TODO don't hardcode references
+        if hgvs.split(':')[0] == "NM_000106.6": # Transcript
+            print(hgvs)
+        elif hgvs.split(':')[0] == "NP_000097.3": # Protein
+            print(hgvs)
+    raise NotImplementedError("Not completely implemented yet")
+    exit()
     # Convert possible annotations to boolean
-    # TODO check only correct variant
+    # TODO check only correct variant (NM_000106.6)
     consequences = list(variants_data.coordinates.consequence)
     if len(consequences) != 1:
         raise Exception(f"{variant} wrong number of consequences found: {consequences}")

@@ -149,21 +149,6 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     if len(m_ov) > 0: matches.append(m_ov) # Least strong match (can treat the same as contained?)
     # Add default allele, will have the lowest priority
     matches.append({"CYP2D6*1",})
-
-    # # TODO move elsewhere
-    # # Find extra variants to check if they can influence the calling
-    # # TODO finalise based on notes
-    # # TODO visualise
-    # # Extra variants are variants that are in the sample but not in any of the called alleles
-    # variants = []
-    # if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
-    # if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
-    # # Check relevance of variants
-    # alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
-    # for variant in variants:
-    #     if is_relevant(variant, functions, supremals, alleles, reference):
-    #         matches["variants"].add(variant)
-
     # Return all matches to be filtered later (based on detail level)
     return matches
 
@@ -239,6 +224,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         callings = separate_callings(callings, cont_graph, functions)
     # Create a textual representation of the calling based on the amount of detail needed
     representation = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
+   # Check the relevance of the extra variants 
+    variants_relevance = {sample: relevance(sample, callings[sample.split('_')[0]][sample.split('_')[1]], cont_graph, overlap_graph, functions, supremals, reference) for sample in samples}
     return representation
 
 def find_core_string(match):
@@ -328,14 +315,39 @@ def impact_position(supremal):
         return "possible missense" 
     return None # Intronic and thus certainly silent TODO correct value?
 
-def is_relevant(variant, functions, supremals, alleles, reference): 
-    """Determine if a variant is relevant.
+def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, reference): 
+    """Determine if extra variants may be relevant for calling."""
+    def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
+    print(sample)
+    alleles = [a for alls in calling for a in alls if a != "CYP2D6*1"] # Flatten 
+    print(alleles)      
+    # Find extra variants: variants in the sample but not in any of the called alleles
+    variants = []
+    if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
+    if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
+    print(variants)
+    if len(variants) == 0: # No variants found
+        return None
+    # Check the relevance of each variant
+    for variant in variants:
+        print(variant)
+        # Check if variant possibly interferes with any allele (overlaps with supremal)
+        interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles])
+        print("Interferes" if interferes else "No interference")
+        impact = functions[variant]
+        print(impact)
+        print()
     
-    Relevance is defined as being relevant for calling.
-    It is not complete but tries to filter out variants that are definitely not relevant.
-    These variants can then be ignored in visualisations
-    This approach uses the online annotations of variants.
-    """
+    # # TODO move elsewhere
+    # # Find extra variants to check if they can influence the calling
+    # # TODO finalise based on notes
+    # # TODO visualise
+    # # Extra variants are variants that are in the sample but not in any of the called alleles
+    # # Check relevance of variants
+    # alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
+    # for variant in variants:
+    #     if is_relevant(variant, functions, supremals, alleles, reference):
+    #         matches["variants"].add(variant)
     raise NotImplementedError("Not finished")
     # QUESTION is this method valid?
     # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
@@ -452,8 +464,7 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
             representation[phase] = list(prioritized[0]) # Only keep the first priority
         # Sort alleles based on star allele number
         representation[phase].sort(key=star_num)
-    # Sort phases based on start allele number
-    if reorder:
+    if reorder: # Sort phases based on start allele number
         sorted_alleles = sorted(representation.values(), key=lambda matches: min([star_num(match) for match in matches]))
         representation = {phase: matches for phase, matches in zip(representation.keys(), sorted_alleles)}
     return representation
