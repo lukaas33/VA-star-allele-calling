@@ -5,13 +5,13 @@ from easy_entrez.parsing import parse_dbsnp_variants
 from .data import api_get, cache_get, cache_set
 import warnings
 
-# TODO don't use easy_entrez, use entrez directly
-# TODO use variation service instead of entrez? 
-#       https://api.ncbi.nlm.nih.gov/variation/v0/
+
+# https://api.ncbi.nlm.nih.gov/variation/v0/
 entrez_api = EntrezAPI(
+    # TODO hide
     'va-star-allele-calling',
-    'lucas@vanosenbruggen.com', # TODO hide
-    api_key="52181bc8fa51eacb5b70448a9e6fd6ae8209", # TODO hide
+    'lucas@vanosenbruggen.com', 
+    api_key="52181bc8fa51eacb5b70448a9e6fd6ae8209",
     return_type='json'
 )
 
@@ -67,6 +67,7 @@ def is_silent_mutalyzer(variant):
 
 def find_id_hgvs(variant, reference=None):
     """Find the reference snp id of a variant based n hgvs."""
+    # TODO use variation service instead of entrez? 
     # TODO make more general
     chromosome = re.findall(r"NC_0*([0-9]*)\.g", variant)[0]
     va_variant = va.variants.parse_hgvs(variant) if reference is None else va.variants.parse_hgvs(variant, reference=reference)
@@ -119,36 +120,40 @@ def find_id_hgvs(variant, reference=None):
 
 def get_annotation_entrez(variant, id):
     """Get impact of a variant based on entrez annotations.
+
+    Returns a set of ontology terms that describe the impact of the variant.
+    An empty set is returned if no impact annotations are found.
     """
-    # QUESTION are other transcripts and isoforms relevant?
     # Find id of variant
     if id is None or id == '': # No information available
         raise Exception(f"{variant} no id found.")
     # Do lookup on entrez
-    # TODO make faster with single call
-    result = entrez_api.fetch([id], database='snp', max_results=1)
-    try:
-        variants_data = parse_dbsnp_variants(result)
-    except KeyError as e: 
-        warnings.warn(f"{variant} error: {e}. Trying this again")
-        # Try again, this error seems to occur randomly
-        return get_annotation_entrez(variant, id) 
-    for hgvs in variants_data.summary.HGVS[0]:
-        # TODO don't hardcode references
-        if hgvs.split(':')[0] == "NM_000106.6": # Transcript
-            print(hgvs)
-        elif hgvs.split(':')[0] == "NP_000097.3": # Protein
-            print(hgvs)
-    raise NotImplementedError("Not completely implemented yet")
-    exit()
-    # Convert possible annotations to boolean
-    # TODO check only correct variant (NM_000106.6)
-    consequences = list(variants_data.coordinates.consequence)
-    if len(consequences) != 1:
-        raise Exception(f"{variant} wrong number of consequences found: {consequences}")
-    # TODO filter?
-    # QUESTION what is None in this case?
-    return consequences[0]
+    consequences = set()
+    result = api_get("https://api.ncbi.nlm.nih.gov/variation/v0/refsnp/" + id[2:])
+    for annotations in result['primary_snapshot_data']["allele_annotations"]:
+        for annotation in annotations["assembly_annotation"]:
+            # TODO why are there multiple allele/assembly annotations?
+            for gene in annotation["genes"]:
+                for rna in gene["rnas"]:
+                    if rna["id"] != "NM_000106.6": # Transcript
+                        # TODO don't hardcode references
+                        # QUESTION are other transcripts relevant?
+                        continue
+                    if rna["product_id"] != "NP_000097.3":
+                        # TODO don't hardcode references
+                        # TODO needed after transcript check?
+                        # QUESTION are other products relevant?
+                        continue
+                    for ontology in rna["sequence_ontology"]:
+                        # TODO why would there be more
+                        consequences.add(ontology["name"])
+                    if "protein" not in rna.keys():
+                        continue
+                    for ontology in rna["protein"]["sequence_ontology"]:
+                        # TODO why would there be more
+                        consequences.add(ontology["name"])
+    # TODO convert to pharmvar format?
+    return consequences
 
 
 def entrez_consequence_binary(consequences):

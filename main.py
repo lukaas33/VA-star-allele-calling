@@ -281,9 +281,9 @@ def main():
     samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
 
     # TEST 4: check if more information can be found about personal variants.
-    print(get_annotation_entrez("NC_000022.11:g.42127941G>A", "rs16947"))
     ids |= get_personal_ids(personal_variants, reference, cache_name="ids_personal")
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
+    return
  
     # Find all relations with samples
     # TODO simplify this
