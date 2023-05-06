@@ -163,6 +163,8 @@ def selection_stylesheet(nodes):
             stylesheet += [{
                 "selector": f"edge[source = '{source}'][target = '{target}']",
                 "style": {
+                    "curve-style": "taxi",
+                    "taxi-direction": "vertical",
                     "line-color": adj_color,
                     'target-arrow-color': adj_color,
                     'opacity': 1,
