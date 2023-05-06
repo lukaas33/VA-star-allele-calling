@@ -158,14 +158,6 @@ def separate_callings(unphased_calling, cont_graph, functions):
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     # Infer phasing or guess
     for sample in samples:
-        # Find groups
-        groups = {}
-        representation = calling_to_repr(unphased_calling[sample], cont_graph, functions, **detail_from_level(1), reorder=False)["all"]
-        if len(representation) <= 2:
-            groups[representation[0]] = "A"
-            if len(representation) == 2:
-                groups[representation[1]] = "B"
-        any_homozygous = False
         for alleles in unphased_calling[sample]['all']:
             phased_calling[sample]['A'].append(set()) # Maintain relation strength rank
             phased_calling[sample]['B'].append(set())
@@ -174,29 +166,16 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 phased_calling[sample]['A'][-1].add("CYP2D6*?")
                 phased_calling[sample]['B'][-1].add("CYP2D6*?")
                 break
-            # Handle default allele
-            if len(representation) == 0: # No core matches
-                break
             # Add largest homozygous matches to both callings
+            # Don't guess the others but add them all to A
+            # Will be handled by alternative callings later
             for allele in alleles: # is largest instead of overlap
+                phased_calling[sample]['A'][-1].add(allele)
                 if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
                 if find_core_string(allele) == "CYP2D6*1": # Skip default, is added when no other matches found
                     continue
-                phased_calling[sample]['A'][-1].add(allele)
                 phased_calling[sample]['B'][-1].add(allele)
-                any_homozygous = True
-            # Make a guess to phase the remaining alleles if no homozygous were found
-            if not any_homozygous:
-                for allele in alleles:
-                    core = find_core_string(allele)
-                    if len(representation) > 2: # Cannot group, add all to single phase
-                        # TODO remove grouping altogether and instead use alternative callings
-                        phased_calling[sample]['A'][-1].add("CYP2D6*?")
-                        phased_calling[sample]['B'][-1].add(allele)
-                        continue
-                    if core in groups:
-                        phased_calling[sample][groups[core]][-1].add(allele)
         for phase in "AB":
             # remove empty
             phased_calling[sample][phase] = [c for c in phased_calling[sample][phase] if len(c) > 0] 
