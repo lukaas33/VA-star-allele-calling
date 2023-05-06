@@ -156,6 +156,83 @@ def get_annotation_entrez(variant, id):
     return consequences
 
 
+def severity_GO(consequences):
+    """Classify the GO effects of a variant by severity.
+    
+    GO terms:
+    https://www.ncbi.nlm.nih.gov/variation/docs/glossary/
+
+    Severity levels:
+    0: unknown
+    1: likely benign
+    2: possibly harmful
+    3: likely harmful
+    TODO use enums
+    """
+    max_severity = 0
+    for consequence in consequences:
+        severity = 0
+        if consequence == "coding_sequence_variant": # Change in exon 
+            severity = 1
+        elif consequence == "missense_variant": # Change in protein
+            severity = 2
+        elif consequence == "stop_gained": # Early stop mutation
+            severity = 3
+        elif consequence == "frameshift_variant": # Frameshift 
+            severity = 3
+        elif consequence == "inframe_deletion": # Deletes amino acids 
+            severity = 2
+        elif consequence == "inframe_insertion": # Inserts amino acids 
+            severity = 2
+        elif consequence == "splice_acceptor_variant": # Splice defect
+            severity = 3
+        elif consequence == "splice_donor_variant": # Splice defect
+            severity = 3
+        elif consequence == "synonymous_variant": # No impact on protein
+            severity = 1
+        elif consequence == "intron_variant": # Not in exon
+            severity = 1
+        elif "upstream" in consequence: # Outside ORF 
+            severity = 1
+        elif "downstream" in consequence: # Outside ORF 
+            severity = 1
+        elif "UTR_variant" in consequence: # In UTR 
+            severity = 1
+        else:
+            # TODO handle other possible consequences    
+            raise Exception(f"Unknown consequence {consequence}")
+        max_severity = max(max_severity, severity)
+    return max_severity
+
+def severity_pharmvar(impact):
+    """Classify the PharmVar effects of a variant by severity.
+
+    HGVS notation:
+    https://varnomen.hgvs.org/
+    
+    Severity levels:
+    0: unknown
+    1: likely benign
+    2: possibly harmful
+    3: likely harmful
+    TODO use enums
+    """
+    if impact is None:
+        # TODO should this be unknown?
+        return 1
+    if impact == "":
+        return 0 
+        # TODO should this be likely benign?
+    if impact == "splice defect": # Splice defect
+        return 3
+    if re.match(r"[A-Z][0-9]*fs", impact): # Frameshift
+       return 3
+    if re.match(r"[A-Z][0-9]*X", impact): # Early stop
+       return 3 
+    if re.match(r"[A-Z][0-9]*[A-Z]", impact): # Missense
+        return 2
+    raise Exception(f"Unknown impact {impact}")
+
 def entrez_consequence_binary(consequences):
     """Convert entrez consequence to binary.
     

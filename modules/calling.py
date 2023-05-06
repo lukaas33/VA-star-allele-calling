@@ -2,7 +2,7 @@ import algebra as va
 import networkx as nx
 import warnings
 from .data import api_get
-from .other_sources import find_id_hgvs, get_annotation_entrez
+from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, severity_pharmvar
 import re
 import copy
 
@@ -318,65 +318,28 @@ def impact_position(supremal):
 def relevance(sample, calling, cont_graph, overlap_graph, functions, supremals, reference): 
     """Determine if extra variants may be relevant for calling."""
     def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
-    print(sample)
-    alleles = [a for alls in calling for a in alls if a != "CYP2D6*1"] # Flatten 
-    print(alleles)      
     # Find extra variants: variants in the sample but not in any of the called alleles
+    alleles = [a for alls in calling for a in alls if a != "CYP2D6*1"] # Flatten 
     variants = []
     if sample in cont_graph.nodes(): variants += [m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (3, 5)]
     if sample in overlap_graph.nodes(): variants += [m for m in overlap_graph[sample] if sort_types(m) in (3, 5)]
-    print(variants)
     if len(variants) == 0: # No variants found
         return None
     # Check the relevance of each variant
+    variants_relevance = {}
     for variant in variants:
-        print(variant)
         # Check if variant possibly interferes with any allele (overlaps with supremal)
         interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles])
-        print("Interferes" if interferes else "No interference")
+        # Find the impact of the variant
         impact = functions[variant]
-        print(impact)
-        print()
-    
-    # # TODO move elsewhere
-    # # Find extra variants to check if they can influence the calling
-    # # TODO finalise based on notes
-    # # TODO visualise
-    # # Extra variants are variants that are in the sample but not in any of the called alleles
-    # # Check relevance of variants
-    # alleles = matches["equivalent"] | matches["contained"] | matches["overlapping"]
-    # for variant in variants:
-    #     if is_relevant(variant, functions, supremals, alleles, reference):
-    #         matches["variants"].add(variant)
-    raise NotImplementedError("Not finished")
-    # QUESTION is this method valid?
-    # QUESTION why does id lookup at 42132027>T result in unparsable HGVS like NC_000022.11:g.42132044_42132047T[4]CTTTT[1]? 
-    # Check if variant possibly interferes with any allele (overlaps with supremal)
-    interference = False
-    for allele in alleles:
-        if max(supremals[allele].start, supremals[variant].start) <= min(supremals[allele].end, supremals[variant].end): # Overlap between variant and allele
-            # Variant can alter the calling since it can disturb the allele's definition.
-            interference = True
-    # Check impact of variant individually
-    # Annotations of PharmVar variants are retrieved from the PharmVar database
-    # Annotations of personal variants retrieved from online sources
-    impact = functions[variant]
-    # Handle impact annotations
-    if impact is None: # Also includes None
-        # TODO check if this is correct
-        return True # No annotation available, assume relevant
-    if "fs" in impact or "frameshift" in impact: # Frameshift is always relevant
-        return True
-    if "splice" in impact: # Splice defect is always relevant
-        return True
-    if "stop_gained" in impact or re.match(r"[A-Z][0-9]*X", impact): # Stop gained is always relevant
-        return True
-    # Otherwise only relevant if it interferes with an allele
-    # Other impact annotations include: (non-)synonymous, missense/[A-Z][0-9]*[A-Z], inframe deletion/insertion, intron variant and coding sequence variant
-    # Since we are not predicting the protein sequence we assume the worse for them if they interfere with a allele
-    # QUESTION is this correct, can this be more precise?
-    # TODO handle all cases?
-    return interference 
+        if sort_types(variant) == 5: # Personal variant
+            severity = severity_GO(impact)
+        elif sort_types(variant) == 3: # pharmvar variant
+            severity = severity_pharmvar(impact)
+        if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
+            severity = 1
+        variants_relevance[variant] = severity # Express relevance as severity
+    return variants_relevance
 
 def detail_from_level(level):
     """Return a dictionary of options for a specific detail level
