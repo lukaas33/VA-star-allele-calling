@@ -4,6 +4,9 @@ from dash import Dash, html, dcc, Input, Output, no_update
 import dash_cytoscape as cyto
 import plotly.express as px
 import pandas
+import requests
+import os
+import signal
 from .utils import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
@@ -88,6 +91,8 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                                 ),
                                 html.Button("Export image", id="image"),
                                 html.Button('Subgraph selection', id='subgraph'),
+                                html.Button('End server', id='shutdown'),
+                                html.Button(id='dummy') # TODO remove
                             ]
                         ),
                         cyto.Cytoscape(
@@ -138,7 +143,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
         # ),
     ])
 
-def interactive_graph(app, original_elements, edges):
+def interactive_graph(app, original_elements, edges, auto_download):
     """Add interactive components to graph"""
     # Change layout
     @app.callback(
@@ -174,13 +179,26 @@ def interactive_graph(app, original_elements, edges):
         # TODO use same neighbourhood definition?
         context = find_context([node["id"] for node in nodes], edges)
         return selection_stylesheet(context, layout["name"])
+    # Download image
     @app.callback(
-        [Output("image", "n_clicks"), Output("graph", "generateImage")],
+        [Output("graph", "generateImage"), Output("image", "n_clicks"), Output("shutdown", "n_clicks")],
         [Input("image", "n_clicks"), Input("image-type", "value")])
     def get_image(n_clicks, type):
+        if n_clicks is None and not auto_download:
+            return no_update
+        name = auto_download if auto_download else "image" # TODO use selection
+        shutdown = 1 if auto_download else None # Shutdown after download
+        return [{'type': type, 'action': 'download', 'filename': name}, None, shutdown]
+    # Shutdown server
+    # @app.server.route('/shutdown', methods=['POST'])
+    @app.callback(
+        Output("dummy", "n_clicks"), # No output
+        Input("shutdown", "n_clicks"))
+    def shutdown(n_clicks):
         if n_clicks is None:
             return no_update
-        return [None, {'type': type, 'action': 'download'}]
+        print('Server shutting down...')
+        os.kill(os.getpid(), signal.SIGTERM)
     # Subgraph selection
     @app.callback(
         [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
@@ -219,7 +237,7 @@ def interactive_graph(app, original_elements, edges):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -291,6 +309,6 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # Show graph
     app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout) 
     # Add interactive component callbacks 
-    interactive_graph(app, elements, edges)
+    interactive_graph(app, elements, edges, auto_download=auto_download)
     # Start webpage
     app.run_server(debug=True)
