@@ -103,7 +103,10 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                             },
                             layout={
                                 "name": default_layout,
-                                "fit": default_layout != 'preset' 
+                                "fit": default_layout != 'preset',
+                                "nodeDimensionsIncludeLabels": True,
+                                "tile": False,
+                                "animate": False,
                             },
                             stylesheet = default_stylesheet,
                             elements = elements
@@ -154,12 +157,8 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return no_update
         if current_layout["name"] == new_layout:
             return no_update
-        settings = {}
-        settings["name"] = new_layout
-        settings["nodeDimensionsIncludeLabels"] = True
-        settings["tile"] = False
-        settings["animate"] = False
-        return settings
+        current_layout["name"] = new_layout
+        return current_layout
     # Display information about selection
     @app.callback(
         Output('data', 'children'), 
@@ -249,6 +248,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # TODO why does it call this function twice
     # TODO add link between phased samples
     # TODO add display filters
+    # TODO make auto download faster?
     print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []
@@ -280,11 +280,11 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             severity = severity_GO(functions[node])
             relevant = relevance[node] if relevance is not None and node in relevance else True
         element = {            
-            # TODO don't store all fields
             "data": {
                 "id": node, 
                 "label": label,
                 "data": data[node] if node in data else None,
+                # TODO don't store all fields of data
                 "function": function,
                 "impact": impact,
                 "severity": severity,

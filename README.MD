@@ -11,5 +11,5 @@ python -m pip install -r requirements.txt
 ## Running
 
 ```bash
-python main.py --text T|F --visual T|F --select [sample] ...
+python main.py --text T|F --visual T|F --interactive T|F --select sample ...
 ```

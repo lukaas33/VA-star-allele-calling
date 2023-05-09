@@ -9,7 +9,7 @@ default_stylesheet.append({
     'selector': 'node',
     'style': {
         'content': 'data(label)',
-        'background-color': '#455A64',# Blue gray 700
+        'background-color': '#455A64', # Blue gray 700
         "text-valign": "center",
         "text-halign": "center",
         "color": "white",
@@ -18,7 +18,9 @@ default_stylesheet.append({
 default_stylesheet.append({
     'selector': 'edge',
     'style': {
-        'curve-style': 'bezier'
+        'curve-style': 'bezier' 
+        # 'curve-style': 'taxi',
+        # 'taxi-direction': "vertical"
     }
 })
 default_stylesheet.append({
@@ -53,7 +55,7 @@ default_stylesheet.append({
         "height": "10px",
         "shape": "round-rectangle",
         "text-wrap": "ellipsis",
-        "text-max-width": "25px",
+        "text-max-width": "25px"
     }   
 })
 default_stylesheet.append({
@@ -152,7 +154,7 @@ default_stylesheet.append({
     # TODO don't display?
     "selector": "node[!relevant]",
     "style": {
-        "background-blacken": -0.6, # Make darker to indicate not relevant
+        "background-blacken": -0.4, # Make lighter to indicate not relevant (no conflict with opacity)
     }
 })
 
