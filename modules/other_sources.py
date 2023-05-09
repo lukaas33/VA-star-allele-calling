@@ -69,7 +69,7 @@ def find_id_hgvs(variant, reference=None):
     """Find the reference snp id of a variant based n hgvs."""
     # TODO use variation service instead of entrez? 
     # TODO make more general
-    chromosome = re.findall(r"NC_0*([0-9]*)\.g", variant)[0]
+    chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant) if reference is None else va.variants.parse_hgvs(variant, reference=reference)
     # TODO smarter range 
     position = f"{va_variant[0].start - 25}:{va_variant[0].end + 25}" # Larger since position of target must be entirely in range 

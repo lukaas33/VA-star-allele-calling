@@ -7,3 +7,9 @@ python -m venv env
 .\env\Scripts\activate
 python -m pip install -r requirements.txt
 ```
+
+## Running
+
+```bash
+python main.py --text T|F --visual T|F --interactive T|F --select sample ...
+```

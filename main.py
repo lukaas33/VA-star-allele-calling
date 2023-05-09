@@ -1,4 +1,5 @@
 import warnings
+import argparse
 from modules.data import reference_get, pharmvar_get, parse_samples
 from modules.graph import display_graph
 from modules.compare import find_relations_all
@@ -195,7 +196,7 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         if sel_calling_simple != sel_calling_extended:
             warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
 
-def main():
+def main(text, visual, select, interactive):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
@@ -325,7 +326,7 @@ def main():
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
     # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
     # validate_calling(calling_phased, r"data\bastard.txt", soft=True) # validate phased star allele calling
 
@@ -344,24 +345,33 @@ def main():
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
-    calling_unphased = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
-    for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    validate_calling(calling_unphased, r"data\bastard.txt") # validate unphased star allele calling
-    return
+    # calling_unphased_infer = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=1)
+    # for sample, line in calling_unphased_infer.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+    # validate_calling(calling_unphased_infer, r"data\bastard.txt") # validate unphased star allele calling
 
     # Check the relevance of the extra variants 
     # TODO use extended?
     variants_relevance = {sample: relevance(sample, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
 
     # VISUALISATION 1: Visualise a specific calling and its context
-    visualised_sample = "HG01680_B"
-    sample_context = find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)
-    # sample_context = prune_relations(sample_context + pruned_simple[1])[1] # Add all other relations as well
-    # TODO select sample (using search)
-    display_graph(set([n[0] for n in sample_context]) | set([n[1] for n in sample_context]), sample_context, data, functions, default_layout="dagre", relevance=variants_relevance[visualised_sample])
-    
+    if visual:
+        # TODO handle None
+        # TODO handle multiple?
+        for sample in select:
+            visualised_sample = sample
+            context = [None, find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)]
+            context[0] = set([n[0] for n in context[1]]) | set([n[1] for n in context[1]])
+            # TODO taxi edges?
+            display_graph(*context, data, functions, default_layout="dagre", relevance=variants_relevance[sample], auto_download=visualised_sample)
+        
     # VISUALISATION 2: Show all relations of PharmVar
-    display_graph(*pruned_simple, data, functions)
+    if interactive:
+        context = find_context(select, pruned_samples_simple[1], as_edges=True) if select else []
+        combined_relevance = {}
+        for sample in select: 
+            for variant in variants_relevance[sample]:
+                combined_relevance[variant] = variants_relevance[sample][variant] # TODO valid for multiple samples?
+        display_graph(*prune_relations(context + pruned_simple[1]), data, functions, relevance=combined_relevance)
 
     # VISUALISATION 3: Generate images for report
     # TODO automate more
@@ -369,4 +379,11 @@ def main():
     # display_graph(nodes, edges, data, functions positions=positions, default_layout="preset")
 
 if __name__ == "__main__":
-    main()
+    arguments_parser = argparse.ArgumentParser(description='Star allele calling')
+    # TODO make some options mutually exclusive
+    arguments_parser.add_argument('-t', '--text', type=bool, default=True, help="Output calling as text") # TODO handle this
+    arguments_parser.add_argument('-v', '--visual', type=bool, default=False, help="Output calling as image")
+    arguments_parser.add_argument('-i', '--interactive', type=bool, default=False, help="Run an interactive visualisation")
+    arguments_parser.add_argument('-s', '--select', nargs='+', default=None, help='Selection of samples to call')
+    arguments = arguments_parser.parse_args()
+    main(**vars(arguments))
