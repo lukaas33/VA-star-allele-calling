@@ -359,19 +359,22 @@ def main(text, visual, select, interactive):
         # TODO handle multiple?
         for sample in select:
             visualised_sample = sample
-            context = [None, find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)]
+            context = [None, find_context([visualised_sample], pruned_samples_extended[1], as_edges=True)]
             context[0] = set([n[0] for n in context[1]]) | set([n[1] for n in context[1]])
             # TODO taxi edges?
             display_graph(*context, data, functions, default_layout="dagre", relevance=variants_relevance[sample], auto_download=visualised_sample)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
-        context = find_context(select, pruned_samples_simple[1], as_edges=True) if select else []
+        context = find_context(select, pruned_samples_extended[1], as_edges=True) if select else []
         combined_relevance = {}
-        for sample in select: 
-            for variant in variants_relevance[sample]:
-                combined_relevance[variant] = variants_relevance[sample][variant] # TODO valid for multiple samples?
-        display_graph(*prune_relations(context + pruned_simple[1]), data, functions, relevance=combined_relevance)
+        if select:
+            for sample in select: 
+                if sample not in variants_relevance:
+                    continue
+                for variant in variants_relevance[sample]:
+                    combined_relevance[variant] = variants_relevance[sample][variant] # TODO valid for multiple samples?
+        display_graph(*prune_relations(context + pruned_extended[1]), data, functions, relevance=combined_relevance)
 
     # VISUALISATION 3: Generate images for report
     # TODO automate more
