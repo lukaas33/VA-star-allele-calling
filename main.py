@@ -295,18 +295,15 @@ def main(text, visual, select, interactive):
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
  
     # Find all relations with samples
-    # TODO simplify this
     relations_samples_extended = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
     relations_samples_extended += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_extended += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples_extended += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_extended = prune_relations(find_context([select], relations_samples_extended, as_edges=True) + relations_extended, cache_name="relations_pruned_samples_extended")
     # Simplified
     relations_samples_simple = find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple")
     relations_samples_simple += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
     relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_simple = prune_relations(find_context([select], relations_samples_simple, as_edges=True) + relations_simple, cache_name="relations_pruned_samples_simple")
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -314,15 +311,20 @@ def main(text, visual, select, interactive):
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
+    # Simplify sample relations TODO allow for multiple
+    pruned_samples_extended = prune_relations(relations_samples_extended + relations_extended, cache_name="relations_pruned_samples_extended")
+    pruned_samples_simple = prune_relations(relations_samples_simple + relations_simple, cache_name="relations_pruned_samples_simple")
+
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
     # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # calling_phased = star_allele_calling_all([select], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+    # print(calling_phased)
     # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # validate_calling(calling_phased, r"data\bastard.txt", soft=True) # validate phased star allele calling
-
+    # validate_calling(calling_phased, r"data\bastard.txt") # validate phased star allele calling
+    
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
     # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
@@ -343,23 +345,22 @@ def main(text, visual, select, interactive):
     # validate_calling(calling_unphased_infer, r"data\bastard.txt") # validate unphased star allele calling
 
     # Check the relevance of the extra variants 
-    # TODO use extended here?
-    variants_relevance = {sample: relevance(sample, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
+    variants_relevance = {sample: relevance(sample, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
-        # TODO handle None
-        # TODO handle multiple?
+        if len(select) > 1: # TODO handle multiple?
+            raise Exception("Only one sample can be selected for visualisation")
         # TODO taxi edges?
-        edges = find_context([select], pruned_samples_extended[1], as_edges=True)
+        edges = find_context(select, pruned_samples_extended[1], as_edges=True)
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
-        display_graph(nodes, edges, data, functions, default_layout="dagre", relevance=variants_relevance[select], auto_download=select)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance[select[0]].values())
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
-        # TODO handle Nones
+        # TODO handle None
         # TODO allow for multiple selections
-        display_graph(*pruned_samples_extended, data, functions, relevance=variants_relevance[select].values())
+        display_graph(*pruned_samples_simple, data, functions)#, relevance=variants_relevance[select].values())
 
     # VISUALISATION 3: Generate images for report
     # TODO automate more
@@ -372,6 +373,6 @@ if __name__ == "__main__":
     arguments_parser.add_argument('-t', '--text', type=bool, default=True, help="Output calling as text") # TODO handle this
     arguments_parser.add_argument('-v', '--visual', type=bool, default=False, help="Output calling as image")
     arguments_parser.add_argument('-i', '--interactive', type=bool, default=False, help="Run an interactive visualisation")
-    arguments_parser.add_argument('-s', '--select', type=str, default=None, help='Selection of samples to call') # TODO allow for multiple
+    arguments_parser.add_argument('-s', '--select', type=str, nargs='+', default=None, help='Selection of samples to call')
     arguments = arguments_parser.parse_args()
     main(**vars(arguments))
