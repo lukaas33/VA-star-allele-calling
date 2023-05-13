@@ -59,6 +59,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
 
 def find_overlapping_variants(current, cont_graph, overlap_graph, find):
     """Recursively find the overlapping variants from a given current node."""
+    raise DeprecationWarning("This function is not used anymore")
     # Find overlapping
     matches = set()
     if current in overlap_graph.nodes():
@@ -116,37 +117,32 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
 
     Returns a list of allele matches ordered by the strength of the relation.
     """
-    # QUESTION does this method work directly for unphased data?
-    # QUESTION: is it needed to look at suballeles for calling?
-    # QUESTION: is it needed to look at individual variants for calling?
     # Don't predict unparsable samples
     # Would be predicted as *1 otherwise
     # Empty alleles are in the supremal dictionary with None as a value
     if sample not in supremals: 
         return [{'CYP2D6*?',}]
     # All information of a calling
-    start = [sample]
     matches = []
     # Find equivalent allele if present
-    if sample in eq_graph.nodes() and len(eq_graph[sample]) != 0:
-        m_eq = [match for match in eq_graph[sample] if sort_types(match) in (1, 2)]
+    if sample in eq_graph.nodes():
+        m_eq = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)])
         if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
-            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+            raise Exception(f"{sample}: multiple equivalent matches found: {matches['equivalent']}.")
         if len(m_eq) == 1: 
-            matches.append(set(m_eq)) # Strongest match
-            start.append(m_eq[0]) # Also look for contained/overlapping from equivalent allele
+            matches.append(m_eq) # Strongest match
     # Find directly contained alleles
-    m_cont = set()
-    for eq in start:
-        if eq in cont_graph.nodes() and len(cont_graph.in_edges(eq)) != 0:
-            m_cont |= set([m for m, _ in cont_graph.in_edges(eq) if sort_types(m) in (1, 2)])
-    if len(m_cont) > 0: matches.append(m_cont) # Less strong match
+    if sample in cont_graph.nodes():
+        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (1, 2)])
+        if len(m_cont) > 0: 
+            matches.append(m_cont) # Less strong match than equivalent
     # Find directly overlapping alleles
-    # also need to check contained alleles because of most specific pruning
-    m_ov = set()
-    for eq in start:
-        m_ov |= find_overlapping_variants(eq, cont_graph, overlap_graph, (1, 2))
-    if len(m_ov) > 0: matches.append(m_ov) # Least strong match (can treat the same as contained?)
+    # not looking at overlaps that are a result of contained alleles
+    if sample in overlap_graph.nodes():
+        m_ov = set([m for m in overlap_graph[sample] if sort_types(m) in (1, 2)])
+        if len(m_ov) > 0: 
+            # Overlap can be treated the same since there are no occurances
+            matches[-1].extend(m_ov) # Least strong match 
     # Add default allele, will have the lowest priority
     matches.append({"CYP2D6*1",})
     # Return all matches to be filtered later (based on detail level)
@@ -206,15 +202,9 @@ def generate_alternative_callings(calling, cont_graph):
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
     """Iterate over samples and call star alleles for each."""
-    eq_graph = nx.Graph()
-    eq_graph.add_nodes_from(nodes)
-    eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
-    cont_graph = nx.DiGraph()
-    cont_graph.add_nodes_from(nodes)
-    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
-    overlap_graph = nx.Graph()
-    overlap_graph.add_nodes_from(nodes)
-    overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
+    eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
+    cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
+    overlap_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
     # Call each sample
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
     for sample in samples:

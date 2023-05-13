@@ -201,7 +201,7 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
-def main(text, visual, select, interactive, phased, unphased):
+def main(text, visual, select, interactive, phased, unphased, detail):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
@@ -324,10 +324,10 @@ def main(text, visual, select, interactive, phased, unphased):
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    if unphased and phased or (not unphased and not phased):
+    if unphased and phased:
         raise ValueError("Either phased or unphased should be True")
     if phased:
-        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=0)
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -345,20 +345,23 @@ def main(text, visual, select, interactive, phased, unphased):
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=0)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail)
 
     # Output as text
     if text:
         # TODO filter selection
-        for sample, line in calling.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+        for sample, line in calling.items(): 
+            if type(select) == list and not any([sample in s for s in select]): 
+                continue
+            print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
 
         # TEST 7: validate calling
-        # validate_calling(calling_phased, r"data\bastard.txt") # compare to M&J method
+        validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
-        if select is not None and len(select) == 1: # TODO handle multiple?
+        if type(select) != list or len(select) != 1: # TODO handle multiple?
             raise Exception("Only one sample can be selected for visualisation")
         # Check the relevance of the extra variants 
         variants_relevance = {sample: relevance(sample, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
@@ -369,11 +372,12 @@ def main(text, visual, select, interactive, phased, unphased):
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
-        # TODO handle None
-        # TODO handle selection
-        # TODO allow for multiple selections
         # TODO include relevance?
-        display_graph(*pruned_simple, data, functions)
+        edges = pruned_extended[1]
+        if type(select) == list:
+            edges.extend(find_context(select, pruned_samples_extended[1], as_edges=True))
+        nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
+        display_graph(nodes, edges, data, functions)
 
     # VISUALISATION 3: Generate images for report
     # TODO automate more
@@ -384,7 +388,7 @@ if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')
     # TODO make some options mutually exclusive
     arguments_parser.add_argument('-t', '--text', action=argparse.BooleanOptionalAction, help="Output calling as text") 
-    # TODO allow detail level
+    arguments_parser.add_argument('-d', '--detail', type=int, default=0, help="Output detail level") 
     arguments_parser.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
     arguments_parser.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
     arguments_parser.add_argument('-v', '--visual', action=argparse.BooleanOptionalAction, help="Output calling as image")
