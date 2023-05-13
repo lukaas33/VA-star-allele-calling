@@ -99,21 +99,24 @@ def redundant_transitive(graph):
         ]
     return to_remove
 
-def dfs(subgraph_contained, subgraph_overlap, current, overlapping):
+def dfs_less_specific(current, overlap, subgraph_contained, subgraph_overlap):
     """Find if multiple edges in a path overlap with the same node and return the less specific."""
     edges = []
-    if current not in subgraph_overlap.nodes(): # Skip
-        return edges
-    # Check if overlapping already in path
-    for connected in subgraph_overlap[current]: # Track overlapping at current depth
-        if any((connected in overlap for overlap in overlapping.values())): # Already found in this path, is redundant
-            edges.append((current, connected))
-    overlapping[current] = set(subgraph_overlap[current])
+    at_depth = set()
+    if current in subgraph_overlap.nodes():
+        # Check if overlapping already in path
+        for overlapping in subgraph_overlap[current]: # All overlapping at current depth
+            if overlapping in overlap: # Already found in this path, is redundant
+                edges.append((current, overlapping))
+            else:
+                at_depth.add(overlapping) # Track which added at this level
+                overlap.add(overlapping) # Track overlapping at all depths
     # Go to next depth in containment relation
-    for overlap in subgraph_contained[current]:
-        edges += dfs(subgraph_contained, subgraph_overlap, overlap, overlapping)
-    # forget when taking other path
-    del overlapping[current]
+    for next in subgraph_contained[current]:
+        edges += dfs_less_specific(next, overlap, subgraph_contained, subgraph_overlap)
+    # forget at these depth when taking other path
+    for overlapping in at_depth:
+        overlap.remove(overlapping)
     return edges
 
 def redundant_most_specific(subgraph_contained, subgraph_overlap):
@@ -125,10 +128,10 @@ def redundant_most_specific(subgraph_contained, subgraph_overlap):
     """
     # TODO use triangle approach?
     to_remove = []
-    for start_node, degree in subgraph_contained.in_degree(): # For all nodes that contain no nodes
+    for start_node, degree in subgraph_contained.in_degree(): # For all nodes that contain no nodes (start of path)
         if degree != 0:
             continue
-        to_remove += dfs(subgraph_contained, subgraph_overlap, start_node, {})
+        to_remove += dfs_less_specific(start_node, set(), subgraph_contained, subgraph_overlap)
         # TODO use non dfs approach?
         # for node in nx.dfs_successors(subgraph_contained, start_node): # Follow path of containment
         #     print(node)
@@ -187,6 +190,8 @@ def prune_relations(relations, cache_name=None):
 
     returns list of edges and nodes.
     """
+    # TODO adapt method to allow for multiple samples at the same time
+    # TODO allow for simplifying already simplified relations
     try:
         if cache_name: return cache_get(cache_name)
     except:
@@ -196,30 +201,26 @@ def prune_relations(relations, cache_name=None):
     subgraph_equivalence = nx.Graph([(s, t) for s, t, d in relations if d.name == "EQUIVALENT"])
     subgraph_overlap = nx.Graph([(s, t) for s, t, d in relations if d.name == "OVERLAP"])
     subgraph_contained = nx.DiGraph([(s, t) for s, t, d in relations if d.name == "IS_CONTAINED"])
-    # TODO use incoming nodes instead of this subgraph
     # Remove reflexive self-loops
     subgraph_equivalence.remove_edges_from(redundant_reflexive(subgraph_equivalence))
     # Remove transitive redundancies 
     subgraph_contained = nx.transitive_reduction(subgraph_contained)
+    # Remove common ancestor redundancy
+    subgraph_overlap.remove_edges_from(redundant_common_ancestor(subgraph_contained, subgraph_overlap)) 
+    # Remove most specific redundancy
+    subgraph_overlap.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
     # Remove redundant relations due to equivalence (in place)
     graphs = {
         va.Relation.EQUIVALENT: subgraph_equivalence, 
         va.Relation.OVERLAP: subgraph_overlap,
         va.Relation.IS_CONTAINED: subgraph_contained
+        # Only store is contained side of relation
     }
     graphs = redundant_equivalence(graphs)
-    # Remove common ancestor redundancy
-    subgraph_overlap.remove_edges_from(redundant_common_ancestor(subgraph_contained, subgraph_overlap)) 
-    # Remove most specific redundancy
-    subgraph_overlap.remove_edges_from(redundant_most_specific(subgraph_contained, subgraph_overlap))
-    print(subgraph_overlap)
-    exit()
     # Convert back to edge list
     nodes = set()
     edges = []
     for rel, graph in graphs.items():
-        # Only store is contained side of relation
-        if rel.name == "CONTAINS": continue
         nodes |= set(graph.nodes())
         for s, t in graph.edges():
             edges.append((s, t, rel))

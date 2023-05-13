@@ -235,7 +235,7 @@ def main(text, visual, select, interactive):
 
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
-    validate_relations(pruned_extended[1], variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
+    # validate_relations(pruned_extended[1], variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
@@ -300,20 +300,13 @@ def main(text, visual, select, interactive):
     relations_samples_extended += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_extended += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples_extended += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_extended = prune_relations(pruned_extended[1] + relations_samples_extended, cache_name="relations_pruned_samples_extended")
-    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
-        if v is not None:
-            continue
-        pruned_samples_extended[0].add(s)
+    pruned_samples_extended = prune_relations(find_context([select], relations_samples_extended, as_edges=True) + relations_extended, cache_name="relations_pruned_samples_extended")
+    # Simplified
     relations_samples_simple = find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple")
     relations_samples_simple += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
     relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_simple = prune_relations(pruned_simple[1] + relations_samples_simple, cache_name="relations_pruned_samples_simple")
-    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
-        if v is not None:
-            continue
-        pruned_samples_simple[0].add(s)
+    pruned_samples_simple = prune_relations(find_context([select], relations_samples_simple, as_edges=True) + relations_simple, cache_name="relations_pruned_samples_simple")
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -350,31 +343,23 @@ def main(text, visual, select, interactive):
     # validate_calling(calling_unphased_infer, r"data\bastard.txt") # validate unphased star allele calling
 
     # Check the relevance of the extra variants 
-    # TODO use extended?
+    # TODO use extended here?
     variants_relevance = {sample: relevance(sample, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
         # TODO handle None
         # TODO handle multiple?
-        for sample in select:
-            visualised_sample = sample
-            context = [None, find_context([visualised_sample], pruned_samples_extended[1], as_edges=True)]
-            context[0] = set([n[0] for n in context[1]]) | set([n[1] for n in context[1]])
-            # TODO taxi edges?
-            display_graph(*context, data, functions, default_layout="dagre", relevance=variants_relevance[sample], auto_download=visualised_sample)
+        # TODO taxi edges?
+        edges = find_context([select], pruned_samples_extended[1], as_edges=True)
+        nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
+        display_graph(nodes, edges, data, functions, default_layout="dagre", relevance=variants_relevance[select], auto_download=select)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
-        context = find_context(select, pruned_samples_extended[1], as_edges=True) if select else []
-        combined_relevance = {}
-        if select:
-            for sample in select: 
-                if sample not in variants_relevance:
-                    continue
-                for variant in variants_relevance[sample]:
-                    combined_relevance[variant] = variants_relevance[sample][variant] # TODO valid for multiple samples?
-        display_graph(*prune_relations(context + pruned_extended[1]), data, functions, relevance=combined_relevance)
+        # TODO handle Nones
+        # TODO allow for multiple selections
+        display_graph(*pruned_samples_extended, data, functions, relevance=variants_relevance[select].values())
 
     # VISUALISATION 3: Generate images for report
     # TODO automate more
@@ -387,6 +372,6 @@ if __name__ == "__main__":
     arguments_parser.add_argument('-t', '--text', type=bool, default=True, help="Output calling as text") # TODO handle this
     arguments_parser.add_argument('-v', '--visual', type=bool, default=False, help="Output calling as image")
     arguments_parser.add_argument('-i', '--interactive', type=bool, default=False, help="Run an interactive visualisation")
-    arguments_parser.add_argument('-s', '--select', nargs='+', default=None, help='Selection of samples to call')
+    arguments_parser.add_argument('-s', '--select', type=str, default=None, help='Selection of samples to call') # TODO allow for multiple
     arguments = arguments_parser.parse_args()
     main(**vars(arguments))
