@@ -141,8 +141,11 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     if sample in overlap_graph.nodes():
         m_ov = set([m for m in overlap_graph[sample] if sort_types(m) in (1, 2)])
         if len(m_ov) > 0: 
-            # Overlap can be treated the same since there are no occurances
-            matches[-1].extend(m_ov) # Least strong match 
+            if len(matches) > 0:
+                # Overlap can be treated the same since there are no occurrences
+                matches[-1] |= m_ov # Least strong match 
+            else: # No equivalent or contained alleles
+                matches.append(m_ov)
     # Add default allele, will have the lowest priority
     matches.append({"CYP2D6*1",})
     # Return all matches to be filtered later (based on detail level)

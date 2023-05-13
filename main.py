@@ -194,10 +194,11 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         sel_calling_simple = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_simple | supremal_samples, reference, detail_level=1)
         sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
         if sel_calling_simple != sel_calling_extended:
-            warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
-            for sample in sel_samples:
+            warnings.warn(f"Calling with {phase} is not the same for simple and extended")
+            for sel_sample in sel_samples:
+                sample, phase = sel_sample.split('_')
                 if sel_calling_simple[sample] != sel_calling_extended[sample]:
-                    print(sel_calling_simple[sample], sel_calling_extended[sample])
+                    print(sel_sample, *sel_calling_simple[sample][phase], "vs", *sel_calling_extended[sample][phase])
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
