@@ -54,97 +54,90 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
     """Returns the layout for the Dash graph"""
     layouts = list(set(['grid', 'random', 'circle', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", "euler", "klay", default_layout]))
     layouts.sort()
-    return dcc.Tabs([
-        dcc.Tab(
-            label="Network",
-            children=[
-                html.Div(
-                    style = {
-                        "display": "flex",
-                    },
-                    children = [
-                        html.Div(
-                            style = {
-                                "display": "flex", 
-                                "flex-direction": "column",
-                                "width": "10vw",
-                                "height": "100%",
-                            },
-                            children = [
-                                dcc.Input(
-                                    id="filter",
-                                    placeholder="CYP2D6*4, ...",
-                                    type="text",
-                                    debounce=True
-                                ),
-                                dcc.Dropdown(
-                                    id='change-layout',
-                                    value=default_layout,
-                                    clearable=False,
-                                    options=[{'label': name.capitalize(), 'value': name} for name in layouts]
-                                ),
-                                dcc.Dropdown(
-                                    id='image-type',
-                                    value='svg',
-                                    clearable=False,
-                                    options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
-                                ),
-                                html.Button("Export image", id="image"),
-                                html.Button('Subgraph selection', id='subgraph'),
-                                html.Button('End server', id='shutdown'),
-                                html.Button(id='dummy') # TODO remove
-                            ]
-                        ),
-                        cyto.Cytoscape(
-                            id='graph',
-                            style = {
-                                "height": "90vh",
-                                "width": "90vw"
-                            },
-                            layout={
-                                "name": default_layout,
-                                "fit": default_layout != 'preset',
-                                "nodeDimensionsIncludeLabels": True,
-                                "tile": False,
-                                "animate": False,
-                            },
-                            stylesheet = default_stylesheet,
-                            elements = elements
-                        ),
-                    ]
-                )
-            ]
-        ),
-        dcc.Tab(
-            label="Selection data",
-            children=[
-                html.Pre(id='data')
-            ]
-        ),
-        # TODO keep or remove?
-        # dcc.Tab(
-        #     label="Statistics",
-        #     children=[
-        #         dcc.Graph(
-        #             id="plot-arity",
-        #             figure=plot_arity(nodes, edges)
-        #         ),
-        #         # TODO fix?
-        #         # dcc.Graph(
-        #         #     id="relation-counts",
-        #         #     figure=plot_relations(edges)
-        #         # ),
-        #         dcc.Graph(
-        #             id="pruned-relation-counts",
-        #             figure=plot_relations(edges, pruned=True)
-        #         ),                    
-        #         dcc.Graph(
-        #             id="counts",
-        #             figure=plot_counts(elements)
-        #         )
-        #     ]
-        # ),
-    ])
+    return html.Div(
+        style = {
+            "display": "flex",
+        },
+        children = [
+            html.Div(
+                style = {
+                    "display": "flex", 
+                    "flex-direction": "column",
+                    "width": "20vw",
+                    "height": "100vh",
+                    "margin": 0,
+                    "box-sizing": "border-box",
+                },
+                children = [
+                    html.P("Search"),
+                    dcc.Input(
+                        id="filter",
+                        placeholder="CYP2D6*4, ...",
+                        type="text",
+                        debounce=True
+                    ),
+                    html.P("Layout"),
+                    dcc.Dropdown(
+                        id='change-layout',
+                        value=default_layout,
+                        clearable=False,
+                        options=[{'label': name.capitalize(), 'value': name} for name in layouts]
+                    ),
+                    html.P("Download"),
+                    dcc.Dropdown(
+                        id='image-type',
+                        value='svg',
+                        clearable=False,
+                        options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
+                    ),
+                    html.Button("Export image", id="image"),
+                    html.P("Filter nodes"),
+                    html.Button(
+                        'Create Subgraph', 
+                        id='subgraph',
+                    ),
+                    html.Button(
+                        id='shutdown',
+                        style = {
+                            "display": "none"
+                        }
+                    ),
+                    html.Button( # TODO remove
+                        id='dummy',
+                        style = {
+                            "display": "none"
+                        }
+                    ), 
+                    html.P("Data"),
+                    html.Pre(
+                        id='data',
+                        style = {
+                            "width": "100%",
+                            "height": "100%",
+                            "overflow-y": "scroll",
+                            "overflow-x": "hidden"
+                        }
+                    )
+                ]
+            ),
+            cyto.Cytoscape(
+                id='graph',
+                style = {
+                    "height": "100vh",
+                    "width": "80vw"
+                },
+                layout={
+                    "name": default_layout,
+                    "fit": default_layout != 'preset',
+                    "nodeDimensionsIncludeLabels": True,
+                    "tile": False,
+                    "animate": False,
+                },
+                stylesheet = default_stylesheet,
+                elements = elements
+            ),
+        ]
+    )
 
 def interactive_graph(app, original_elements, edges, auto_download):
     """Add interactive components to graph"""

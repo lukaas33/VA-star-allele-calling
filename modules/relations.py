@@ -190,7 +190,6 @@ def prune_relations(relations, cache_name=None):
 
     returns list of edges and nodes.
     """
-    # TODO adapt method to allow for multiple samples at the same time
     # TODO allow for simplifying already simplified relations
     try:
         if cache_name: return cache_get(cache_name)
