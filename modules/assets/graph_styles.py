@@ -71,6 +71,13 @@ default_stylesheet.append({
     }
 })
 default_stylesheet.append({
+    "selector": ":compound",
+    "style": {
+        "width": "10px",
+        "background-color": "white",
+    }
+})
+default_stylesheet.append({
     "selector": ".sample",
     "style": {
         "font-size": "10px",

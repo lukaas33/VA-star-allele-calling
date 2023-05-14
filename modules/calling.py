@@ -262,7 +262,7 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
             yield copy.deepcopy(calling)
 
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0, reorder=True):
     """Iterate over samples and call star alleles for each."""
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
@@ -275,7 +275,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         callings[sample_source][phasing] = calling
     # Create a textual representation of the calling based on the amount of detail needed
     if phased: # Calling is phased
-        representations = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
+        representations = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level), reorder=reorder) for sample in callings}
         return representations
     if not phased: # Unphased calling should be separated
         sep_callings = separate_callings(callings, cont_graph, functions)
@@ -286,7 +286,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in sep_callings.items():
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
-                representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level))
+                representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
                 continue
             # Generate alternative callings
             alternatives = generate_alternative_callings(calling, cont_graph, set())
@@ -299,7 +299,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 # TODO filter earlier at generation 
                 if not valid_calling(alternative, cont_graph, homozygous):
                     continue
-                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
+                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1), reorder=reorder)
                 # print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
                 # TODO Select preferred alternative
                 preferred = alternative
@@ -308,7 +308,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 #     preferred = alternative
                 #     break
             # print(sample, "Preferred:", preferred)
-            representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level))
+            representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
         return representations
 
 
@@ -415,7 +415,7 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
         elif edge[1] == sample and sort_types(edge[0]) in (3,5):
             variants.append(edge[0])
     if len(variants) == 0: # No variants found
-        return None
+        return {}
     # Check the relevance of each variant
     variants_relevance = {}
     for variant in variants:
@@ -454,7 +454,7 @@ def detail_from_level(level):
     kwargs["default"] = level == 4
     return kwargs
 
-def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder=True):
+def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder):
     """Change the calling to a representation of a certain amount of detail.
     
     Each calling contains all direct matches which can be suballeles or core alleles.

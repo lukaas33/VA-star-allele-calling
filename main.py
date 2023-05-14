@@ -202,7 +202,7 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
-def main(text, visual, select, interactive, phased, unphased, detail):
+def main(text, visual, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
@@ -325,9 +325,10 @@ def main(text, visual, select, interactive, phased, unphased, detail):
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    if unphased and phased: raise ValueError("Either phased or unphased should be True")
+    if unphased and phased: 
+        raise ValueError("Either phased or unphased should be True")
     if phased:
-        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -346,9 +347,10 @@ def main(text, visual, select, interactive, phased, unphased, detail):
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
         # TODO use extended
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail)
-
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
     # Output as text
+    if text and visual or text and interactive or visual and interactive:
+        raise ValueError("Only one of text, visual or interactive can be True") 
     if text:
         # TODO filter selection
         for sample, line in calling.items(): 
@@ -368,11 +370,12 @@ def main(text, visual, select, interactive, phased, unphased, detail):
         variants_relevance = relevance(select[0], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
         # Mark the star-allele calling
         # TODO handle unphased
+        # TODO handle sorting to only show one of the two alleles
         marked_calling = calling[select[0].split('_')[0]][select[0].split('_')[1]]
         # Find extend context (including core alleles)
         nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True, directional=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance, marked_calling=marked_calling)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0] if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys())
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
@@ -390,13 +393,16 @@ def main(text, visual, select, interactive, phased, unphased, detail):
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')
-    # TODO make some options mutually exclusive
-    arguments_parser.add_argument('-t', '--text', action=argparse.BooleanOptionalAction, help="Output calling as text") 
-    arguments_parser.add_argument('-d', '--detail', type=int, default=0, help="Output detail level") 
-    arguments_parser.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
-    arguments_parser.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
-    arguments_parser.add_argument('-v', '--visual', action=argparse.BooleanOptionalAction, help="Output calling as image")
-    arguments_parser.add_argument('-i', '--interactive', action=argparse.BooleanOptionalAction, help="Run an interactive visualisation")
+    group_output = arguments_parser.add_mutually_exclusive_group()
+    group_output.add_argument('-v', '--visual', action=argparse.BooleanOptionalAction, help="Output calling as image")
+    group_output.add_argument('-i', '--interactive', action=argparse.BooleanOptionalAction, help="Run an interactive visualisation")
+    group_output.add_argument('-t', '--text', action=argparse.BooleanOptionalAction, help="Output calling as text") 
+    group_input = arguments_parser.add_mutually_exclusive_group()
+    group_input.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
+    group_input.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
     arguments_parser.add_argument('-s', '--select', type=str, nargs='+', default=None, help='Selection of samples to call')
-    arguments = arguments_parser.parse_args()
-    main(**vars(arguments))
+    # TODO make dependent on text output
+    arguments_parser.add_argument('--detail', type=int, default=0, help="Output detail level") 
+    arguments_parser.add_argument('--download', action=argparse.BooleanOptionalAction, help="Download image")
+    arguments = vars(arguments_parser.parse_args())
+    main(**arguments)

@@ -164,9 +164,9 @@ def interactive_graph(app, original_elements, edges, auto_download):
         Output('data', 'children'), 
         Input('graph', 'selectedNodeData'))
     def displayTapNodeData(data):
-        if not data:
+        if not data or "data" not in data:
             return no_update
-        return json.dumps(data, indent=2)
+        return json.dumps(data["data"], indent=2)
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -235,7 +235,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -245,63 +245,74 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     """
     # TODO create js page
     # TODO why does it call this function twice
-    # TODO add link between phased samples
+    # TODO allow for multiple samples
     # TODO add display filters
     # TODO make auto download faster?
+    # TODO make calling graph separate function
     print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []
+    # Add nodes
     for i, node in enumerate(nodes):
-        if sort_types(node) in (3,5):
-            continue
-        # TODO use enum or classes
-        function, impact, severity = None, None, None, 
+        function, impact, severity, parent = None, None, None, None
         relevant = True
-        if sort_types(node) == 1: # Core allele
-            category = "core"
+        if sort_types(node) in (1, 2):
+            function = functions[node]
+            label = "*" + node.split("*")[1]
+            if sort_types(node) == 1: # Core allele
+                category = "core"
+            elif sort_types(node) == 2: # Suballele
+                category = "sub"
             if marked_calling and node in marked_calling:
                 category += " called"
-            label = "*" + node.split("*")[1]
-            function = functions[node]
-        elif sort_types(node) == 2: # Suballele
-            category = "sub"
-            if marked_calling and node in marked_calling:
-                category += " called"
-            label = "*" + node.split("*")[1]
-            function = functions[node]
-        elif sort_types(node) == 3: # PharmVar variant
+        elif sort_types(node) in (3, 5): # Variant
             category = "variant"
-            label = node.split(':')[1].split('.')[1]
-            impact = functions[node]
-            severity = severity_pharmvar(functions[node])
+            # Show relevance to calling
             relevant = relevance[node] if relevance is not None and node in relevance else True
+            # Group variants
+            parent = 'variants' if group_variants is not None and node in group_variants else None 
+            if sort_types(node) == 3: # PharmVar variant
+                label = node.split(':')[1].split('.')[1]
+                impact = functions[node]
+                severity = severity_pharmvar(functions[node])
+            elif sort_types(node) == 5: # Personal variant
+                category += " observed"
+                label = node
+                impact = "; ".join(functions[node])
+                severity = severity_GO(functions[node])
         elif sort_types(node) == 4: # Sample
             category = "sample"
             label = node
-        elif sort_types(node) == 5: # Personal variant
-            category = "observed variant"
-            label = node
-            impact = "; ".join(functions[node])
-            severity = severity_GO(functions[node])
-            relevant = relevance[node] if relevance is not None and node in relevance else True
         element = {            
+            # TODO don't store all fields of data
             "data": {
                 "id": node, 
                 "label": label,
-                # TODO don't store all fields of data
                 "function": function,
                 "impact": impact,
                 "severity": severity,
                 "relevant": relevant,
+                "parent": parent,
                 "data": data[node] if node in data else None,
             },
             "classes": category,
         }
         if positions is not None: element["position"] = positions[i]
         elements.append(element)
+    # Treat group as single node
+    if group_variants is not None and len(group_variants) > 0: 
+        elements.append({"data": {"id": "variants"}})
+        # Attach edges to some in group to group
+        # TODO only attach edges to all?
+        for source, target, relation in list(edges):
+            if source in group_variants: 
+                edges.remove((source, target, relation))
+                edges.add(("variants", target, relation))
+            if target in group_variants:
+                edges.remove((source, target, relation))
+                edges.add((source, "variants", relation))
+    # Add edges
     for source, target, relation in edges:
-        if sort_types(source) in (3,5) or sort_types(target) in (3,5):
-            continue
         element = {
             "data": {
                 "source": source,
@@ -309,6 +320,8 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             },
             "classes": relation.name
         }
+        if element in elements:
+            continue
         elements.append(element)
     # Setup graph webpage
     cyto.load_extra_layouts()
