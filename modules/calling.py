@@ -183,23 +183,37 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 phased_calling[sample][phase].append({"CYP2D6*1",})
     return phased_calling
 
-def generate_alternative_callings(calling, cont_graph):
+def generate_alternative_callings(calling, cont_graph, depth=1):
     """Generate alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
     """
+    # TODO reduce runtime by not generating all possible callings or not copying
     # Need to copy to prevent changing the original calling
-    yield copy.deepcopy(calling) # All in phase A already a valid answer
-    # Make B the same length as A
-    while len(calling['B']) < len(calling['A']): calling['B'].insert(0, set())
+    # would not be needed in case of one iteration over this generator
+    # All in phase A already a valid answer
+    yield copy.deepcopy(calling) 
     for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample
-        for allele in list(alleles)[:-1]: # Move all but one, since moving all results in the same calling
-            # Move allele to other phase
+        for allele in list(alleles): # Maintain relation strength rank
+            # Replace allele with underlying alleles
             calling['A'][i].remove(allele)
+            if allele in cont_graph.nodes(): 
+                # TODO check overlap graph
+                deeper_matches = set()
+                for underlying, _ in cont_graph.in_edges(allele): # Find underlying alleles
+                    if sort_types(underlying) in (1, 2): 
+                        deeper_matches.add(underlying)
+                if len(deeper_matches) > 0:
+                    deeper_calling = copy.deepcopy(calling)
+                    deeper_calling['A'][i] |= deeper_matches
+                    for alternative in generate_alternative_callings(deeper_calling, cont_graph, depth+1):
+                        yield alternative
+            # Move alleles to other phase
+            if len(calling['A'][i]) == 0:
+                continue # Don't move since this would result in a duplicate (X/Y = Y/X)
+            while len(calling['B']) < len(calling['A']): calling['B'].insert(0, set()) # Make B the same length as A
             calling['B'][i].add(allele)
-            # TODO how the prevent duplicates (*1/*2+*22 = *2+*22/*1)
-            # TODO go deeper in the graph
-            # TODO remove empty sets
+            # Also a valid answer
             yield copy.deepcopy(calling)
 
 
@@ -222,6 +236,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         callings = separate_callings(callings, cont_graph, functions)
         representations = {}
         # TODO move this to a filter alternatives function
+        # TODO allow for keeping multiple alternative representations
         # TODO check NA07348
         for sample, calling in callings.items():
             if calling['A'] == calling['B']: # Already phased (homozygous)
@@ -229,21 +244,20 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level))
                 continue
             # Generate alternative callings
-            # TODO go deeper in the graph
             alternatives = generate_alternative_callings(calling, cont_graph)
+            # TODO Select preferred alternative
+            # TODO filtering
+            # TODO ordering
             print(sample)
-            for alternative in reversed(list(alternatives)):
-                print(alternative)
-                # Select preferred alternative
-                # Currently uses the same approach as the split phasing method  
-                # TODO more correct filtering
+            first = None
+            for alternative in alternatives:
+                if first is None:
+                    first = alternative
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
-                if len(representation['A']) == len(representation['B']) == 1: # Only one allele in each phase
-                    break # This is a good representation
-            # If no break is reached, use the first alternative
-            # When there is only one alternative a representation will be like *1/*X
-            # If not the first alternative will be like *1/*X+*Y+...
-            representations[sample] = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level))
+                if len(representation['A']) == len(representation['B']) == 1:
+                    first = alternative
+                    break
+            representations[sample] = calling_to_repr(first, cont_graph, functions, **detail_from_level(detail_level))
         return representations
 
 
@@ -376,16 +390,17 @@ def detail_from_level(level):
     Different detail levels are available.
     0: Only print best core match(es)
     1: Print all direct core matches
-    2: Also print suballeles 
-    3: Print all direct matches
+    2: Print all direct matches including suballeles
+    3: Print all direct matches without core allele lookup
+    4: Print all direct matches including the default allele
     TODO implement more levels?
     """
     kwargs = {}
-    kwargs["find_cores"] = True 
+    kwargs["find_cores"] = level <= 2
     kwargs["prioritize_function"] = level <= 0
     kwargs["prioritize_strength"] = level <= 0
-    kwargs["suballeles"] = not (level <= 1)
-    kwargs["default"] = not (level <= 2)
+    kwargs["suballeles"] = level >= 2
+    kwargs["default"] = level == 4
     return kwargs
 
 def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder=True):

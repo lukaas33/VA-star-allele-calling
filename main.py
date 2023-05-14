@@ -325,8 +325,7 @@ def main(text, visual, select, interactive, phased, unphased, detail):
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    if unphased and phased:
-        raise ValueError("Either phased or unphased should be True")
+    if unphased and phased: raise ValueError("Either phased or unphased should be True")
     if phased:
         calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
     
@@ -346,7 +345,7 @@ def main(text, visual, select, interactive, phased, unphased, detail):
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail)
 
     # Output as text
     if text:
