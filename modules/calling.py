@@ -37,7 +37,7 @@ def sort_types(v):
     
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
-    raise DeprecationWarning("This function is not used anymore")
+    raise DeprecationWarning("This function is not used any more")
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
     if sort_types(start) in find: # Need to find this type
@@ -59,7 +59,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
 
 def find_overlapping_variants(current, cont_graph, overlap_graph, find):
     """Recursively find the overlapping variants from a given current node."""
-    raise DeprecationWarning("This function is not used anymore")
+    raise DeprecationWarning("This function is not used any more")
     # Find overlapping
     matches = set()
     if current in overlap_graph.nodes():
@@ -183,7 +183,27 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 phased_calling[sample][phase].append({"CYP2D6*1",})
     return phased_calling
 
-def generate_alternative_callings(calling, cont_graph, depth=1):
+def valid_calling(calling, cont_graph, homozygous):
+    """Check if a calling is valid based on homozygous contained alleles."""
+    # Find ancestors for both phases
+    # TODO make more efficient by not generating all ancestors
+    ancestors = {}
+    for phase in 'AB':
+        ancestors[phase] = set()
+        for alleles in calling[phase][:-1]: # All non-default matches for a phase
+            for allele in alleles: 
+                if allele not in cont_graph.nodes():
+                    continue
+                for ancestor in nx.ancestors(cont_graph, allele): # All alleles that are contained in this allele
+                    if sort_types(ancestor) in (1, 2):
+                        ancestors[phase].add(ancestor)
+    # If this calling is valid the overlap between the ancestors of both phases should be equal to the homozygous alleles
+    overlap = ancestors['A'] & ancestors['B']
+    if overlap == homozygous: 
+        return True
+    return False
+
+def generate_alternative_callings(calling, cont_graph, extended, depth=1):
     """Generate alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
@@ -195,24 +215,29 @@ def generate_alternative_callings(calling, cont_graph, depth=1):
     yield copy.deepcopy(calling) 
     for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample
         for allele in list(alleles): # Maintain relation strength rank
-            # Replace allele with underlying alleles
-            calling['A'][i].remove(allele)
-            if allele in cont_graph.nodes(): 
+            # Find contained alleles of this allele
+            if allele in cont_graph.nodes() and allele not in extended: 
                 # TODO check overlap graph
                 deeper_matches = set()
                 for underlying, _ in cont_graph.in_edges(allele): # Find underlying alleles
                     if sort_types(underlying) in (1, 2): 
                         deeper_matches.add(underlying)
-                if len(deeper_matches) > 0:
-                    deeper_calling = copy.deepcopy(calling)
-                    deeper_calling['A'][i] |= deeper_matches
-                    for alternative in generate_alternative_callings(deeper_calling, cont_graph, depth+1):
-                        yield alternative
+            # Replace allele with underlying alleles
+            if len(deeper_matches) > 0:
+                deeper_calling = copy.deepcopy(calling)
+                deeper_calling['A'][i] |= deeper_matches
+                # print(depth, "replace", allele, "with", deeper_matches, "in A:", deeper_calling)
+                # Recurse with extended allelles
+                # Track which alleles have been extended to prevent duplicates
+                # TODO also add replaced
+                for alternative in generate_alternative_callings(deeper_calling, cont_graph, extended | {allele,},  depth+1):
+                    yield alternative
             # Move alleles to other phase
-            if len(calling['A'][i]) == 0:
-                continue # Don't move since this would result in a duplicate (X/Y = Y/X)
+            calling['A'][i].remove(allele)
+            if len(calling['A'][i]) == 0: continue # Don't move since this would result in a duplicate (X/Y = Y/X)
             while len(calling['B']) < len(calling['A']): calling['B'].insert(0, set()) # Make B the same length as A
             calling['B'][i].add(allele)
+            # print(depth, "move", allele, "to B:", calling)
             # Also a valid answer
             yield copy.deepcopy(calling)
 
@@ -233,31 +258,40 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         representations = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
         return representations
     if not phased: # Unphased calling should be separated
-        callings = separate_callings(callings, cont_graph, functions)
+        sep_callings = separate_callings(callings, cont_graph, functions)
         representations = {}
         # TODO move this to a filter alternatives function
         # TODO allow for keeping multiple alternative representations
         # TODO check NA07348
-        for sample, calling in callings.items():
+        for sample, calling in sep_callings.items():
+            if sample != "NA12815":
+                continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level))
                 continue
             # Generate alternative callings
-            alternatives = generate_alternative_callings(calling, cont_graph)
-            # TODO Select preferred alternative
-            # TODO filtering
+            alternatives = generate_alternative_callings(calling, cont_graph, set())
             # TODO ordering
-            print(sample)
-            first = None
+            # All homozygous alleles for the current sample
+            homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
+            preferred = None # Using split method, *1/*x+... or *x/*y
             for alternative in alternatives:
-                if first is None:
-                    first = alternative
+                # Filter out non valid callings
+                # TODO filter earlier at generation (not allowing move in in case of non-homozygous overlap)
+                if not valid_calling(alternative, cont_graph, homozygous):
+                    pass
+                    # continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
-                if len(representation['A']) == len(representation['B']) == 1:
-                    first = alternative
-                    break
-            representations[sample] = calling_to_repr(first, cont_graph, functions, **detail_from_level(detail_level))
+                print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
+                # TODO Select preferred alternative
+                preferred = alternative
+                # if preferred is None: preferred = alternative
+                # if len(representation['A']) == len(representation['B']) == 1:
+                #     preferred = alternative
+                #     break
+            print(sample, "Preferred:", preferred)
+            representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level))
         return representations
 
 

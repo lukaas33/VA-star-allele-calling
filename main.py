@@ -345,6 +345,7 @@ def main(text, visual, select, interactive, phased, unphased, detail):
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
+        # TODO use extended
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail)
 
     # Output as text
@@ -373,9 +374,10 @@ def main(text, visual, select, interactive, phased, unphased, detail):
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         # TODO include relevance?
-        edges = pruned_extended[1]
+        # TODO use extended
+        edges = pruned_simple[1]
         if type(select) == list:
-            edges.extend(find_context(select, pruned_samples_extended[1], as_edges=True))
+            edges.extend(find_context(select, pruned_samples_simple[1], as_edges=True))
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 
