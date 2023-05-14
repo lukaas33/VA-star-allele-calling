@@ -5,6 +5,7 @@ from .data import api_get
 from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, severity_pharmvar
 import re
 import copy
+from itertools import combinations
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
 def sort_function(f):
@@ -216,15 +217,17 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
     
     This is useful for unphased not homozygous matches.
     """
-    # TODO check if all valid callings are generated NA12815 *2/*41
+    # TODO check if valid and no duplicates
     # TODO reduce runtime by not generating all possible callings or not copying
+    # TODO filter out callings that are not valid if this is more efficient (not allowing move in in case of non-homozygous overlap)
     # Need to copy to prevent changing the original calling
     # would not be needed in case of one iteration over this generator
     # All in phase A already a valid answer
-    print(calling)
+    # print(calling)
     yield copy.deepcopy(calling) 
     for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample
         for allele in list(alleles): # Maintain relation strength rank
+            calling['A'][i].remove(allele)
             # Find contained alleles of this allele
             deeper_matches = set()
             if allele in cont_graph.nodes() and allele not in extended: 
@@ -234,25 +237,27 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
                         deeper_matches.add(underlying)
             # Extend allele with underlying alleles
             if len(deeper_matches) > 0:
-                deeper_calling = copy.deepcopy(calling)
-                deeper_calling['A'][i] |= deeper_matches
-                # print(depth, "replace", allele, "with", deeper_matches, "in A:", deeper_calling)
-                # Recurse with extended alleles
-                # Track which alleles have been extended to prevent duplicates
-                for alternative in generate_alternative_callings(deeper_calling, cont_graph, extended | {allele,},  depth+1):
-                    yield alternative
-            calling['A'][i].remove(allele)
-            # Replace allele with underlying alleles
-            if len(deeper_matches) > 0:
-                for alternative in generate_alternative_callings(deeper_calling, cont_graph, extended,  depth+1):
-                    yield alternative
+                # Allele must be present since it is possible it exists with its suballeles
+                deeper_matches.add(allele)
+                # Partial extension in case only some are contained in the calling
+                for r in range(1, len(deeper_matches)+1):
+                    for extend in combinations(deeper_matches, r=r): 
+                        extend = set(extend)
+                        if extend == {allele,}: continue # Same as current level
+                        deeper_calling = copy.deepcopy(calling)
+                        deeper_calling['A'][i] |= extend
+                        # print(depth, allele, "extend with", extend)
+                        # Recurse with extended alleles
+                        # Track which alleles have been extended to infinite recursion
+                        for alternative in generate_alternative_callings(deeper_calling, cont_graph, extended | {allele,}, depth+1):
+                            yield alternative
             # Move alleles to other phase
             if len(calling['A'][i]) == 0: continue # Don't move since this would result in a duplicate (X/Y = Y/X)
             while len(calling['B']) < len(calling['A']): calling['B'].insert(0, set()) # Make B the same length as A
             calling['B'][i].add(allele)
             # print(depth, "move", allele, "to B:", calling)
             # Also a valid answer
-            print(calling)
+            # print(calling)
             yield copy.deepcopy(calling)
 
 
@@ -274,11 +279,11 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     if not phased: # Unphased calling should be separated
         sep_callings = separate_callings(callings, cont_graph, functions)
         representations = {}
-        # TODO move this to a filter alternatives function
+        # TODO move this to a filtered alternatives function
         # TODO allow for keeping multiple alternative representations
-        # TODO check NA07348
+        # TODO filter by most specific?
         for sample, calling in sep_callings.items():
-            if sample != "NA12815":
+            if sample != "HG00421":
                 continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
@@ -291,13 +296,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             preferred = None # Using split method, *1/*x+... or *x/*y
             for alternative in alternatives:
+                # Filter out non valid callings
+                # TODO filter earlier at generation 
+                if not valid_calling(alternative, cont_graph, homozygous):
+                    continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
                 print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
-                # Filter out non valid callings
-                # TODO filter earlier at generation (not allowing move in in case of non-homozygous overlap)
-                if not valid_calling(alternative, cont_graph, homozygous):
-                    print("not valid")
-                    continue
                 # TODO Select preferred alternative
                 preferred = alternative
                 # if preferred is None: preferred = alternative
