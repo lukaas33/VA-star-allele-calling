@@ -217,7 +217,7 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
     
     This is useful for unphased not homozygous matches.
     """
-    # TODO check if valid and no duplicates
+    # TODO check if correct and no duplicates
     # TODO reduce runtime by not generating all possible callings or not copying
     # TODO filter out callings that are not valid if this is more efficient (not allowing move in in case of non-homozygous overlap)
     # Need to copy to prevent changing the original calling
@@ -240,6 +240,7 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
                 # Allele must be present since it is possible it exists with its suballeles
                 deeper_matches.add(allele)
                 # Partial extension in case only some are contained in the calling
+                # TODO is this correct?
                 for r in range(1, len(deeper_matches)+1):
                     for extend in combinations(deeper_matches, r=r): 
                         extend = set(extend)
@@ -283,8 +284,6 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # TODO allow for keeping multiple alternative representations
         # TODO filter by most specific?
         for sample, calling in sep_callings.items():
-            if sample != "HG00421":
-                continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level))
@@ -301,14 +300,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 if not valid_calling(alternative, cont_graph, homozygous):
                     continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
-                print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
+                # print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
                 # TODO Select preferred alternative
                 preferred = alternative
                 # if preferred is None: preferred = alternative
                 # if len(representation['A']) == len(representation['B']) == 1:
                 #     preferred = alternative
                 #     break
-            print(sample, "Preferred:", preferred)
+            # print(sample, "Preferred:", preferred)
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level))
         return representations
 

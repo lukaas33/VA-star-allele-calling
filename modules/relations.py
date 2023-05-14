@@ -7,30 +7,42 @@ from itertools import combinations
 
 # TODO use consistent datastructure with OOP
 
-def find_context(nodes, edges, as_edges=False, directional=False):
+def find_context(nodes, edges, directional=False, extended=False, depth=0):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
     # TODO do this based on a networkx graph
-    context = set()
-    context_edges = list()
+    context_edges = set()
+    context_nodes = set()
+    context_nodes |= nodes
+    def add_and_extend(node, context_nodes, context_edges, extended, depth):
+        if node not in context_nodes:
+            context_nodes.add(node)
+            if extended and sort_types(node) == 2:
+                # Extend directionally until core alleles
+                deeper_nodes, deeper_edges = find_context(context_nodes, edges, True, True, depth+1)
+                context_nodes |= deeper_nodes
+                context_edges |= deeper_edges
     for node in nodes:
-        context.add(node)
         found = False
+        # Find some edges
         for s, t, d in edges:
             if s != node and t != node:
                 continue
-            if directional and s == node and d == va.Relation.IS_CONTAINED: # Only add incoming directional edges 
+            # Don't add connected samples
+            if directional and t not in nodes and sort_types(t) == 4 or \
+                    directional and s not in nodes and sort_types(s) == 4:
                 continue
+            # Only add incoming directional edges for containment
+            if directional and s == node and d == va.Relation.IS_CONTAINED: 
+                continue
+            # Store edge
+            context_edges.add((s, t, d))
+            # Add node and extend if needed
+            add_and_extend(s, context_nodes, context_edges, extended, depth)
+            add_and_extend(t, context_nodes, context_edges, extended, depth)
             found = True
-            if as_edges:
-                context_edges.append((s, t, d))
-            else:
-                context.add(s)
-                context.add(t)
-        if not found:
-            warnings.warn(f"Node {node} not found in edges.")
-    if as_edges:
-        return context_edges
-    return context
+        if not found: warnings.warn(f"Node {node} not found in edges.")
+    # Return nodes and the edges that have the nodes
+    return context_nodes, context_edges
 
 def has_common_ancestor(graph, node1, node2):
     """Check if two nodes have a common ancestor in a directed graph."""

@@ -364,20 +364,19 @@ def main(text, visual, select, interactive, phased, unphased, detail):
     if visual:
         if type(select) != list or len(select) != 1: # TODO handle multiple?
             raise Exception("Only one sample can be selected for visualisation")
-        # Check the relevance of the extra variants 
-        variants_relevance = {sample: relevance(sample, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
-        edges = find_context(select, pruned_samples_extended[1], as_edges=True)
-        nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
+        # Check the relevance of the extra variant
+        variants_relevance = relevance(select[0], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
+        nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance[select[0]].values())
+        print(variants_relevance)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         # TODO include relevance?
-        # TODO use extended
-        edges = pruned_simple[1]
+        edges = pruned_extended[1]
         if type(select) == list:
-            edges.extend(find_context(select, pruned_samples_simple[1], as_edges=True))
+            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 

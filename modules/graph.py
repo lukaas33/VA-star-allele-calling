@@ -72,7 +72,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     html.P("Search"),
                     dcc.Input(
                         id="filter",
-                        placeholder="CYP2D6*4, ...",
+                        placeholder="CYP2D6*4, NC_000022.11:g.42128945C>T, ...",
                         type="text",
                         debounce=True
                     ),
@@ -90,7 +90,10 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                         clearable=False,
                         options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
                     ),
-                    html.Button("Export image", id="image"),
+                    html.Button(
+                        "Export image", 
+                        id="image"
+                    ),
                     html.P("Filter nodes"),
                     html.Button(
                         'Create Subgraph', 
@@ -134,7 +137,11 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     "animate": False,
                 },
                 stylesheet = default_stylesheet,
-                elements = elements
+                elements = elements,
+                zoom = 1,
+                pan = {"x": 0, "y": 0},
+                minZoom = 0.1,
+                maxZoom = 10
             ),
         ]
     )
@@ -167,9 +174,9 @@ def interactive_graph(app, original_elements, edges, auto_download):
     def generate_stylesheet(nodes, layout):
         if not nodes: # No input or resetting
             return default_stylesheet
-        # hHow both incoming and outgoing containment (different from subgraph neighbourhood)
+        # show both incoming and outgoing containment (different from subgraph neighbourhood)
         # TODO use same neighbourhood definition?
-        context = find_context([node["id"] for node in nodes], edges)
+        context, _ = find_context(set([node["id"] for node in nodes]), edges)
         return selection_stylesheet(context, layout["name"])
     # Download image
     @app.callback(
@@ -182,7 +189,6 @@ def interactive_graph(app, original_elements, edges, auto_download):
         shutdown = 1 if auto_download else None # Shutdown after download
         return [{'type': type, 'action': 'download', 'filename': name}, None, shutdown]
     # Shutdown server
-    # @app.server.route('/shutdown', methods=['POST'])
     @app.callback(
         Output("dummy", "n_clicks"), # No output
         Input("shutdown", "n_clicks"))
@@ -202,7 +208,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             # TODO fix resetting from filter
             return [original_elements, None]
         # Only shows incoming containments in subgraph
-        context = find_context([node["id"] for node in nodes], edges, directional=True)
+        context, _ = find_context(set([node["id"] for node in nodes]), edges, directional=True)
         # Translate to elements
         selected_elements = []
         for element in original_elements:
