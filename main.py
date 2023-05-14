@@ -370,8 +370,9 @@ def main(text, visual, select, interactive, phased, unphased, detail, download):
         variants_relevance = relevance(select[0], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
         # Mark the star-allele calling
         # TODO handle unphased
-        # TODO handle sorting to only show one of the two alleles
-        marked_calling = calling[select[0].split('_')[0]][select[0].split('_')[1]]
+        marked_calling = None
+        if select[0].split('_')[1] in "AB":
+            marked_calling = calling[select[0].split('_')[0]][select[0].split('_')[1]]
         # Find extend context (including core alleles)
         nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True, directional=True)
         # TODO taxi edges?
