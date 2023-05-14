@@ -22,25 +22,23 @@ def find_context(nodes, edges, directional=False, extended=False, depth=0):
                 context_nodes |= deeper_nodes
                 context_edges |= deeper_edges
     for node in nodes:
-        found = False
         # Find some edges
         for s, t, d in edges:
             if s != node and t != node:
                 continue
-            # Don't add connected samples
-            if directional and t not in nodes and sort_types(t) == 4 or \
-                    directional and s not in nodes and sort_types(s) == 4:
-                continue
-            # Only add incoming directional edges for containment
-            if directional and s == node and d == va.Relation.IS_CONTAINED: 
-                continue
+            if directional:
+                # Don't add connected samples
+                if t not in nodes and sort_types(t) == 4 or \
+                        s not in nodes and sort_types(s) == 4:
+                    continue
+                # Only add incoming directional edges for containment
+                if s == node and d == va.Relation.IS_CONTAINED: 
+                    continue
             # Store edge
             context_edges.add((s, t, d))
             # Add node and extend if needed
             add_and_extend(s, context_nodes, context_edges, extended, depth)
             add_and_extend(t, context_nodes, context_edges, extended, depth)
-            found = True
-        if not found: warnings.warn(f"Node {node} not found in edges.")
     # Return nodes and the edges that have the nodes
     return context_nodes, context_edges
 

@@ -2,6 +2,7 @@
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
 selection_color = '#1E88E5' # Light blue 600
 adj_color = "#4FC3F7" # Light blue 300
+calling_color = "#ff8a65" # deep orange 300
 
 default_stylesheet = []
 # General style of types
@@ -13,14 +14,13 @@ default_stylesheet.append({
         "text-valign": "center",
         "text-halign": "center",
         "color": "white",
+        "font-family": "times new roman",
     }
 })
 default_stylesheet.append({
     'selector': 'edge',
     'style': {
         'curve-style': 'bezier' 
-        # 'curve-style': 'taxi',
-        # 'taxi-direction': "vertical"
     }
 })
 default_stylesheet.append({
@@ -45,6 +45,12 @@ default_stylesheet.append({
         "width": "25px",
         "height": "25px",
         "shape": "ellipse"
+    }
+})
+default_stylesheet.append({
+    "selector": ".called",
+    "style": {
+        "background-color": calling_color,
     }
 })
 default_stylesheet.append({
@@ -192,8 +198,5 @@ def selection_stylesheet(nodes, layout):
                     'z-index': 5000
                 }
             }
-            if layout == 'dagre':
-                style['style']['curve-style'] = 'taxi'
-                style['style']['taxi-direction'] = "vertical"
             stylesheet.append(style)
     return stylesheet

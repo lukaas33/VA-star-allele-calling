@@ -235,7 +235,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -252,15 +252,21 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # Convert to proper format for cytoscape
     elements = []
     for i, node in enumerate(nodes):
+        if sort_types(node) in (3,5):
+            continue
         # TODO use enum or classes
         function, impact, severity = None, None, None, 
         relevant = True
         if sort_types(node) == 1: # Core allele
             category = "core"
+            if marked_calling and node in marked_calling:
+                category += " called"
             label = "*" + node.split("*")[1]
             function = functions[node]
         elif sort_types(node) == 2: # Suballele
             category = "sub"
+            if marked_calling and node in marked_calling:
+                category += " called"
             label = "*" + node.split("*")[1]
             function = functions[node]
         elif sort_types(node) == 3: # PharmVar variant
@@ -282,22 +288,24 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             "data": {
                 "id": node, 
                 "label": label,
-                "data": data[node] if node in data else None,
                 # TODO don't store all fields of data
                 "function": function,
                 "impact": impact,
                 "severity": severity,
-                "relevant": relevant 
+                "relevant": relevant,
+                "data": data[node] if node in data else None,
             },
             "classes": category,
         }
         if positions is not None: element["position"] = positions[i]
         elements.append(element)
-    for node, other, relation in edges:
+    for source, target, relation in edges:
+        if sort_types(source) in (3,5) or sort_types(target) in (3,5):
+            continue
         element = {
             "data": {
-                "source": node,
-                "target": other,
+                "source": source,
+                "target": target,
             },
             "classes": relation.name
         }

@@ -366,10 +366,13 @@ def main(text, visual, select, interactive, phased, unphased, detail):
             raise Exception("Only one sample can be selected for visualisation")
         # Check the relevance of the extra variant
         variants_relevance = relevance(select[0], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
-        nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True)
+        # Mark the star-allele calling
+        # TODO handle unphased
+        marked_calling = calling[select[0].split('_')[0]][select[0].split('_')[1]]
+        # Find extend context (including core alleles)
+        nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True, directional=True)
         # TODO taxi edges?
-        print(variants_relevance)
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0], relevance=variants_relevance, marked_calling=marked_calling)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
