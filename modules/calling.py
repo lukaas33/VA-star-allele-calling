@@ -226,8 +226,6 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
     """
     def move_alleles(calling):
         """Move alleles to other phase"""
-        # Don't move
-        yield copy.deepcopy(calling)
         # Move
         for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
             # Don't move last since this would result in a duplicate (X/Y = Y/X)
@@ -242,6 +240,9 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
                     moved_calling['A'][i] -= set(move)
                     moved_calling['B'][i] |= set(move)
                     yield moved_calling
+        # Don't move
+        # Last since this notation is not preferred
+        yield copy.deepcopy(calling)
     # Alternatives from moving at this depth
     for alternative in move_alleles(copy.deepcopy(calling)):
         # print(depth, alternative)
@@ -364,8 +365,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in sep_callings.items():
             # if sample != "NA12813": continue # TODO fix this case
             # if sample != "NA12815": continue 
-            # if sample != "HG00421": continue
-            if sample != "HG00337": continue
+            if sample != "HG00421": continue
+            # if sample != "HG00337": continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
@@ -378,6 +379,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # TODO Select preferred alternative
             preferred = None # Using split method, *1/*x+... or *x/*y
             unique_repr = set()
+            print(sample)
             for alternative in alternatives:
                 if not valid_calling(alternative, cont_graph, homozygous): continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
@@ -385,16 +387,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 repr_str = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
                 if repr_str in unique_repr: continue
                 unique_repr.add(repr_str)
-                print(f"{sample}: {repr_str}")
-                preferred = alternative
-                # if preferred is None: preferred = alternative
-                # if len(representation['A']) == len(representation['B']) == 1:
-                #     preferred = alternative
-                #     break
+                print(f"{repr_str}")
+                # Prefer first as this is the most specific
+                if preferred is None:
+                    preferred = alternative
             # print(sample, "Preferred:", preferred)
-            print(len(unique_repr), "unique valid representations")
-            print("prefer", preferred)
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
+            print(len(unique_repr), "unique valid representations")
+            print("prefer", f"{'+'.join(representations[sample]['A'])}/{'+'.join(representations[sample]['B'])}")
         return representations
 
 
