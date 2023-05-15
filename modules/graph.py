@@ -331,4 +331,4 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges, auto_download=auto_download)
     # Start webpage
-    app.run_server(debug=True)
+    app.run_server(debug=True, threaded=True)

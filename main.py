@@ -402,7 +402,6 @@ if __name__ == "__main__":
     group_input.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
     group_input.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
     arguments_parser.add_argument('-s', '--select', type=str, nargs='+', default=None, help='Selection of samples to call')
-    # TODO make dependent on text output
     arguments_parser.add_argument('--detail', type=int, default=0, help="Output detail level") 
     arguments_parser.add_argument('--download', action=argparse.BooleanOptionalAction, help="Download image")
     arguments = vars(arguments_parser.parse_args())

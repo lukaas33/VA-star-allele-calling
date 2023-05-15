@@ -212,19 +212,21 @@ def valid_calling(calling, cont_graph, homozygous):
         return True
     return False
 
-def generate_alternative_callings(calling, cont_graph, extended, depth=1):
+def generate_alternative_callings(calling, cont_graph, homozygous, extended, depth=1):
     """Generate alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
     """
-    # TODO check if correct and no duplicates
+    # TODO fix function not returning deterministically
+    # TODO filter by most specific?
     # TODO reduce runtime by not generating all possible callings or not copying
-    # TODO filter out callings that are not valid if this is more efficient (not allowing move in in case of non-homozygous overlap)
     # Need to copy to prevent changing the original calling
     # would not be needed in case of one iteration over this generator
     # All in phase A already a valid answer
     # print(calling)
-    yield copy.deepcopy(calling) 
+    calling = copy.deepcopy(calling)
+    # if valid_calling(calling, cont_graph, homozygous):
+    yield copy.deepcopy(calling)
     for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample
         for allele in list(alleles): # Maintain relation strength rank
             calling['A'][i].remove(allele)
@@ -240,17 +242,16 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
                 # Allele must be present since it is possible it exists with its suballeles
                 deeper_matches.add(allele)
                 # Partial extension in case only some are contained in the calling
+                # Can only extend with self and children or children
                 # TODO is this correct?
-                for r in range(1, len(deeper_matches)+1):
+                for r in range(1, len(deeper_matches)):
                     for extend in combinations(deeper_matches, r=r): 
-                        extend = set(extend)
-                        if extend == {allele,}: continue # Same as current level
                         deeper_calling = copy.deepcopy(calling)
-                        deeper_calling['A'][i] |= extend
+                        deeper_calling['A'][i] |= set(extend)
                         # print(depth, allele, "extend with", extend)
                         # Recurse with extended alleles
-                        # Track which alleles have been extended to infinite recursion
-                        for alternative in generate_alternative_callings(deeper_calling, cont_graph, extended | {allele,}, depth+1):
+                        # Track which alleles have been extended to avoid infinite recursion
+                        for alternative in generate_alternative_callings(deeper_calling, cont_graph, homozygous, extended | {allele,}, depth+1):
                             yield alternative
             # Move alleles to other phase
             if len(calling['A'][i]) == 0: continue # Don't move since this would result in a duplicate (X/Y = Y/X)
@@ -259,6 +260,7 @@ def generate_alternative_callings(calling, cont_graph, extended, depth=1):
             # print(depth, "move", allele, "to B:", calling)
             # Also a valid answer
             # print(calling)
+            # if valid_calling(calling, cont_graph, homozygous):
             yield copy.deepcopy(calling)
 
 
@@ -282,32 +284,37 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         representations = {}
         # TODO move this to a filtered alternatives function
         # TODO allow for keeping multiple alternative representations
-        # TODO filter by most specific?
         for sample, calling in sep_callings.items():
+            # if sample != "NA12813": continue # TODO fix this case
+            if sample != "HG00421": continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
                 continue
-            # Generate alternative callings
-            alternatives = generate_alternative_callings(calling, cont_graph, set())
-            # TODO ordering
             # All homozygous alleles for the current sample
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
+            # Generate valid alternative callings
+            # TODO ordering
+            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, set())
+            # TODO Select preferred alternative
             preferred = None # Using split method, *1/*x+... or *x/*y
+            unique_repr = set()
             for alternative in alternatives:
-                # Filter out non valid callings
-                # TODO filter earlier at generation 
-                if not valid_calling(alternative, cont_graph, homozygous):
-                    continue
-                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1), reorder=reorder)
-                # print(f"{sample}: {'+'.join(representation['A'])}/{'+'.join(representation['B'])}")
-                # TODO Select preferred alternative
+                if not valid_calling(alternative, cont_graph, homozygous): continue
+                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
+                # Check if this representation is unique TODO do at generation? TODO use detail level
+                repr_str = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
+                if repr_str in unique_repr: continue
+                unique_repr.add(repr_str)
+                print(f"{sample}: {repr_str}")
                 preferred = alternative
                 # if preferred is None: preferred = alternative
                 # if len(representation['A']) == len(representation['B']) == 1:
                 #     preferred = alternative
                 #     break
             # print(sample, "Preferred:", preferred)
+            print(len(unique_repr), "unique representations")
+            print("prefer", preferred)
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
         return representations
 
@@ -454,7 +461,7 @@ def detail_from_level(level):
     kwargs["default"] = level == 4
     return kwargs
 
-def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder):
+def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder=True):
     """Change the calling to a representation of a certain amount of detail.
     
     Each calling contains all direct matches which can be suballeles or core alleles.
