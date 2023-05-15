@@ -225,6 +225,7 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
     # would not be needed in case of one iteration over this generator
     calling = copy.deepcopy(calling)
     # All in phase A already a valid answer
+    # print(calling)
     yield copy.deepcopy(calling)
     # Find contained alleles of this allele
     allele_to_extend = None
@@ -262,13 +263,13 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
                     yield alternative
                 # Recurse with extended allele
                 # Track which alleles have been extended to avoid infinite recursion
-                new_extended = extended | {allele_to_extend,}
-                deeper_calling['A'][i].add(allele_to_extend) 
-                for alternative in generate_alternative_callings(deeper_calling, cont_graph, homozygous, new_extended, depth+1):
-                    yield alternative
-        # Recurse without doing anything
-        for alternative in generate_alternative_callings(calling, cont_graph, homozygous, extended | {allele_to_extend,}, depth+1):
-            yield alternative
+                # new_extended = extended | {allele_to_extend,}
+                # deeper_calling['A'][i].add(allele_to_extend) 
+                # for alternative in generate_alternative_callings(deeper_calling, cont_graph, homozygous, new_extended, depth+1):
+                #     yield alternative
+        # # Recurse without doing anything
+        # for alternative in generate_alternative_callings(calling, cont_graph, homozygous, extended | {allele_to_extend,}, depth+1):
+        #     yield alternative
     # Move alleles to other phase
     for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample
         for allele in list(alleles): # Maintain relation strength rank
@@ -277,8 +278,10 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
             if len(calling['A'][i]) == 0: 
                 continue # Don't move since this would result in a duplicate (X/Y = Y/X)
             while len(calling['B']) < len(calling['A']): calling['B'].insert(0, set()) # Make B the same length as A
+            # print(depth, "move", allele, "from A to B")
             calling['B'][i].add(allele)
             # Also a valid answer
+            # print(calling)
             yield copy.deepcopy(calling)
 
 
