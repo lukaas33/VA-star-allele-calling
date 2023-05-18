@@ -1,14 +1,19 @@
-def image_reduction_transitive(relations):
-    img_sel = ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147")
-    positions = ((0, 0), (0, 100), (100, 100))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+image_configs = {}
+
+image_configs["reduction_transitive"] = {
+    "selection": ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147"),
+    "positions": ((0, 0), (0, 100), (100, 100))
+}
+    # img_sel = ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147")
+    # positions = ((0, 0), (0, 100), (100, 100))
+    # edges = set()
+    # for edge in relations:
+    #     if edge[0] == edge[1]:
+    #         continue
+    #     if edge[0] not in img_sel or edge[1] not in img_sel:
+    #         continue
+    #     edges.add(edge)
+    # return img_sel, edges, positions
 
 def image_reduction_symmetric(relations):
     img_sel = ("CYP2D6*115", "CYP2D6*109")

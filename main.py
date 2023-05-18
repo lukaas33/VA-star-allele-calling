@@ -9,7 +9,7 @@ from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, sort_types, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
-from modules.assets.generate_images import *
+from modules.assets.generate_images import image_configs
 import algebra as va
 
 # TODO move checks to own file
@@ -388,9 +388,16 @@ def main(text, visual, select, interactive, phased, unphased, detail, download):
         display_graph(nodes, edges, data, functions)
 
     # VISUALISATION 3: Generate images for report
-    # TODO automate more
-    # nodes, edges, positions = image_reduction_equivalence(relations_extended)
-    # display_graph(nodes, edges, data, functions positions=positions, default_layout="preset")
+    for name, config in image_configs.items():
+        # TODO allow for multiple
+        nodes = config["selection"]
+        edges = [] # TODO allow for edge selection
+        for s, t, r in pruned_extended[1]:
+            if s not in nodes or t not in nodes:
+                continue
+            edges.append((s, t, r))
+        positions = config["positions"]
+        display_graph(nodes, edges, data, functions, default_layout="preset", positions=positions, auto_download=name)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')

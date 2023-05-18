@@ -138,8 +138,8 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                 },
                 stylesheet = default_stylesheet,
                 elements = elements,
-                zoom = 1,
-                pan = {"x": 0, "y": 0},
+                # zoom = 1,
+                # pan = {"x": 0, "y": 0},
                 minZoom = 0.1,
                 maxZoom = 10
             ),
@@ -297,7 +297,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             },
             "classes": category,
         }
-        if positions is not None: element["position"] = positions[i]
+        if positions is not None: element["position"] = {"x": positions[i][0], "y": positions[i][1]}
         elements.append(element)
     # Treat group as single node
     if group_variants is not None and len(group_variants) > 0: 
