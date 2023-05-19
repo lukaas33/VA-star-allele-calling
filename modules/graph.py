@@ -131,15 +131,15 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                 },
                 layout={
                     "name": default_layout,
-                    "fit": default_layout != 'preset',
+                    # "fit": default_layout != 'preset',
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
                 },
                 stylesheet = default_stylesheet,
                 elements = elements,
-                # zoom = 1,
-                # pan = {"x": 0, "y": 0},
+                zoom = 1,
+                pan = {"x": 0, "y": 0},
                 minZoom = 0.1,
                 maxZoom = 10
             ),

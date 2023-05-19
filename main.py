@@ -202,7 +202,7 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
-def main(text, visual, select, interactive, phased, unphased, detail, download):
+def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
@@ -388,16 +388,20 @@ def main(text, visual, select, interactive, phased, unphased, detail, download):
         display_graph(nodes, edges, data, functions)
 
     # VISUALISATION 3: Generate images for report
-    for name, config in image_configs.items():
+    if example:
+        config = image_configs[example]
         # TODO allow for multiple
         nodes = config["selection"]
-        edges = [] # TODO allow for edge selection
-        for s, t, r in pruned_extended[1]:
-            if s not in nodes or t not in nodes:
-                continue
-            edges.append((s, t, r))
         positions = config["positions"]
-        display_graph(nodes, edges, data, functions, default_layout="preset", positions=positions, auto_download=name)
+        if "edges" in config:
+            edges = config["edges"]
+        else:
+            edges = [] # TODO allow for edge selection
+            for s, t, r in pruned_extended[1]:
+                if s not in nodes or t not in nodes:
+                    continue
+                edges.append((s, t, r))
+        display_graph(nodes, edges, data, functions, default_layout="preset", positions=positions, auto_download=example)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')
@@ -405,6 +409,7 @@ if __name__ == "__main__":
     group_output.add_argument('-v', '--visual', action=argparse.BooleanOptionalAction, help="Output calling as image")
     group_output.add_argument('-i', '--interactive', action=argparse.BooleanOptionalAction, help="Run an interactive visualisation")
     group_output.add_argument('-t', '--text', action=argparse.BooleanOptionalAction, help="Output calling as text") 
+    group_output.add_argument('-e', '--example', type=str, help="Output specific example image") 
     group_input = arguments_parser.add_mutually_exclusive_group()
     group_input.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
     group_input.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
