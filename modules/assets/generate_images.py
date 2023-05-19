@@ -68,7 +68,7 @@ image_configs["node-suballele"] = {
     "edges": []
 } 
 image_configs["node-variant"] = {
-    "selection": ("NC_000022.11:g.42130559>G",),
+    "selection": ("NC_000022.11:g.42126611C>G",),
     "edges": []
 } 
 image_configs["node-input"] = {

@@ -41,7 +41,7 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".sub",
     "style": {
-        "font-size": "5px",
+        "font-size": "10px",
         "width": "35px",
         "height": "35px",
         "shape": "ellipse"

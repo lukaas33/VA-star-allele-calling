@@ -392,7 +392,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         config = image_configs[example]
         # TODO allow for multiple
         nodes = config["selection"]
-        positions = config["positions"]
+        if "positions" in config:
+            positions = config["positions"]
+        else:
+            positions = None
         if "edges" in config:
             edges = config["edges"]
         else:
