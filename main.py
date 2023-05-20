@@ -376,7 +376,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         # Find extend context (including core alleles)
         nodes, edges = find_context(set(select), pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select[0] if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys())
+        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select[0] if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys(), sample=select[0])
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:

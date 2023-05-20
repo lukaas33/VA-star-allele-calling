@@ -73,8 +73,8 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".variant.group",
     "style": {
-        "width": "125px",
-        "text-max-width": "120px",
+        "width": "120px",
+        "text-max-width": "110px",
         "height": "60px",
         "text-wrap": "wrap",
     }

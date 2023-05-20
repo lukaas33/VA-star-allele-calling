@@ -50,7 +50,7 @@ def plot_counts(elements):
     figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Amount of alleles and variants")
     return figure
 
-def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
+def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=None):
     """Returns the layout for the Dash graph"""
     layouts = list(set(['grid', 'random', 'circle', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", "euler", "klay", default_layout]))
     layouts.sort()
@@ -135,6 +135,9 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
+                    "spacingFactor": 0.75,
+                    "roots": [sample] if sample is not None else None,
+                    "depthSort": None
                 },
                 stylesheet = default_stylesheet,
                 elements = elements,
@@ -235,7 +238,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None, sample=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -337,7 +340,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     cyto.load_extra_layouts()
     app = Dash(__name__)
     # Show graph
-    app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout) 
+    app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout, sample=sample) 
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges, auto_download=auto_download)
     # Start webpage
