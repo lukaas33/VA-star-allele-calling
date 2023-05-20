@@ -33,9 +33,9 @@ default_stylesheet.append({
     "selector": ".core",
     "style": {
         "font-size": "15px",
-        "width": "40px",
-        "height": "40px",
-        "shape": "ellipse"
+        "width": "45px",
+        "height": "45px",
+        "shape": "ellipse",
     }
  })
 default_stylesheet.append({
@@ -56,18 +56,27 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".variant",
     "style": {
-        "font-size": "3px",
-        "width": "30px", 
-        "height": "10px",
+        "font-size": "5px",
+        "width": "40px", 
+        "height": "15px",
         "shape": "round-rectangle",
         "text-wrap": "ellipsis",
-        "text-max-width": "25px"
+        "text-max-width": "35px"
     }   
 })
 default_stylesheet.append({
     "selector": ".variant.observed",
     "style": {
         "shape": "hexagon",
+    }
+})
+default_stylesheet.append({
+    "selector": ".variant.group",
+    "style": {
+        "width": "125px",
+        "text-max-width": "120px",
+        "height": "45px",
+        "text-wrap": "wrap",
     }
 })
 default_stylesheet.append({

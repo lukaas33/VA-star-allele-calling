@@ -164,9 +164,9 @@ def interactive_graph(app, original_elements, edges, auto_download):
         Output('data', 'children'), 
         Input('graph', 'selectedNodeData'))
     def displayTapNodeData(data):
-        if not data or "data" not in data:
+        if not data:
             return no_update
-        return json.dumps(data["data"], indent=2)
+        return json.dumps(data, indent=2)
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -253,8 +253,9 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # Convert to proper format for cytoscape
     elements = []
     # Add nodes
+    to_group = []
     for i, node in enumerate(nodes):
-        function, impact, severity, parent = None, None, None, None
+        function, impact, severity = None, None, None
         relevant = True
         if sort_types(node) in (1, 2):
             function = functions[node]
@@ -270,8 +271,6 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             category = "variant"
             # Show relevance to calling
             relevant = relevance[node] if relevance is not None and node in relevance else True
-            # Group variants
-            parent = 'variants' if group_variants is not None and node in group_variants else None 
             if sort_types(node) == 3: # PharmVar variant
                 label = node.split(':')[1].split('.')[1]
                 impact = functions[node]
@@ -293,25 +292,35 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 "impact": impact,
                 "severity": severity,
                 "relevant": relevant,
-                "parent": parent,
                 "data": data[node] if node in data else None,
             },
             "classes": category,
         }
         if positions is not None: element["position"] = {"x": positions[i][0], "y": positions[i][1]}
+        if group_variants is not None and node in group_variants:
+            to_group.append(element)
+            continue
         elements.append(element)
-    # Treat group as single node
-    if group_variants is not None and len(group_variants) > 0: 
-        elements.append({"data": {"id": "variants"}})
+    # Treat group as single node with aggregated data
+    if len(to_group) > 0:
+        elements.append({
+            "data": {
+                "id": "extra-variants",
+                "label": "; ".join([element["data"]["label"] for element in to_group]),
+                "severity": max([element["data"]["severity"] for element in to_group if element is not None]),
+                "relevant": any([element["data"]["relevant"] for element in to_group if element is not None]),
+            },
+            "classes": "variant group"
+        })
         # Attach edges to some in group to group
         # TODO only attach edges to all?
         for source, target, relation in list(edges):
             if source in group_variants: 
                 edges.remove((source, target, relation))
-                edges.add(("variants", target, relation))
+                edges.add(("extra-variants", target, relation))
             if target in group_variants:
                 edges.remove((source, target, relation))
-                edges.add((source, "variants", relation))
+                edges.add((source, "extra-variants", relation))
     # Add edges
     for source, target, relation in edges:
         element = {
