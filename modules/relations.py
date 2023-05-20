@@ -7,12 +7,53 @@ from itertools import combinations
 
 # TODO use consistent datastructure with OOP
 
-def find_context(nodes, edges, directional=False, extended=False, depth=0):
+def find_context(nodes, edges, directional=False, extend=False, extended=None, depth=0):
     """Find the context (connected nodes) for a given set of nodes based on an edge list."""
-    # TODO do this based on a networkx graph
-    context_edges = set()
+    # TODO show some information of indirect matches?
+    # TODO make graph the input
+    eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
+    cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
+    overlap_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
+    graphs = {
+        va.Relation.EQUIVALENT: eq_graph,
+        va.Relation.IS_CONTAINED: cont_graph,
+        va.Relation.OVERLAP: overlap_graph
+    }
     context_nodes = set()
     context_nodes |= nodes
+    context_edges = set()
+    # if depth == 2:
+    #     return context_nodes, context_edges
+    for node in nodes:	
+        neighbour_nodes = set()
+        for rel, graph in graphs.items():
+            if node not in graph.nodes():
+                continue
+            if rel == va.Relation.IS_CONTAINED:
+                for neighbour, _ in graph.in_edges(node):
+                    if extend and neighbour in extended or sort_types(neighbour) == 4:
+                        continue
+                    neighbour_nodes.add(neighbour)
+                    context_edges.add((neighbour, node, rel))
+                if directional: # Single direction of containment
+                    continue
+            for neighbour in graph[node]:
+                if extend and neighbour in extended or sort_types(neighbour) == 4:
+                    continue
+                neighbour_nodes.add(neighbour)
+                context_edges.add((node, neighbour, rel))
+        context_nodes |= neighbour_nodes
+        # Extend suballeles
+        if extend:
+            for neighbour in neighbour_nodes:
+                if sort_types(neighbour) not in (1, 2):
+                    continue
+                extended.add(neighbour)
+                extended_nodes, extended_edges = find_context({neighbour,}, edges, directional, sort_types(neighbour) == 2, extended, depth+1)
+                context_nodes |= extended_nodes
+                context_edges |= extended_edges
+    return context_nodes, context_edges
+
     def add_and_extend(node, context_nodes, context_edges, extended, depth):
         if node not in context_nodes:
             context_nodes.add(node)

@@ -129,7 +129,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
                     "height": "100vh",
                     "width": "80vw"
                 },
-                layout={
+                layout = {
                     "name": default_layout,
                     # "fit": default_layout != 'preset',
                     "nodeDimensionsIncludeLabels": True,

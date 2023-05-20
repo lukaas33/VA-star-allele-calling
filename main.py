@@ -374,9 +374,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         if select[0].split('_')[1] in "AB":
             marked_calling = calling[select[0].split('_')[0]][select[0].split('_')[1]]
         # Find extend context (including core alleles)
-        nodes, edges = find_context(set(select), pruned_samples_extended[1], extended=True, directional=True)
+        nodes, edges = find_context(set(select), pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select[0] if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys())
+        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select[0] if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys())
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
