@@ -1,5 +1,6 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
+default_color = '#455A64' # Blue gray 700
 selection_color = '#1E88E5' # Light blue 600
 adj_color = "#4FC3F7" # Light blue 300
 calling_color = "#ff8a65" # deep orange 300
@@ -10,11 +11,13 @@ default_stylesheet.append({
     'selector': 'node',
     'style': {
         'content': 'data(label)',
-        'background-color': '#455A64', # Blue gray 700
+        'background-color': default_color, 
         "text-valign": "center",
         "text-halign": "center",
         "color": "white",
         "font-family": "times new roman",
+        "border-width": "2px",
+        "border-color": default_color
     }
 })
 default_stylesheet.append({
@@ -27,6 +30,13 @@ default_stylesheet.append({
     "selector": "node:selected",
     "style": {
         "background-color": selection_color,
+    }
+})
+default_stylesheet.append({
+    "selector": "node[?homozygous]",
+    "style": {
+        "border-style": "double",
+        "border-width": "6px",
     }
 })
 default_stylesheet.append({
@@ -77,6 +87,7 @@ default_stylesheet.append({
         "text-max-width": "110px",
         "height": "60px",
         "text-wrap": "wrap",
+        "text-justification": "left",
     }
 })
 default_stylesheet.append({
@@ -149,7 +160,6 @@ for function, colour in function_colours:
     default_stylesheet.append({
         "selector": f"node[function = '{function}']",
         "style": {
-            "border-width": 2,
             "border-color": colour,
         }
     })
@@ -165,7 +175,6 @@ for severity, colour in impact_colours:
     default_stylesheet.append({
         "selector": f"node[severity = {severity}]",
         "style": {
-            "border-width": 1,
             "border-color": colour,
         }
     })

@@ -22,8 +22,7 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
     context_nodes = set()
     context_nodes |= nodes
     context_edges = set()
-    # if depth == 2:
-    #     return context_nodes, context_edges
+
     for node in nodes:	
         neighbour_nodes = set()
         for rel, graph in graphs.items():
@@ -54,56 +53,6 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
                 context_edges |= extended_edges
     return context_nodes, context_edges
 
-    def add_and_extend(node, context_nodes, context_edges, extended, depth):
-        if node not in context_nodes:
-            context_nodes.add(node)
-            if extended and sort_types(node) == 2:
-                # Extend directionally until core alleles
-                deeper_nodes, deeper_edges = find_context(context_nodes, edges, True, True, depth+1)
-                context_nodes |= deeper_nodes
-                context_edges |= deeper_edges
-    for node in nodes:
-        # Find some edges
-        for s, t, d in edges:
-            if s != node and t != node:
-                continue
-            if directional:
-                # Don't add connected samples
-                if t not in nodes and sort_types(t) == 4 or \
-                        s not in nodes and sort_types(s) == 4:
-                    continue
-                # Only add incoming directional edges for containment
-                if s == node and d == va.Relation.IS_CONTAINED: 
-                    continue
-            # Store edge
-            context_edges.add((s, t, d))
-            # Add node and extend if needed
-            add_and_extend(s, context_nodes, context_edges, extended, depth)
-            add_and_extend(t, context_nodes, context_edges, extended, depth)
-    # Return nodes and the edges that have the nodes
-    return context_nodes, context_edges
-
-def has_common_ancestor(graph, node1, node2):
-    """Check if two nodes have a common ancestor in a directed graph."""
-    raise DeprecationWarning("Now using nx function directly.")
-    if node1 not in graph.nodes() or node2 not in graph.nodes():
-        return False
-    # Do a parallel BFS on the directed graph and check if both have a node as a child
-    # TODO possible to not do a complete BFS the first time?
-    # TODO use networkx ancestors
-    visited = {node: [False, False] for node in graph.nodes()}
-    for i, start_node in enumerate((node1, node2)):
-        queue = [start_node]
-        while len(queue) > 0:
-            current = queue.pop(0) # next node
-            if visited[current][i]: # Already visited from this start node
-                continue
-            visited[current][i] = True
-            if all(visited[current]): # Visited from both start nodes
-                return True
-            for neighbour in graph[current]:
-                queue.append(neighbour)
-    return False
 
 def redundant_reflexive(graph):
     """Returns redundant reflexive relations"""

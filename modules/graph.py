@@ -135,7 +135,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=N
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
-                    "spacingFactor": 0.75,
+                    "spacingFactor": 0.6,
                     "roots": [sample] if sample is not None else None,
                     "depthSort": None
                 },
@@ -238,7 +238,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None, sample=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None, sample=None, homozygous=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -295,6 +295,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 "impact": impact,
                 "severity": severity,
                 "relevant": relevant,
+                "homozygous": node in homozygous if homozygous is not None else False,
                 "data": data[node] if node in data else None,
             },
             "classes": category,
