@@ -6,7 +6,7 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, sort_types, impact_position, relevance
+from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
 from modules.utils import validate_relations, validate_calling, make_samples_unphased
 from modules.assets.generate_images import image_configs
@@ -107,7 +107,7 @@ def test_central_personal_variants(personal_variants, relations):
                 continue
             if left != personal_variant: # Data contains two directions
                 continue
-            if sort_types(right) != 4: 
+            if find_type(right) != Type.SAMPLE: 
                 # warnings.warn(f"{left} has relation {relation.name} with {right} which is not a sample")
                 continue
             if relation != va.Relation.IS_CONTAINED:
@@ -282,7 +282,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 # Filter out variants that are in the database (not personal)
                 # Relations with these variants will show up later
                 for v in supremal_extended:
-                    if sort_types(v) != 3:
+                    if find_type(v) != Type.VAR:
                         continue
                     rel = va.relations.supremal_based.compare(reference_sequence, supremal_v, supremal_extended[v])
                     if rel == va.Relation.EQUIVALENT: # Not personal
@@ -293,8 +293,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         cache_set(supremal_samples, "supremal_samples")
 
     # Split into personal variants and samples
-    personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
-    samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
+    personal_variants = {variant: value for variant, value in supremal_samples.items() if find_type(variant) == Type.P_VAR} 
+    samples = {sample: value for sample, value in supremal_samples.items() if find_type(sample) == Type.SAMPLE} 
 
     # TEST 4: check if more information can be found about personal variants.
     ids |= get_personal_ids(personal_variants, reference, cache_name="ids_personal")
@@ -361,7 +361,6 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         # TEST 7: validate calling
         validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
-
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
         if type(select) != list or len(select) != 1: # TODO handle multiple?
@@ -387,9 +386,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         # TODO include relevance?
-        edges = pruned_extended[1]
+        edges = pruned_simple[1] # TODO use extended
         if type(select) == list:
-            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
+            edges.extend(find_context(set(select), pruned_samples_simple[1])[1])
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 

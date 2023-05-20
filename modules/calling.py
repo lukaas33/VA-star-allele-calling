@@ -6,8 +6,10 @@ from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, sev
 import re
 import copy
 from itertools import combinations
+from enum import IntEnum
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
+
 def sort_function(f):
     """Sort function annotation based on severity."""
     raise DeprecationWarning("This function is redundant now")
@@ -21,20 +23,28 @@ def sort_function(f):
         return 0 
     return functions.index(f) + 1
 
-def sort_types(v):
-    """Sort variant types in order of specificity (somewhat arbitrary)."""
-    # TODO use enums or types for the data
+class Type(IntEnum):
+    """ Enum for variant types, sorted by relevance. """
+    CORE = 1 # Core allele
+    SUB = 2 # Suballele
+    VAR = 3 # PharmVar variant
+    P_VAR = 4 # Personal variant
+    SAMPLE = 5 # Input sample
+
+def find_type(v):
+    """ Find type of variant. """
+    # TODO use datatypes instead of strings
     if '*' in v:
         if '.' in v:
-            return 2 # Suballele
+            return Type.SUB # Suballele
         else:
-            return 1 # Core allele
+            return Type.CORE # Core allele
     elif v[:2] in ('HG', 'NA'):
-        return 4 # Sample
+        return Type.SAMPLE # Sample
     else:
         if ':' in v:
-            return 3 # Variant
-        return 5 # Personal variant
+            return Type.VAR # Variant
+        return Type.P_VAR # Personal variant
     
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
@@ -127,20 +137,20 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     matches = []
     # Find equivalent allele if present
     if sample in eq_graph.nodes():
-        m_eq = set([match for match in eq_graph[sample] if sort_types(match) in (1, 2)])
+        m_eq = set([m for m in eq_graph[sample] if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
             raise Exception(f"{sample}: multiple equivalent matches found: {matches['equivalent']}.")
         if len(m_eq) == 1: 
             matches.append(m_eq) # Strongest match
     # Find directly contained alleles
     if sample in cont_graph.nodes():
-        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if sort_types(m) in (1, 2)])
+        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_cont) > 0: 
             matches.append(m_cont) # Less strong match than equivalent
     # Find directly overlapping alleles
     # not looking at overlaps that are a result of contained alleles
     if sample in overlap_graph.nodes():
-        m_ov = set([m for m in overlap_graph[sample] if sort_types(m) in (1, 2)])
+        m_ov = set([m for m in overlap_graph[sample] if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_ov) > 0: 
             if len(matches) > 0:
                 # Overlap can be treated the same since there are no occurrences
@@ -197,14 +207,14 @@ def valid_calling(calling, cont_graph, homozygous):
                 if allele not in cont_graph.nodes():
                     continue
                 for ancestor in nx.ancestors(cont_graph, allele): # All alleles that are contained in this allele
-                    if sort_types(ancestor) in (1, 2):
+                    if find_type(ancestor) in (Type.CORE, Type.SUB):
                         ancestors[phase].add(ancestor)
     hom_ancestors = homozygous
     for allele in list(homozygous):
         if allele not in cont_graph.nodes():
             continue
         for ancestor in nx.ancestors(cont_graph, allele):
-            if sort_types(ancestor) in (1, 2):
+            if find_type(ancestor) in (Type.CORE, Type.SUB):
                 hom_ancestors.add(ancestor)
     # If this calling is valid the overlap between the ancestors of both phases should be equal to the ancestors of the homozygous alleles
     overlap = ancestors['A'] & ancestors['B']
@@ -251,7 +261,7 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
     for i, alleles in enumerate(calling['A'][:-1]):
         for allele in alleles:
             # Avoid infinite recursion
-            # TODO finetune
+            # TODO fine tune
             if allele in extended:
                 continue
             # Find underlying alleles of this allele
@@ -260,7 +270,7 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, dep
             # TODO check overlap graph
             underlying = set()
             for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
-                if sort_types(contained) not in (1, 2): 
+                if find_type(contained) in (Type.CORE, Type.SUB):
                     continue
                 underlying.add(contained)
             if len(underlying) == 0:
@@ -350,9 +360,9 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
 
 def find_core_string(match):
     """Get the core allele from a match string wise."""
-    if sort_types(match) == 1:
+    if find_type(match) == Type.CORE:
         return match
-    elif sort_types(match) == 2:
+    elif find_type(match) == Type.SUB:
         return match[:-4]
     else:
         raise Exception(f"Unexpected match type: {match}")
@@ -367,9 +377,9 @@ def find_core_traversal(match, cont_graph):
     cores = []
     if match in cont_graph.nodes(): # Only have to check contained since everything is connected to the core
         for node, _ in cont_graph.in_edges(match):
-            if sort_types(node) == 1: # Found core contained in match, don't traverse further
+            if find_type(node) == Type.CORE: # Found core contained in match, don't traverse further
                 cores.append(node)
-            elif sort_types(node) == 2: # Traverse further
+            elif find_type(node) == Type.SUB: # Traverse further
                 cores.extend(find_core_traversal(node, cont_graph))
     return cores
 
@@ -446,9 +456,9 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
     # TODO do this on a graph?
     variants = []
     for edge in edges:
-        if edge[0] == sample and sort_types(edge[1]) in (3,5):
+        if edge[0] == sample and find_type(edge[1]) in (Type.VAR, Type.P_VAR):
             variants.append(edge[1])
-        elif edge[1] == sample and sort_types(edge[0]) in (3,5):
+        elif edge[1] == sample and find_type(edge[0]) in (Type.VAR, Type.P_VAR):
             variants.append(edge[0])
     if len(variants) == 0: # No variants found
         return {}
@@ -459,9 +469,9 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
         interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles if allele != "CYP2D6*1"])
         # Find the impact of the variant
         impact = functions[variant]
-        if sort_types(variant) == 5: # Personal variant
+        if find_type(variant) == Type.P_VAR: 
             severity = severity_GO(impact)
-        elif sort_types(variant) == 3: # pharmvar variant
+        elif find_type(variant) == Type.VAR:
             severity = severity_pharmvar(impact)
         if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
             severity = 1
@@ -521,7 +531,7 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
             for match2 in matches[:]:
                 if match1 == match2:
                     continue
-                if sort_types(match2) == 2: # Cores can be contained in subs
+                if find_type(match2) == Type.SUB: # Cores can be contained in subs
                     continue
                 if match2 not in cont_graph.nodes():
                     continue
@@ -535,11 +545,11 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         for alleles in calling[phase]:
             for allele in alleles:
                 # Add detail
-                if find_cores and sort_types(allele) == 2: # Find cores of suballeles
+                if find_cores and find_type(allele) == Type.SUB: # Find cores of suballeles
                     cores = find_core_traversal(allele, cont_graph) # Cores of suballele
                     representation[phase].extend(cores)
                 # Remove detail
-                if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
+                if not suballeles and find_type(allele) == Type.SUB: # Don't represent suballeles
                     continue
                 if not default and allele == "CYP2D6*1": # Don't represent default allele if there are other matches
                     if len(representation[phase]) > 0: # Works since default is always last

@@ -1,8 +1,6 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
 default_color = '#455A64' # Blue gray 700
-selection_color = '#1E88E5' # Light blue 600
-adj_color = "#4FC3F7" # Light blue 300
 calling_color = "#ff8a65" # deep orange 300
 
 default_stylesheet = []
@@ -26,12 +24,12 @@ default_stylesheet.append({
         'curve-style': 'bezier' 
     }
 })
-default_stylesheet.append({
-    "selector": "node:selected",
-    "style": {
-        "background-color": selection_color,
-    }
-})
+# default_stylesheet.append({
+#     "selector": "node:selected",
+#     "style": {
+#         "background-color": selection_color,
+#     }
+# })
 default_stylesheet.append({
     "selector": "node[?homozygous]",
     "style": {
@@ -207,8 +205,7 @@ def selection_stylesheet(nodes, layout):
         stylesheet += [{
             "selector": f"node[id = '{node}']:unselected",
             "style": {
-                'background-color': adj_color,
-                "opacity": 1,
+                "opacity": 0.9,
                 'z-index': 9999
             }
         }]
@@ -217,8 +214,6 @@ def selection_stylesheet(nodes, layout):
             style = {
                 "selector": f"edge[source = '{source}'][target = '{target}']",
                 "style": {
-                    "line-color": adj_color,
-                    'target-arrow-color': adj_color,
                     'opacity': 1,
                     'z-index': 5000
                 }

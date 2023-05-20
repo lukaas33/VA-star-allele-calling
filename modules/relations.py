@@ -1,7 +1,7 @@
 import networkx as nx
 import algebra as va
 from .data import cache_get, cache_set
-from .calling import sort_types
+from .calling import find_type, Type
 import warnings
 from itertools import combinations
 
@@ -30,14 +30,14 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
                 continue
             if rel == va.Relation.IS_CONTAINED:
                 for neighbour, _ in graph.in_edges(node):
-                    if sort_types(neighbour) == 4:
+                    if extend and find_type(neighbour) == Type.SAMPLE:
                         continue
                     neighbour_nodes.add(neighbour)
                     context_edges.add((neighbour, node, rel))
                 if directional: # Single direction of containment
                     continue
             for neighbour in graph[node]:
-                if sort_types(neighbour) == 4:
+                if extend and find_type(neighbour) == Type.SAMPLE:
                     continue
                 neighbour_nodes.add(neighbour)
                 if rel == va.Relation.IS_CONTAINED:
@@ -48,12 +48,12 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
         # Extend suballeles
         if extend:
             for neighbour in neighbour_nodes:
-                if sort_types(neighbour) not in (1, 2):
+                if find_type(neighbour) not in (Type.CORE, Type.SUB):
                     continue
                 if neighbour in extended:
                     continue
                 extended.add(neighbour)
-                extended_nodes, extended_edges = find_context({neighbour,}, edges, directional, sort_types(neighbour) == 2, extended, depth+1)
+                extended_nodes, extended_edges = find_context({neighbour,}, edges, directional, find_type(neighbour) == Type.SUB, extended, depth+1)
                 context_nodes |= extended_nodes
                 context_edges |= extended_edges
     return context_nodes, context_edges
@@ -82,6 +82,7 @@ def redundant_common_ancestor(subgraph_contained, subgraph_overlap, full=False):
             continue
         if ancestors[s] & ancestors[t] != set(): # Overlapping nodes have common ancestor
             to_remove.append((s, t))
+    # to_remove = [(s, t) for s, t in to_remove if find_type(s) != 4 and find_type(t) != 4] # Keep relations with samples
     return to_remove
 
 def redundant_transitive(graph):
@@ -147,6 +148,7 @@ def redundant_most_specific(subgraph_contained, subgraph_overlap):
         #             overlapping.add(adjacent)
         #         else: # Already found, is redundant
         #             to_remove.append((node, adjacent))
+    # to_remove = [(s, t) for s, t in to_remove if find_type(s) != Type.SAMPLE and find_type(t) != Type.SAMPLE] # Keep relations with samples
     return to_remove
 
 def redundant_symmetric(graph):
@@ -168,11 +170,12 @@ def redundant_equivalence(graphs):
             continue
         # Remove duplicate relations
         # Prefer corealleles over suballeles, etc.
-        component = sorted(list(component), key=sort_types)
+        component = sorted(list(component), key=find_type)
         for rel in (va.Relation.EQUIVALENT, va.Relation.IS_CONTAINED, va.Relation.OVERLAP):
             if component[0] not in graphs[rel].nodes():
                 continue
             for other in component[1:]:
+                # TODO keep relations with samples
                 if other not in graphs[rel].nodes():
                     continue
                 graphs[rel] = nx.contracted_nodes(graphs[rel], component[0], other, self_loops=False)

@@ -11,10 +11,11 @@ from .utils import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
 from .other_sources import severity_GO, severity_pharmvar
-from .calling import sort_types
+from .calling import find_type, Type
 
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
+    raise DeprecationWarning("This function is deprecated")
     arity = count_arity(nodes, relations)
     # Covert data to pandas data frame
     data = {"allele": [], "relation": [], "arity": []}
@@ -32,6 +33,7 @@ def plot_arity(nodes, relations):
     return figure
 
 def plot_relations(relations, pruned=False):
+    raise DeprecationWarning("This function is deprecated")
     data = {"relation": [], "count": []}
     counts = count_relations(relations)
     for relation in counts.keys():
@@ -43,6 +45,7 @@ def plot_relations(relations, pruned=False):
     return figure
 
 def plot_counts(elements):
+    raise DeprecationWarning("This function is deprecated")
     data = {"category": ["core", "sub", "variant"], "count": [0, 0, 0]}
     for element in elements:
         if element["classes"] in data["category"]:
@@ -131,11 +134,10 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=N
                 },
                 layout = {
                     "name": default_layout,
-                    # "fit": default_layout != 'preset',
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
-                    "spacingFactor": 0.6,
+                    "spacingFactor": 0.5,
                     "roots": [sample] if sample is not None else None,
                 },
                 stylesheet = default_stylesheet,
@@ -161,6 +163,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return no_update
         current_layout["name"] = new_layout
         return current_layout
+    
     # Display information about selection
     @app.callback(
         Output('data', 'children'), 
@@ -169,6 +172,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
         if not data:
             return no_update
         return json.dumps(data, indent=2)
+    
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -180,6 +184,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
         # TODO use same neighbourhood definition?
         context, _ = find_context(set([node["id"] for node in nodes]), edges)
         return selection_stylesheet(context, layout["name"])
+    
     # Download image
     @app.callback(
         [Output("graph", "generateImage"), Output("image", "n_clicks"), Output("shutdown", "n_clicks")],
@@ -190,6 +195,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
         name = auto_download if auto_download else "image" # TODO use selection
         shutdown = 1 if auto_download else None # Shutdown after download
         return [{'type': type, 'action': 'download', 'filename': name}, None, shutdown]
+    
     # Shutdown server
     @app.callback(
         Output("dummy", "n_clicks"), # No output
@@ -199,6 +205,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return no_update
         print('Server shutting down...')
         os.kill(os.getpid(), signal.SIGTERM)
+
     # Subgraph selection
     @app.callback(
         [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
@@ -220,6 +227,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                     "target" in element["data"].keys() and element["data"]["target"] in context:
                 selected_elements.append(element)
         return [selected_elements, 1]
+    
     # Filter
     @app.callback(
         Output('graph', 'selectedNodeData'),
@@ -259,30 +267,30 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     for i, node in enumerate(nodes):
         function, impact, severity = None, None, None
         relevant = True
-        if sort_types(node) in (1, 2):
+        if find_type(node) in (Type.CORE, Type.SUB):
             function = functions[node]
             label = "*" + node.split("*")[1]
-            if sort_types(node) == 1: # Core allele
+            if find_type(node) == Type.CORE: # Core allele
                 category = "core"
-            elif sort_types(node) == 2: # Suballele
+            elif find_type(node) == Type.SUB: # Suballele
                 category = "sub"
                 label = label.split('.')[0] + '.' + label.split('.')[1].replace('0', '')
             if marked_calling and node in marked_calling:
                 category += " called"
-        elif sort_types(node) in (3, 5): # Variant
+        elif find_type(node) in (Type.VAR, Type.P_VAR): # Variant
             category = "variant"
             # Show relevance to calling
             relevant = relevance[node] if relevance is not None and node in relevance else True
-            if sort_types(node) == 3: # PharmVar variant
+            if find_type(node) == Type.VAR: # PharmVar variant
                 label = node.split(':')[1].split('.')[1]
                 impact = functions[node]
                 severity = severity_pharmvar(functions[node])
-            elif sort_types(node) == 5: # Personal variant
+            elif find_type(node) == Type.P_VAR: # Personal variant
                 category += " observed"
                 label = node
                 impact = "; ".join(functions[node])
                 severity = severity_GO(functions[node])
-        elif sort_types(node) == 4: # Sample
+        elif find_type(node) == Type.SAMPLE: # Sample
             category = "sample"
             label = node
         element = {            
