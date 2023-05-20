@@ -58,7 +58,9 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".called",
     "style": {
-        "background-color": calling_color,
+        "overlay-color": calling_color,
+        "overlay-padding": "10px",
+        "overlay-opacity": "0.25",
     }
 })
 default_stylesheet.append({
@@ -75,7 +77,7 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".variant.observed",
     "style": {
-        "shape": "hexagon",
+        "shape": "round-tag",
     }
 })
 default_stylesheet.append({
@@ -100,7 +102,7 @@ default_stylesheet.append({
     "style": {
         "font-size": "10px",
         "width": "75px", 
-        "height": "75px",
+        "height": "35px",
         "shape": "hexagon",
     }  
 })

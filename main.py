@@ -368,12 +368,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         select = select[0]
         sample, phase = select.split('_')
         # Check the relevance of the extra variant
-        variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
+        variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) # TODO remove relevance?
+        group = variants_relevance.keys() if len(variants_relevance.keys()) > 3 else None
         # Mark the star-allele calling
         # TODO handle unphased
         marked_calling = None
-        if phase in "AB":
-            marked_calling = calling[sample][phase]
+        if phase in "AB": marked_calling = calling[sample][phase]
         # Find extend context (including core alleles)
         nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # Find homozygous
@@ -382,14 +382,14 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
         homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys(), sample=select, homozygous=homozygous)
+        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         # TODO include relevance?
-        edges = pruned_simple[1] # TODO use extended
+        edges = pruned_extended[1]
         if type(select) == list:
-            edges.extend(find_context(set(select), pruned_samples_simple[1])[1])
+            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 
