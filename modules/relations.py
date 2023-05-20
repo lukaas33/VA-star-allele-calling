@@ -30,22 +30,27 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
                 continue
             if rel == va.Relation.IS_CONTAINED:
                 for neighbour, _ in graph.in_edges(node):
-                    if extend and neighbour in extended or sort_types(neighbour) == 4:
+                    if sort_types(neighbour) == 4:
                         continue
                     neighbour_nodes.add(neighbour)
                     context_edges.add((neighbour, node, rel))
                 if directional: # Single direction of containment
                     continue
             for neighbour in graph[node]:
-                if extend and neighbour in extended or sort_types(neighbour) == 4:
+                if sort_types(neighbour) == 4:
                     continue
                 neighbour_nodes.add(neighbour)
-                context_edges.add((node, neighbour, rel))
+                if rel == va.Relation.IS_CONTAINED:
+                    context_edges.add((node, neighbour, rel))
+                else: # Order to avoid duplicates
+                    context_edges.add((*sorted([node, neighbour]), rel))
         context_nodes |= neighbour_nodes
         # Extend suballeles
         if extend:
             for neighbour in neighbour_nodes:
                 if sort_types(neighbour) not in (1, 2):
+                    continue
+                if neighbour in extended:
                     continue
                 extended.add(neighbour)
                 extended_nodes, extended_edges = find_context({neighbour,}, edges, directional, sort_types(neighbour) == 2, extended, depth+1)

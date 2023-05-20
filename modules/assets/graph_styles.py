@@ -85,7 +85,7 @@ default_stylesheet.append({
     "style": {
         "width": "120px",
         "text-max-width": "110px",
-        "height": "60px",
+        "height": "70px",
         "text-wrap": "wrap",
         "text-justification": "left",
     }
