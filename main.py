@@ -365,23 +365,24 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if visual:
         if type(select) != list or len(select) != 1: # TODO handle multiple?
             raise Exception("Only one sample can be selected for visualisation")
+        select = select[0]
+        sample, phase = select.split('_')
         # Check the relevance of the extra variant
-        variants_relevance = relevance(select[0], *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
+        variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference)
         # Mark the star-allele calling
         # TODO handle unphased
         marked_calling = None
-        sample, phase = select[0].split('_')
         if phase in "AB":
-            marked_calling = calling[sample][select[0].split('_')[1]]
+            marked_calling = calling[sample][phase]
         # Find extend context (including core alleles)
-        nodes, edges = find_context(set(select), pruned_samples_extended[1], extend=True, extended=set(), directional=True)
+        nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # Find homozygous
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
         sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
         homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
         homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=sample if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys(), sample=select[0], homozygous=homozygous)
+        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=variants_relevance.keys(), sample=select, homozygous=homozygous)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:

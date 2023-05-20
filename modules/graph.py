@@ -137,7 +137,7 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=N
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
-                    "spacingFactor": 0.5,
+                    "spacingFactor": 0.6,
                     "roots": [sample] if sample is not None else None,
                 },
                 stylesheet = default_stylesheet,

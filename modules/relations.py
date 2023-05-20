@@ -30,14 +30,14 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
                 continue
             if rel == va.Relation.IS_CONTAINED:
                 for neighbour, _ in graph.in_edges(node):
-                    if extend and find_type(neighbour) == Type.SAMPLE:
+                    if find_type(neighbour) == Type.SAMPLE:
                         continue
                     neighbour_nodes.add(neighbour)
                     context_edges.add((neighbour, node, rel))
                 if directional: # Single direction of containment
                     continue
             for neighbour in graph[node]:
-                if extend and find_type(neighbour) == Type.SAMPLE:
+                if find_type(neighbour) == Type.SAMPLE:
                     continue
                 neighbour_nodes.add(neighbour)
                 if rel == va.Relation.IS_CONTAINED:
