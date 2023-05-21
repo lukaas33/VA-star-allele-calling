@@ -8,7 +8,7 @@ import copy
 from itertools import combinations
 from enum import IntEnum
 
-all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
+all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function', "function not assigned"]
 
 def sort_function(f):
     """Sort function annotation based on severity."""
@@ -102,13 +102,14 @@ def prioritize_calling(matches, functions):
         prioritized_matching.append(annotated["no function"])
     # If uncertain or unknown functions are present, the ordering after no function cannot be determined
     # An unknown function could be as bad as no function.
-    if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
+    if len(annotated["unknown function"]) + len(annotated["uncertain function"]) + len(annotated["function not assigned"]) > 0:
         # Put all in the same position of ordering
         prioritized_matching.append(
             annotated["decreased function"] |
             annotated["normal function"] |
             annotated["unknown function"] |
-            annotated["uncertain function"]
+            annotated["uncertain function"] | 
+            annotated["function not assigned"]
         )
     else: # No uncertain or unknown functions
         # Ordering can be determined between normal and decreased function when no uncertain or unknown functions are present
@@ -232,7 +233,7 @@ def valid_calling(calling, cont_graph, homozygous):
     return False
 
 def generate_alternative_callings(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
-    """Generate alternative callings for a sample.
+    """Generate valid alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
     Need to copy yielded callings to prevent changing the original calling
@@ -240,8 +241,10 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, fin
 
     Find_all can be used to find all alternative callings, if false valid callings are extended into less specific callings.
 
-    # TODO breadthfirst instead of depthfirst (lower are more speciic)
-    # TODO don't extend if valid solution with more specific alleles is found (extend this to work with HG00421)
+    # TODO breadthfirst instead of depth first (lower are more specific)
+    # TODO don't extend if valid solution with more specific alleles is found (improve this to work with HG00421)
+    # TODO fix runtime of HG01190 and of with suballeles
+    # TODO fix HG00421 not generating right answer
     """
     def move_alleles(calling):
         """Move alleles to other phase"""
@@ -313,7 +316,7 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, fin
                 yield alternative
             # 3. Go deeper with extended alleles
             # Don't remove but add underlying which may be contained in it (if they are homozygous)
-            for r in range(1, len(extend_underlying)): # TODO which r
+            for r in range(1, len(extend_underlying)): 
                 for extend in combinations(extend_underlying, r):
                     if not all([a in homozygous for a in extend]): # Can only extend an allele with itself and a homozygous allele
                         continue
@@ -328,6 +331,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
     overlap_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
+
     # Call each sample
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
     for sample in samples:
@@ -343,22 +347,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         representations = {}
         # TODO move this to a filtered alternatives function
         # TODO allow for keeping multiple alternative representations
-        test_i = 0
         for sample, calling in sep_callings.items():
-            test_i += 1
-            print()
-            if test_i == 8:
-                exit()
-            # if sample != "HG00111": continue
-            # if sample != "HG00337": continue
-            # if sample != "NA12813": continue # TODO fix this case
-            # if sample != "NA12815": continue 
-            # if sample != "HG00421": continue
-            # if sample != "HG00337": continue
             if calling['A'] == calling['B']: # Already phased (homozygous)
-                # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
-                print(sample, representations[sample])
+                print(sample, "(hom)")
+                print(f"{'+'.join(representations[sample]['A'])}/{'+'.join(representations[sample]['B'])}")
+                print()
                 continue
             # All homozygous alleles for the current sample
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
@@ -368,10 +362,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # TODO Select preferred alternative
             preferred = None # Using split method, *1/*x+... or *x/*y
             unique_repr = set()
-            print(sample)
-            print(callings[sample])
-            print(calling)
-            print(homozygous)
+            print(sample, "(alt)")
             for alternative in alternatives:
                 # if not valid_calling(alternative, cont_graph, homozygous): continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level))
@@ -380,13 +371,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 if repr_str in unique_repr: continue
                 unique_repr.add(repr_str)
                 print(f"{repr_str}")
-                # Prefer first as this is the most specific
+                # Prefer first as this is the most specific TODO remove
                 if preferred is None:
                     preferred = alternative
             # print(sample, "Preferred:", preferred)
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
-            print(len(unique_repr), "unique valid representations")
-            print("prefer", f"{'+'.join(representations[sample]['A'])}/{'+'.join(representations[sample]['B'])}")
+            print()
         return representations
 
 

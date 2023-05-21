@@ -346,8 +346,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
-        
+        # TODO use extended
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
+
     # Output as text
     if text and visual or text and interactive or visual and interactive:
         raise ValueError("Only one of text, visual or interactive can be True") 
