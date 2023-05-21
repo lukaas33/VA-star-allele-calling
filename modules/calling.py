@@ -365,7 +365,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             print(sample, "(alt)")
             for alternative in alternatives:
                 # if not valid_calling(alternative, cont_graph, homozygous): continue
-                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level))
+                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
                 # Check if this representation is unique TODO do at generation? TODO use detail level
                 repr_str = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
                 if repr_str in unique_repr: continue
