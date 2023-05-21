@@ -168,30 +168,39 @@ def separate_callings(unphased_calling, cont_graph, functions):
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
     # Infer phasing for some samples
     for sample in samples:
-        for alleles in unphased_calling[sample]['all']:
+        # Handle unparsable samples
+        if unphased_calling[sample]['all'][-1] == {'CYP2D6*?',}:
+            phased_calling[sample]['A'].append({"CYP2D6*?",})
+            phased_calling[sample]['B'].append({"CYP2D6*?",})
+            continue
+        for i, alleles in enumerate(unphased_calling[sample]['all'][:-1]): # All non-default alleles
             phased_calling[sample]['A'].append(set()) # Maintain relation strength rank
             phased_calling[sample]['B'].append(set())
-            # Handle unparsable samples
-            if alleles == {'CYP2D6*?',}:
-                phased_calling[sample]['A'][-1].add("CYP2D6*?")
-                phased_calling[sample]['B'][-1].add("CYP2D6*?")
-                break
+            # TODO simplify the two loops below?
             # Add largest homozygous matches to both callings
             # Don't guess the heterozygous/mixed matches but add them all to A
             # This will be handled by alternative callings later
             for allele in alleles: # is largest instead of overlap
-                if allele == "CYP2D6*1": # Skip default, is added last TODO need to check for suballeles here?
-                    continue
                 phased_calling[sample]['A'][-1].add(allele)
                 if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
                 phased_calling[sample]['B'][-1].add(allele)
-        else: # No break
-            for phase in "AB":
-                # remove empty
-                phased_calling[sample][phase] = [c for c in phased_calling[sample][phase] if len(c) > 0] 
-                # Add default allele as last priority
-                phased_calling[sample][phase].append({"CYP2D6*1",})
+            # Also add homozygous matches that are not in all to both callings 
+            d = len(unphased_calling[sample]['all']) - len(unphased_calling[sample]['hom']) # Handle array size difference
+            if d+i >= len(unphased_calling[sample]['hom']):
+                continue
+            for allele in unphased_calling[sample]['hom'][d+i]:
+                # Skip if already contained twice (as it will be found using alternative callings)
+                if ([allele in nx.ancestors(cont_graph, a) for phase in "AB" for all in phased_calling[sample][phase] for a in all]).count(True) >= 2:
+                    continue
+                phased_calling[sample]["A"][-1].add(allele)
+                phased_calling[sample]["B"][-1].add(allele)
+        # Add defaults
+        for phase in "AB":
+            # remove empty
+            phased_calling[sample][phase] = [c for c in phased_calling[sample][phase] if len(c) > 0] 
+            # Add default allele as last priority
+            phased_calling[sample][phase].append({"CYP2D6*1",})
     return phased_calling
 
 def valid_calling(calling, cont_graph, homozygous):
@@ -232,14 +241,13 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, fin
     Find_all can be used to find all alternative callings, if false valid callings are extended into less specific callings.
 
     # TODO breadthfirst instead of depthfirst (lower are more speciic)
-    # TODO don't extend if already valid (most specific)
-    # TODO filter by valid
+    # TODO don't extend if valid solution with more specific alleles is found (extend this to work with HG00421)
     """
     def move_alleles(calling):
         """Move alleles to other phase"""
         # Move
         for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
-            # Don't move last since this would result in a duplicate (X/Y = Y/X)
+            # Don't move all since this would result in a duplicate (X/Y = Y/X)
             for r in range(1, len(alleles)):
                 # TODO how to avoid duplicates here?
                 for move in combinations(alleles, r=r):
@@ -335,8 +343,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         representations = {}
         # TODO move this to a filtered alternatives function
         # TODO allow for keeping multiple alternative representations
+        test_i = 0
         for sample, calling in sep_callings.items():
-            if sample != "HG00337": continue
+            test_i += 1
+            print()
+            if test_i == 8:
+                exit()
+            # if sample != "HG00111": continue
+            # if sample != "HG00337": continue
             # if sample != "NA12813": continue # TODO fix this case
             # if sample != "NA12815": continue 
             # if sample != "HG00421": continue
@@ -344,6 +358,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 # TODO is this a good check for homozygous?
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
+                print(sample, representations[sample])
                 continue
             # All homozygous alleles for the current sample
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
@@ -359,7 +374,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             print(homozygous)
             for alternative in alternatives:
                 # if not valid_calling(alternative, cont_graph, homozygous): continue
-                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(1))
+                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level))
                 # Check if this representation is unique TODO do at generation? TODO use detail level
                 repr_str = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
                 if repr_str in unique_repr: continue
