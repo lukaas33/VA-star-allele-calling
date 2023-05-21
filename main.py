@@ -372,9 +372,11 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) # TODO remove relevance?
         group = variants_relevance.keys() if len(variants_relevance.keys()) > 3 else None
         # Mark the star-allele calling
-        # TODO handle unphased
         marked_calling = None
-        if phase in "AB": marked_calling = calling[sample][phase]
+        if phase in "AB": 
+            marked_calling = calling[sample][phase]
+        else:
+            marked_calling = calling[sample]['A'] + calling[sample]['B']
         # Find extend context (including core alleles)
         nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # Find homozygous

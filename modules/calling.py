@@ -345,9 +345,9 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     if not phased: # Unphased calling should be separated
         sep_callings = separate_callings(callings, cont_graph, functions)
         representations = {}
-        # TODO move this to a filtered alternatives function
-        # TODO allow for keeping multiple alternative representations
         for sample, calling in sep_callings.items():
+            # TODO allow for keeping multiple alternative representations
+            # TODO move this to a filtered alternatives function
             if calling['A'] == calling['B']: # Already phased (homozygous)
                 representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
                 print(sample, "(hom)")
@@ -358,7 +358,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate valid alternative callings
             # TODO ordering
-            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, set())
+            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, set(), find_all=True)
             # TODO Select preferred alternative
             preferred = None # Using split method, *1/*x+... or *x/*y
             unique_repr = set()
