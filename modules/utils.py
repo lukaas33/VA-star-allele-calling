@@ -145,7 +145,7 @@ def validate_calling(callings, validate_filename, soft=False):
     with open(validate_filename, 'r') as validate:
         for line in validate:
             # convert to format of classifications
-            sample, reference = line.rstrip().split(' ')
+            sample, reference = line.strip().split(' ')
             reference = ["CYP2D6" + c for c in reference.split('/')]
             calling = [] # Get priority answer (assumes filtering has occurred already with representation method)  
             for c in callings[sample].values():
@@ -192,13 +192,16 @@ def validate_alternative_calling(calling_filename, validate_filename):
             calling = ["CYP2D6" + c for c in calling]
             validate[sample] = calling
 
-    with open(calling_filename, 'r') as file:
+    with open(calling_filename, 'r', encoding="utf-16") as file:
         sample = None
         prev = None
+        how = None
         found = -1
         count = 0
-        for line in file:
-            line = line.rstrip()
+        for _line in file:
+            line = _line.strip()
+            if not line: 
+                continue
             if line.startswith('CYP2D6'):
                 line = line.split(' ')[0] # Handle annotations
                 prev = line
@@ -207,12 +210,16 @@ def validate_alternative_calling(calling_filename, validate_filename):
                     found = count
             else:
                 sample = line.split(' ')[0]
+                how = line.split(' ')[1]
                 if prev is None:
                     continue
                 # TODO format
                 if found != -1:
-                    print(sample, "has the correct calling as the", found, "th allele out of", count, "alleles")
+                    if how == '(hom)':
+                        print(f"{sample} has the correct calling due to homozygous alleles")
+                    else:
+                        print(f"{sample} has the correct calling as the {found}th allele out of {count} alleles ({'correct' if found == 1 else 'incorrect'})")
                 else:
-                    print(sample, "has an incorrect calling. Last was", prev, "but should be", validate[sample], "(total alleles:", count, ")")
+                        print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
                 found = -1
                 count = 0
