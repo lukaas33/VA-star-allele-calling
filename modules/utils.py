@@ -177,3 +177,42 @@ def make_samples_unphased():
         data = data.replace("1|0", "0/1")
         with open(os.path.join(new_directory, filename), 'w') as file:
             file.write(data)
+
+
+def validate_alternative_calling(calling_filename, validate_filename):
+    """Validate if alternative calling matches with the M&J method"""
+    # TODO integrate differently (not using file)
+    validate = {}
+    with open(validate_filename, 'r') as file:
+        for line in file:
+            # convert to format of classifications
+            sample, calling = line.rstrip().split(' ')
+            calling = calling.split('/')
+            calling.sort(key=lambda x: int(x.split('*')[1]))
+            calling = ["CYP2D6" + c for c in calling]
+            validate[sample] = calling
+
+    with open(calling_filename, 'r') as file:
+        sample = None
+        prev = None
+        found = -1
+        count = 0
+        for line in file:
+            line = line.rstrip()
+            if line.startswith('CYP2D6'):
+                line = line.split(' ')[0] # Handle annotations
+                prev = line
+                count += 1
+                if line.split('/') == validate[sample]:
+                    found = count
+            else:
+                sample = line.split(' ')[0]
+                if prev is None:
+                    continue
+                # TODO format
+                if found != -1:
+                    print(sample, "has the correct calling as the", found, "th allele out of", count, "alleles")
+                else:
+                    print(sample, "has an incorrect calling. Last was", prev, "but should be", validate[sample], "(total alleles:", count, ")")
+                found = -1
+                count = 0

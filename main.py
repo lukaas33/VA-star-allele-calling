@@ -8,7 +8,7 @@ from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
-from modules.utils import validate_relations, validate_calling, make_samples_unphased
+from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling
 from modules.assets.generate_images import image_configs
 import algebra as va
 
@@ -328,6 +328,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased and phased: 
         raise ValueError("Either phased or unphased should be True")
     if phased:
+        # TODO change used by detail?
         calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
@@ -346,8 +347,11 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
+        # TODO change by detail?
         # TODO use extended
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
+
+    validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
@@ -364,6 +368,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
+        # TODO change by detail
         if type(select) != list or len(select) != 1: # TODO handle multiple?
             raise Exception("Only one sample can be selected for visualisation")
         select = select[0]

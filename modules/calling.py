@@ -13,7 +13,6 @@ all_functions = ['unknown function', 'uncertain function', 'normal function', 'd
 def sort_function(f):
     """Sort function annotation based on severity."""
     raise DeprecationWarning("This function is redundant now")
-    # TODO handle function not assigned (doesn't occur in calling)
     # TODO use enums
     # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
@@ -268,14 +267,10 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, fin
     # Alternatives from moving at this depth
     any_valid = False
     for alternative in move_alleles(copy.deepcopy(calling)):
-        # print(depth, alternative)
         # Return only valid callings
         if valid_calling(alternative, cont_graph, homozygous):
             any_valid = True
             yield alternative
-    # print(calling)
-    if depth == 2:
-        exit()
     # Go deeper by extending one allele
     # Don't extend if already valid TODO test
     if not any_valid or find_all:
