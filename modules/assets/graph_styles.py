@@ -69,7 +69,7 @@ default_stylesheet.append({
         "font-size": "5px",
         "width": "40px", 
         "height": "15px",
-        "shape": "round-rectangle",
+        "shape": "rectangle",
         "text-wrap": "ellipsis",
         "text-max-width": "35px"
     }   
@@ -77,7 +77,7 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".variant.observed",
     "style": {
-        "shape": "round-tag",
+        "shape": "tag",
     }
 })
 default_stylesheet.append({
@@ -185,7 +185,7 @@ default_stylesheet.append({
     # TODO don't display?
     "selector": "node[!relevant]",
     "style": {
-        "background-blacken": -0.4, # Make lighter to indicate not relevant (no conflict with opacity)
+        "opacity": 0.8, 
     }
 })
 

@@ -318,7 +318,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             "data": {
                 "id": "extra-variants",
                 "label": "; ".join([element["data"]["label"] for element in to_group]),
-                "severity": max([element["data"]["severity"] for element in to_group if element is not None]),
+                "severity": 0 if 0 in [element["data"]["severity"] for element in to_group if element is not None] else max([element["data"]["severity"] for element in to_group if element is not None]),
                 "relevant": any([element["data"]["relevant"] for element in to_group if element is not None]),
             },
             "classes": "variant group"
