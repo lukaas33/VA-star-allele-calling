@@ -257,14 +257,14 @@ def generate_alternative_callings(calling, cont_graph, homozygous, functions, de
 
     Need to (deep)copy if generator not immediately consumed.
 
-    # TODO don't deepcopy everything?
+    # TODO improve runtime for suballeles
     # TODO prevent duplicates in generation instead of filtering (at move for instance)
     # TODO prevent invalid generation (move to invalid state or extend with invalid state)
-    # TODO improve runtime for suballeles
-    # TODO fix HG01190
-    # TODO handle HG00423
-    # TODO handle NA12815
-    # TODO fix find_all
+    # TODO don't deepcopy everything?
+    # TODO fix runtime NA19174
+    # TODO don't extend if alternative already found (if this even occurs)
+    # TODO validate full method 
+    # TODO validate reduced method
     """
     def underlying(allele, cont_graph):
         """Return the underlying alleles of some allele."""	
@@ -460,8 +460,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         sep_callings = separate_callings(callings, cont_graph, functions)
         representations = {}
         for sample, calling in sep_callings.items():
-            if sample != "HG00421":
-                continue
+            if sample == "NA19174": continue
             # TODO allow for keeping multiple alternative representations
             # TODO move this to a filtered alternatives function
             if calling['A'] == calling['B']: # Already phased (homozygous)

@@ -191,6 +191,7 @@ def validate_alternative_calling(calling_filename, validate_filename):
             calling.sort(key=lambda x: int(x.split('*')[1]))
             calling = ["CYP2D6" + c for c in calling]
             validate[sample] = calling
+    to_find = set(validate.keys())
 
     with open(calling_filename, 'r', encoding="utf-16") as file:
         sample = None
@@ -211,6 +212,7 @@ def validate_alternative_calling(calling_filename, validate_filename):
             else:
                 sample = line.split(' ')[0]
                 how = line.split(' ')[1]
+                to_find.remove(sample)
                 if prev is None:
                     continue
                 # TODO format
@@ -218,8 +220,12 @@ def validate_alternative_calling(calling_filename, validate_filename):
                     if how == '(hom)':
                         print(f"{sample} has the correct calling due to homozygous alleles")
                     else:
-                        print(f"{sample} has the correct calling as the {found}th allele out of {count} alleles ({'correct' if found == 1 else 'incorrect'})")
+                        print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
                 else:
-                        print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
+                    print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
                 found = -1
                 count = 0
+    if len(validate.keys()) > 0:
+        print("Not in alternative callings:")
+        for sample in to_find:
+            print(f"\t{sample} should be {validate[sample]}")

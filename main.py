@@ -351,8 +351,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         # TODO use extended
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
-        # TEST 7: validate alternative callings
-        # validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
+    # TEST 7: validate alternative callings
+    # validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
@@ -384,13 +384,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         else:
             marked_calling = calling[sample]['A'] + calling[sample]['B']
         # Find extend context (including core alleles)
-        # TODO use extended here
-        nodes, edges = find_context({select,}, pruned_samples_simple[1], extend=True, extended=set(), directional=True)
+        nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # Find homozygous
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
-        sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=4)
+        sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
         homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
-        homozygous, _ = find_context(homozygous, pruned_samples_simple[1], extend=True, extended=set(), directional=True)
+        homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
         # TODO taxi edges?
         display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
         
