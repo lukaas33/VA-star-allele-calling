@@ -263,7 +263,7 @@ def generate_alternative_callings(calling, cont_graph, homozygous, functions, de
     # TODO don't deepcopy everything?
     # TODO fix runtime NA19174
     # TODO don't extend if alternative already found (if this even occurs)
-    # TODO validate full method 
+    # TODO validate on suballeles
     # TODO validate reduced method
     """
     def underlying(allele, cont_graph):
@@ -327,7 +327,6 @@ def generate_alternative_callings(calling, cont_graph, homozygous, functions, de
                     # TODO can merge cases?
                     # 1. Replace allele with underlying alleles
                     for allele in extend:                        
-                        # print(f"\treplace {allele} with {list(underlying(allele, cont_graph, homozygous))}")
                         extend_alt['A'][i] -= {allele,}
                         underlying_alleles = set(underlying(allele, cont_graph))
                         extend_alt['A'][i] |= underlying_alleles
@@ -346,8 +345,6 @@ def generate_alternative_callings(calling, cont_graph, homozygous, functions, de
                             # Must be in the other phase as the parent for this to be valid (will be handled by move_alleles)
                             underlying_alleles.add(underlying_allele)
                             extend_alt['A'][i] |= {underlying_allele,}
-                            # print(depth, "extend", allele, "with", underlying_allele, "since in", nx.ancestors(cont_graph, underlying_allele) | {underlying_allele,})
-                            # print(extend_alt, extended | alleles - underlying_alleles)
                     queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1))
 
 def generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):

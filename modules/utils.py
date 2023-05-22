@@ -193,10 +193,28 @@ def validate_alternative_calling(calling_filename, validate_filename):
             validate[sample] = calling
     to_find = set(validate.keys())
 
+    def end_sample(sample, prev, how, found, count, totals):
+        if found != -1:
+            if how == '(hom)':
+                print(f"{sample} has the correct calling due to homozygous alleles")
+                totals['hom'] += 1
+            else:
+                print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
+                if found == 1: totals['preferred'] += 1
+                else: totals['not_preferred'] += 1
+        else:
+            print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
+            totals['incorrect'] += 1
+
+    # TODO make into single variable
+    totals = {
+        'hom': 0,
+        'preferred': 0,
+        'not_preferred': 0,
+        'incorrect': 0
+    }
     with open(calling_filename, 'r', encoding="utf-16") as file:
-        sample = None
-        prev = None
-        how = None
+        sample, prev, how = None, None, None
         found = -1
         count = 0
         for _line in file:
@@ -215,17 +233,17 @@ def validate_alternative_calling(calling_filename, validate_filename):
                 to_find.remove(sample)
                 if prev is None:
                     continue
-                # TODO format
-                if found != -1:
-                    if how == '(hom)':
-                        print(f"{sample} has the correct calling due to homozygous alleles")
-                    else:
-                        print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
-                else:
-                    print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
+                end_sample(sample, prev, how, found, count, totals)
                 found = -1
                 count = 0
-    if len(validate.keys()) > 0:
-        print("Not in alternative callings:")
+        end_sample(sample, prev, how, found, count, totals)
+
+    print(f"{totals['hom']} samples correct due to homozygous alleles")
+    print(f"{totals['preferred']} samples correct as preferred allele")
+    print(f"{totals['not_preferred']} samples not correct preferred allele")
+    print(f"{totals['incorrect']} samples incorrect")
+    if len(to_find) > 0:
+        print(f"{len(to_find)} not in alternative callings:")
         for sample in to_find:
             print(f"\t{sample} should be {validate[sample]}")
+    print(f"{sum(totals.values()) + len(to_find)} total")
