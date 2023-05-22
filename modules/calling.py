@@ -5,7 +5,7 @@ from .data import api_get
 from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, severity_pharmvar
 import re
 import copy
-from itertools import combinations
+from itertools import combinations, combinations_with_replacement
 from enum import IntEnum
 
 all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function', "function not assigned"]
@@ -185,16 +185,16 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
                 phased_calling[sample]['B'][-1].add(allele)
-            # Also add homozygous matches that are not in all to both callings 
-            d = len(unphased_calling[sample]['all']) - len(unphased_calling[sample]['hom']) # Handle array size difference
-            if d+i >= len(unphased_calling[sample]['hom']):
-                continue
-            for allele in unphased_calling[sample]['hom'][d+i]:
-                # Skip if already contained twice (as it will be found using alternative callings)
-                if ([allele in nx.ancestors(cont_graph, a) for phase in "AB" for all in phased_calling[sample][phase] for a in all]).count(True) >= 2:
-                    continue
-                phased_calling[sample]["A"][-1].add(allele)
-                phased_calling[sample]["B"][-1].add(allele)
+            # # Also add homozygous matches that are not in all to both callings 
+            # d = len(unphased_calling[sample]['all']) - len(unphased_calling[sample]['hom']) # Handle array size difference
+            # if d+i >= len(unphased_calling[sample]['hom']):
+            #     continue
+            # for allele in unphased_calling[sample]['hom'][d+i]:
+            #     # Skip if already contained twice (as it will be found using alternative callings)
+            #     if ([allele in nx.ancestors(cont_graph, a) for phase in "AB" for all in phased_calling[sample][phase] for a in all]).count(True) >= 2:
+            #         continue
+            #     phased_calling[sample]["A"][-1].add(allele)
+            #     phased_calling[sample]["B"][-1].add(allele)
         # Add defaults
         for phase in "AB":
             # remove empty
@@ -231,7 +231,98 @@ def valid_calling(calling, cont_graph, homozygous):
         return True
     return False
 
-def generate_alternative_callings(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
+def generate_alternative_callings(calling, cont_graph, homozygous, find_all=False):
+    """Generate valid alternative callings for a sample in a BFS manner.
+    
+    Generates most specific first.
+    Option to stop after first valid calling is found (find_all).
+
+    Only returns valid callings based on homozygous matches.
+
+    Need to (deep)copy if generator not immediately consumed.
+
+    # TODO implement
+    # TODO test
+    # TODO don't deepcopy everything?
+    # TODO prevent duplicates in generation
+    # TODO handle HG00423
+    # TODO handle NA12815
+    # TODO explain difference for HG00421
+    # TODO fix find_all
+    """
+    def underlying(allele, cont_graph, homozygous):
+        """Return the underlying alleles of some allele."""	
+        # TODO look at overlapping
+        for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
+            if find_type(contained) not in (Type.CORE, Type.SUB):
+                continue
+            yield contained
+    def move_alleles(calling):
+        """Move alleles to different phase"""
+        # Move some alleles
+        for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
+            alleles = tuple(alleles)
+            # TODO Prevent duplicates here (X/Y = Y/X)
+            for r in range(1, len(alleles)): # Don't move all (r < n) since this would result in duplicates
+                for move in combinations(alleles, r):
+                    moved_calling = copy.deepcopy(calling)
+                    # Make B the same length as A
+                    while len(moved_calling['B']) < len(moved_calling['A']): 
+                        moved_calling['B'].insert(0, set())
+                    # Change phase 
+                    moved_calling['A'][i] -= set(move)
+                    moved_calling['B'][i] |= set(move)
+                    yield moved_calling
+        # Don't move anything (*1/*X+*Y)
+        # Last yielded since this notation is not preferred
+        yield copy.deepcopy(calling)
+    # Perform BFS on callings
+    max_depth = float('inf')
+    queue = [(calling, set(), 0)]
+    while len(queue) > 0:
+        # First alternative calling in the queue
+        alternative, extended, depth = queue.pop(0) 
+        # Don't look deeper when calling valid (most specific)
+        if not find_all and depth > max_depth: # TODO fix, doesn't work for HG00421
+            continue
+        # Try different phasing at the current depth
+        for moved_calling in move_alleles(alternative):
+            if valid_calling(moved_calling, cont_graph, homozygous):
+                # print('valid')
+                max_depth = depth
+                yield moved_calling
+        # Look deeper in the tree
+        for i, alleles in enumerate(alternative['A'][:-1]): # All non-default alleles
+            alleles = set(alleles)
+            for r in range(1, len(alleles)+1):
+                # Prevent extending a previous level (will be allowed if a allele occurs again in a different level)
+                for extend in combinations(alleles - extended, r=r): 
+                    # print("extend", extend)
+                    extend_alt = copy.deepcopy(alternative)
+                    extend = set(extend)
+                    # 1. Replace allele with underlying alleles
+                    for allele in extend:                        
+                        # print(f"\treplace {allele} with {list(underlying(allele, cont_graph, homozygous))}")
+                        extend_alt['A'][i] -= {allele,}
+                        underlying_alleles = set(underlying(allele, cont_graph, homozygous))
+                        extend_alt['A'][i] |= underlying_alleles
+                    queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1)) 
+                    # 2. Add underlying alleles to extended together with parent allele if homozygous
+                    extend_alt = copy.deepcopy(alternative)
+                    for allele in extend:
+                        # TODO allow variable number of underlying alleles?
+                        underlying_alleles = set()
+                        for underlying_allele in underlying(allele, cont_graph, homozygous):
+                            if underlying_allele not in homozygous: # Cannot extend with non-homozygous alleles
+                                continue
+                            # Add homozygous underlying and don't remove parent
+                            underlying_alleles.add(underlying_allele)
+                            extend_alt['A'][i] |= {underlying_allele,}
+                    queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1))
+    exit()
+
+
+def generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
     """Generate valid alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
@@ -243,8 +334,8 @@ def generate_alternative_callings(calling, cont_graph, homozygous, extended, fin
     # TODO breadthfirst instead of depth first (lower are more specific)
     # TODO don't extend if valid solution with more specific alleles is found (improve this to work with HG00421)
     # TODO fix runtime of HG01190 and of with suballeles
-    # TODO fix HG00421 not generating right answer
     """
+    raise DeprecationWarning("This function is deprecated, use generate_alternative_callings instead")	
     def move_alleles(calling):
         """Move alleles to other phase"""
         # Move
@@ -341,6 +432,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         sep_callings = separate_callings(callings, cont_graph, functions)
         representations = {}
         for sample, calling in sep_callings.items():
+            if sample != "HG00421": continue
             # TODO allow for keeping multiple alternative representations
             # TODO move this to a filtered alternatives function
             if calling['A'] == calling['B']: # Already phased (homozygous)
@@ -353,20 +445,20 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate valid alternative callings
             # TODO ordering
-            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, set(), find_all=True)
+            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, find_all=True)
             # TODO Select preferred alternative
-            preferred = None # Using split method, *1/*x+... or *x/*y
+            preferred = None 
             unique_repr = set()
             print(sample, "(alt)")
             for alternative in alternatives:
                 # if not valid_calling(alternative, cont_graph, homozygous): continue
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
-                # Check if this representation is unique TODO do at generation? TODO use detail level
+                # Check if this representation is unique TODO do at generation? 
                 repr_str = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
                 if repr_str in unique_repr: continue
                 unique_repr.add(repr_str)
                 print(f"{repr_str}")
-                # Prefer first as this is the most specific TODO remove
+                # Prefer first as this is the most specific
                 if preferred is None:
                     preferred = alternative
             # print(sample, "Preferred:", preferred)
