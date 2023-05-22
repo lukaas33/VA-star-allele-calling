@@ -11,10 +11,11 @@ from .utils import count_arity, count_relations
 from .assets.graph_styles import default_stylesheet, selection_stylesheet
 from .relations import prune_relations, find_context
 from .other_sources import severity_GO, severity_pharmvar
-from .calling import sort_types
+from .calling import find_type, Type
 
 def plot_arity(nodes, relations):
     """Create a plot of the arity values"""
+    raise DeprecationWarning("This function is deprecated")
     arity = count_arity(nodes, relations)
     # Covert data to pandas data frame
     data = {"allele": [], "relation": [], "arity": []}
@@ -32,6 +33,7 @@ def plot_arity(nodes, relations):
     return figure
 
 def plot_relations(relations, pruned=False):
+    raise DeprecationWarning("This function is deprecated")
     data = {"relation": [], "count": []}
     counts = count_relations(relations)
     for relation in counts.keys():
@@ -43,6 +45,7 @@ def plot_relations(relations, pruned=False):
     return figure
 
 def plot_counts(elements):
+    raise DeprecationWarning("This function is deprecated")
     data = {"category": ["core", "sub", "variant"], "count": [0, 0, 0]}
     for element in elements:
         if element["classes"] in data["category"]:
@@ -50,101 +53,102 @@ def plot_counts(elements):
     figure = px.bar(pandas.DataFrame(data), x="category", y="count", title="Amount of alleles and variants")
     return figure
 
-def layout_graph(elements, nodes, edges, default_layout='cose-bilkent'):
+def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=None):
     """Returns the layout for the Dash graph"""
     layouts = list(set(['grid', 'random', 'circle', 'concentric', 'cola', 'spread', 'breadthfirst', 'cose-bilkent', "dagre", "euler", "klay", default_layout]))
     layouts.sort()
-    return dcc.Tabs([
-        dcc.Tab(
-            label="Network",
-            children=[
-                html.Div(
-                    style = {
-                        "display": "flex",
-                    },
-                    children = [
-                        html.Div(
-                            style = {
-                                "display": "flex", 
-                                "flex-direction": "column",
-                                "width": "10vw",
-                                "height": "100%",
-                            },
-                            children = [
-                                dcc.Input(
-                                    id="filter",
-                                    placeholder="CYP2D6*4, ...",
-                                    type="text",
-                                    debounce=True
-                                ),
-                                dcc.Dropdown(
-                                    id='change-layout',
-                                    value=default_layout,
-                                    clearable=False,
-                                    options=[{'label': name.capitalize(), 'value': name} for name in layouts]
-                                ),
-                                dcc.Dropdown(
-                                    id='image-type',
-                                    value='svg',
-                                    clearable=False,
-                                    options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
-                                ),
-                                html.Button("Export image", id="image"),
-                                html.Button('Subgraph selection', id='subgraph'),
-                                html.Button('End server', id='shutdown'),
-                                html.Button(id='dummy') # TODO remove
-                            ]
-                        ),
-                        cyto.Cytoscape(
-                            id='graph',
-                            style = {
-                                "height": "90vh",
-                                "width": "90vw"
-                            },
-                            layout={
-                                "name": default_layout,
-                                "fit": default_layout != 'preset',
-                                "nodeDimensionsIncludeLabels": True,
-                                "tile": False,
-                                "animate": False,
-                            },
-                            stylesheet = default_stylesheet,
-                            elements = elements
-                        ),
-                    ]
-                )
-            ]
-        ),
-        dcc.Tab(
-            label="Selection data",
-            children=[
-                html.Pre(id='data')
-            ]
-        ),
-        # TODO keep or remove?
-        # dcc.Tab(
-        #     label="Statistics",
-        #     children=[
-        #         dcc.Graph(
-        #             id="plot-arity",
-        #             figure=plot_arity(nodes, edges)
-        #         ),
-        #         # TODO fix?
-        #         # dcc.Graph(
-        #         #     id="relation-counts",
-        #         #     figure=plot_relations(edges)
-        #         # ),
-        #         dcc.Graph(
-        #             id="pruned-relation-counts",
-        #             figure=plot_relations(edges, pruned=True)
-        #         ),                    
-        #         dcc.Graph(
-        #             id="counts",
-        #             figure=plot_counts(elements)
-        #         )
-        #     ]
-        # ),
-    ])
+    return html.Div(
+        style = {
+            "display": "flex",
+        },
+        children = [
+            html.Div(
+                style = {
+                    "display": "flex", 
+                    "flex-direction": "column",
+                    "width": "20vw",
+                    "height": "100vh",
+                    "margin": 0,
+                    "box-sizing": "border-box",
+                },
+                children = [
+                    html.P("Search"),
+                    dcc.Input(
+                        id="filter",
+                        placeholder="CYP2D6*4, NC_000022.11:g.42128945C>T, ...",
+                        type="text",
+                        debounce=True
+                    ),
+                    html.P("Layout"),
+                    dcc.Dropdown(
+                        id='change-layout',
+                        value=default_layout,
+                        clearable=False,
+                        options=[{'label': name.capitalize(), 'value': name} for name in layouts]
+                    ),
+                    html.P("Download"),
+                    dcc.Dropdown(
+                        id='image-type',
+                        value='svg',
+                        clearable=False,
+                        options=[{'label': name.upper(), 'value': name} for name in ['svg', 'png', 'jpeg']]
+                    ),
+                    html.Button(
+                        "Export image", 
+                        id="image"
+                    ),
+                    html.P("Filter nodes"),
+                    html.Button(
+                        'Create Subgraph', 
+                        id='subgraph',
+                    ),
+                    html.Button(
+                        id='shutdown',
+                        style = {
+                            "display": "none"
+                        }
+                    ),
+                    html.Button( # TODO remove
+                        id='dummy',
+                        style = {
+                            "display": "none"
+                        }
+                    ), 
+                    html.P("Data"),
+                    html.Pre(
+                        id='data',
+                        style = {
+                            "width": "100%",
+                            "height": "100%",
+                            "overflow-y": "scroll",
+                            "overflow-x": "hidden"
+                        }
+                    )
+                ]
+            ),
+            cyto.Cytoscape(
+                id='graph',
+                style = {
+                    "height": "100vh",
+                    "width": "80vw"
+                },
+                layout = {
+                    "name": default_layout,
+                    "nodeDimensionsIncludeLabels": True,
+                    "tile": False,
+                    "animate": False,
+                    "spacingFactor": 0.6,
+                    "roots": [sample] if sample is not None else None,
+                },
+                stylesheet = default_stylesheet,
+                elements = elements,
+                zoom = 1,
+                pan = {"x": 0, "y": 0},
+                minZoom = 0.1,
+                maxZoom = 10
+            ),
+        ]
+    )
 
 def interactive_graph(app, original_elements, edges, auto_download):
     """Add interactive components to graph"""
@@ -159,6 +163,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return no_update
         current_layout["name"] = new_layout
         return current_layout
+    
     # Display information about selection
     @app.callback(
         Output('data', 'children'), 
@@ -167,6 +172,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
         if not data:
             return no_update
         return json.dumps(data, indent=2)
+    
     # Display connections of selected
     @app.callback(
         Output('graph', 'stylesheet'), 
@@ -174,10 +180,11 @@ def interactive_graph(app, original_elements, edges, auto_download):
     def generate_stylesheet(nodes, layout):
         if not nodes: # No input or resetting
             return default_stylesheet
-        # hHow both incoming and outgoing containment (different from subgraph neighbourhood)
+        # show both incoming and outgoing containment (different from subgraph neighbourhood)
         # TODO use same neighbourhood definition?
-        context = find_context([node["id"] for node in nodes], edges)
+        context, _ = find_context(set([node["id"] for node in nodes]), edges)
         return selection_stylesheet(context, layout["name"])
+    
     # Download image
     @app.callback(
         [Output("graph", "generateImage"), Output("image", "n_clicks"), Output("shutdown", "n_clicks")],
@@ -188,8 +195,8 @@ def interactive_graph(app, original_elements, edges, auto_download):
         name = auto_download if auto_download else "image" # TODO use selection
         shutdown = 1 if auto_download else None # Shutdown after download
         return [{'type': type, 'action': 'download', 'filename': name}, None, shutdown]
+    
     # Shutdown server
-    # @app.server.route('/shutdown', methods=['POST'])
     @app.callback(
         Output("dummy", "n_clicks"), # No output
         Input("shutdown", "n_clicks"))
@@ -198,6 +205,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return no_update
         print('Server shutting down...')
         os.kill(os.getpid(), signal.SIGTERM)
+
     # Subgraph selection
     @app.callback(
         [Output('graph', 'elements'), Output('subgraph', 'n_clicks')], 
@@ -209,7 +217,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             # TODO fix resetting from filter
             return [original_elements, None]
         # Only shows incoming containments in subgraph
-        context = find_context([node["id"] for node in nodes], edges, directional=True)
+        context, _ = find_context(set([node["id"] for node in nodes]), edges, directional=True)
         # Translate to elements
         selected_elements = []
         for element in original_elements:
@@ -219,6 +227,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                     "target" in element["data"].keys() and element["data"]["target"] in context:
                 selected_elements.append(element)
         return [selected_elements, 1]
+    
     # Filter
     @app.callback(
         Output('graph', 'selectedNodeData'),
@@ -236,7 +245,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
                 selection.append(element["data"])
         return selection
 
-def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None):
+def display_graph(nodes, edges, data, functions, positions=None, default_layout="cose-bilkent", relevance=None, auto_download=None, marked_calling=None, group_variants=None, sample=None, homozygous=None):
     """Display relations as a graph
 
     Uses dash Cytoscape which creates a localhost website.
@@ -246,69 +255,101 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     """
     # TODO create js page
     # TODO why does it call this function twice
-    # TODO add link between phased samples
+    # TODO allow for multiple samples
     # TODO add display filters
     # TODO make auto download faster?
+    # TODO make calling graph separate function
     print("Displaying graph")
     # Convert to proper format for cytoscape
     elements = []
+    # Add nodes
+    to_group = []
     for i, node in enumerate(nodes):
-        # TODO use enum or classes
-        function, impact, severity = None, None, None, 
+        function, impact, severity = None, None, None
         relevant = True
-        if sort_types(node) == 1: # Core allele
-            category = "core"
-            label = "*" + node.split("*")[1]
+        if find_type(node) in (Type.CORE, Type.SUB):
             function = functions[node]
-        elif sort_types(node) == 2: # Suballele
-            category = "sub"
             label = "*" + node.split("*")[1]
-            function = functions[node]
-        elif sort_types(node) == 3: # PharmVar variant
+            if find_type(node) == Type.CORE: # Core allele
+                category = "core"
+            elif find_type(node) == Type.SUB: # Suballele
+                category = "sub"
+                label = label.split('.')[0] + '.' + label.split('.')[1].replace('0', '')
+            if marked_calling and node in marked_calling:
+                category += " called"
+        elif find_type(node) in (Type.VAR, Type.P_VAR): # Variant
             category = "variant"
-            label = node.split(':')[1].split('.')[1]
-            impact = functions[node]
-            severity = severity_pharmvar(functions[node])
+            # Show relevance to calling
             relevant = relevance[node] if relevance is not None and node in relevance else True
-        elif sort_types(node) == 4: # Sample
+            if find_type(node) == Type.VAR: # PharmVar variant
+                label = node.split(':')[1].split('.')[1]
+                impact = functions[node]
+                severity = severity_pharmvar(functions[node])
+            elif find_type(node) == Type.P_VAR: # Personal variant
+                category += " observed"
+                label = node
+                impact = "; ".join(functions[node])
+                severity = severity_GO(functions[node])
+        elif find_type(node) == Type.SAMPLE: # Sample
             category = "sample"
             label = node
-        elif sort_types(node) == 5: # Personal variant
-            category = "observed variant"
-            label = node
-            impact = "; ".join(functions[node])
-            severity = severity_GO(functions[node])
-            relevant = relevance[node] if relevance is not None and node in relevance else True
         element = {            
+            # TODO don't store all fields of data
             "data": {
                 "id": node, 
                 "label": label,
-                "data": data[node] if node in data else None,
-                # TODO don't store all fields of data
                 "function": function,
                 "impact": impact,
                 "severity": severity,
-                "relevant": relevant 
+                "relevant": relevant,
+                "homozygous": node in homozygous if homozygous is not None else False,
+                "data": data[node] if node in data else None,
             },
             "classes": category,
         }
-        if positions is not None: element["position"] = positions[i]
+        if positions is not None: element["position"] = {"x": positions[i][0], "y": positions[i][1]}
+        if group_variants is not None and node in group_variants:
+            to_group.append(element)
+            continue
         elements.append(element)
-    for node, other, relation in edges:
+    # Treat group as single node with aggregated data
+    if len(to_group) > 0:
+        elements.append({
+            "data": {
+                "id": "extra-variants",
+                "label": "; ".join([element["data"]["label"] for element in to_group]),
+                "severity": 0 if 0 in [element["data"]["severity"] for element in to_group if element is not None] else max([element["data"]["severity"] for element in to_group if element is not None]),
+                "relevant": any([element["data"]["relevant"] for element in to_group if element is not None]),
+            },
+            "classes": "variant group"
+        })
+        # Attach edges to some in group to group
+        # TODO only attach edges to all?
+        for source, target, relation in list(edges):
+            if source in group_variants: 
+                edges.remove((source, target, relation))
+                edges.add(("extra-variants", target, relation))
+            if target in group_variants:
+                edges.remove((source, target, relation))
+                edges.add((source, "extra-variants", relation))
+    # Add edges
+    for source, target, relation in edges:
         element = {
             "data": {
-                "source": node,
-                "target": other,
+                "source": source,
+                "target": target,
             },
             "classes": relation.name
         }
+        if element in elements:
+            continue
         elements.append(element)
     # Setup graph webpage
     cyto.load_extra_layouts()
     app = Dash(__name__)
     # Show graph
-    app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout) 
+    app.layout = layout_graph(elements, nodes, edges, default_layout=default_layout, sample=sample) 
     # Add interactive component callbacks 
     interactive_graph(app, elements, edges, auto_download=auto_download)
     # Start webpage
-    app.run_server(debug=True)
+    app.run_server(debug=True, threaded=True)

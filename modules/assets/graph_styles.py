@@ -1,7 +1,7 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
-selection_color = '#1E88E5' # Light blue 600
-adj_color = "#4FC3F7" # Light blue 300
+default_color = '#455A64' # Blue gray 700
+calling_color = "#ff8a65" # deep orange 300
 
 default_stylesheet = []
 # General style of types
@@ -9,59 +9,92 @@ default_stylesheet.append({
     'selector': 'node',
     'style': {
         'content': 'data(label)',
-        'background-color': '#455A64', # Blue gray 700
+        'background-color': default_color, 
         "text-valign": "center",
         "text-halign": "center",
         "color": "white",
+        "font-family": "times new roman",
+        "border-width": "2px",
+        "border-color": default_color
     }
 })
 default_stylesheet.append({
     'selector': 'edge',
     'style': {
         'curve-style': 'bezier' 
-        # 'curve-style': 'taxi',
-        # 'taxi-direction': "vertical"
     }
 })
+# default_stylesheet.append({
+#     "selector": "node:selected",
+#     "style": {
+#         "background-color": selection_color,
+#     }
+# })
 default_stylesheet.append({
-    "selector": "node:selected",
+    "selector": "node[?homozygous]",
     "style": {
-        "background-color": selection_color,
+        "border-style": "double",
+        "border-width": "6px",
     }
 })
 default_stylesheet.append({
     "selector": ".core",
     "style": {
         "font-size": "15px",
-        "width": "40px",
-        "height": "40px",
-        "shape": "ellipse"
+        "width": "45px",
+        "height": "45px",
+        "shape": "ellipse",
     }
  })
 default_stylesheet.append({
     "selector": ".sub",
     "style": {
-        "font-size": "5px",
-        "width": "25px",
-        "height": "25px",
+        "font-size": "10px",
+        "width": "35px",
+        "height": "35px",
         "shape": "ellipse"
+    }
+})
+default_stylesheet.append({
+    "selector": ".called",
+    "style": {
+        "overlay-color": calling_color,
+        "overlay-padding": "10px",
+        "overlay-opacity": "0.25",
     }
 })
 default_stylesheet.append({
     "selector": ".variant",
     "style": {
-        "font-size": "3px",
-        "width": "30px", 
-        "height": "10px",
-        "shape": "round-rectangle",
+        "font-size": "5px",
+        "width": "40px", 
+        "height": "15px",
+        "shape": "rectangle",
         "text-wrap": "ellipsis",
-        "text-max-width": "25px"
+        "text-max-width": "35px"
     }   
 })
 default_stylesheet.append({
     "selector": ".variant.observed",
     "style": {
-        "shape": "hexagon",
+        "shape": "tag",
+    }
+})
+default_stylesheet.append({
+    "selector": ".variant.group",
+    "style": {
+        "width": "120px",
+        "text-max-width": "110px",
+        "height": "70px",
+        "text-wrap": "wrap",
+        "text-justification": "left",
+    }
+})
+default_stylesheet.append({
+    "selector": ":compound",
+    "style": {
+        "width": "10px",
+        "background-color": "white",
     }
 })
 default_stylesheet.append({
@@ -69,7 +102,7 @@ default_stylesheet.append({
     "style": {
         "font-size": "10px",
         "width": "75px", 
-        "height": "75px",
+        "height": "35px",
         "shape": "hexagon",
     }  
 })
@@ -127,7 +160,6 @@ for function, colour in function_colours:
     default_stylesheet.append({
         "selector": f"node[function = '{function}']",
         "style": {
-            "border-width": 2,
             "border-color": colour,
         }
     })
@@ -143,7 +175,6 @@ for severity, colour in impact_colours:
     default_stylesheet.append({
         "selector": f"node[severity = {severity}]",
         "style": {
-            "border-width": 1,
             "border-color": colour,
         }
     })
@@ -154,7 +185,7 @@ default_stylesheet.append({
     # TODO don't display?
     "selector": "node[!relevant]",
     "style": {
-        "background-blacken": -0.4, # Make lighter to indicate not relevant (no conflict with opacity)
+        "opacity": 0.8, 
     }
 })
 
@@ -176,8 +207,7 @@ def selection_stylesheet(nodes, layout):
         stylesheet += [{
             "selector": f"node[id = '{node}']:unselected",
             "style": {
-                'background-color': adj_color,
-                "opacity": 1,
+                "opacity": 0.9,
                 'z-index': 9999
             }
         }]
@@ -186,14 +216,9 @@ def selection_stylesheet(nodes, layout):
             style = {
                 "selector": f"edge[source = '{source}'][target = '{target}']",
                 "style": {
-                    "line-color": adj_color,
-                    'target-arrow-color': adj_color,
                     'opacity': 1,
                     'z-index': 5000
                 }
             }
-            if layout == 'dagre':
-                style['style']['curve-style'] = 'taxi'
-                style['style']['taxi-direction'] = "vertical"
             stylesheet.append(style)
     return stylesheet

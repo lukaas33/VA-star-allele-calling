@@ -6,10 +6,10 @@ from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
-from modules.calling import star_allele_calling_all, sort_types, impact_position, relevance
+from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
-from modules.utils import validate_relations, validate_calling, make_samples_unphased
-from modules.assets.generate_images import *
+from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling
+from modules.assets.generate_images import image_configs
 import algebra as va
 
 # TODO move checks to own file
@@ -107,7 +107,7 @@ def test_central_personal_variants(personal_variants, relations):
                 continue
             if left != personal_variant: # Data contains two directions
                 continue
-            if sort_types(right) != 4: 
+            if find_type(right) != Type.SAMPLE: 
                 # warnings.warn(f"{left} has relation {relation.name} with {right} which is not a sample")
                 continue
             if relation != va.Relation.IS_CONTAINED:
@@ -194,9 +194,15 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         sel_calling_simple = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_simple | supremal_samples, reference, detail_level=1)
         sel_calling_extended = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
         if sel_calling_simple != sel_calling_extended:
-            warnings.warn(f"Calling with {phase} variants is not the same for simple and extended relations")
+            warnings.warn(f"Calling with {phase} is not the same for simple and extended")
+            for sel_sample in sel_samples:
+                sample, phase = sel_sample.split('_')
+                if sel_calling_simple[sample] != sel_calling_extended[sample]:
+                    print(sel_sample, *sel_calling_simple[sample][phase], "vs", *sel_calling_extended[sample][phase])
+        else:
+            print(f"Calling with {phase} variants is the same for simple and extended relations")
 
-def main(text, visual, select, interactive):
+def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
@@ -235,7 +241,7 @@ def main(text, visual, select, interactive):
 
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
-    # validate_relations(pruned_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
+    # validate_relations(pruned_extended[1], variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
 
     # TEST 3: check if the functional annotations are consistent
     # test_functional_annotation(suballeles, functions)
@@ -276,7 +282,7 @@ def main(text, visual, select, interactive):
                 # Filter out variants that are in the database (not personal)
                 # Relations with these variants will show up later
                 for v in supremal_extended:
-                    if sort_types(v) != 3:
+                    if find_type(v) != Type.VAR:
                         continue
                     rel = va.relations.supremal_based.compare(reference_sequence, supremal_v, supremal_extended[v])
                     if rel == va.Relation.EQUIVALENT: # Not personal
@@ -287,33 +293,23 @@ def main(text, visual, select, interactive):
         cache_set(supremal_samples, "supremal_samples")
 
     # Split into personal variants and samples
-    personal_variants = {variant: value for variant, value in supremal_samples.items() if sort_types(variant) == 5} 
-    samples = {sample: value for sample, value in supremal_samples.items() if sort_types(sample) == 4} 
+    personal_variants = {variant: value for variant, value in supremal_samples.items() if find_type(variant) == Type.P_VAR} 
+    samples = {sample: value for sample, value in supremal_samples.items() if find_type(sample) == Type.SAMPLE} 
 
     # TEST 4: check if more information can be found about personal variants.
     ids |= get_personal_ids(personal_variants, reference, cache_name="ids_personal")
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
  
     # Find all relations with samples
-    # TODO simplify this
     relations_samples_extended = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
     relations_samples_extended += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_extended += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
     relations_samples_extended += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_extended = prune_relations(pruned_extended[1] + relations_samples_extended, cache_name="relations_pruned_samples_extended")
-    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
-        if v is not None:
-            continue
-        pruned_samples_extended[0].add(s)
+    # Simplified
     relations_samples_simple = find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple")
     relations_samples_simple += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
     relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
     relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
-    pruned_samples_simple = prune_relations(pruned_simple[1] + relations_samples_simple, cache_name="relations_pruned_samples_simple")
-    for s, v in supremal_samples.items(): # Add samples that are disjoint with everything to nodes
-        if v is not None:
-            continue
-        pruned_samples_simple[0].add(s)
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -321,69 +317,122 @@ def main(text, visual, select, interactive):
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
+    # Simplify sample relations
+    pruned_samples_extended = prune_relations(relations_samples_extended + relations_extended, cache_name="relations_pruned_samples_extended")
+    pruned_samples_simple = prune_relations(relations_samples_simple + relations_simple, cache_name="relations_pruned_samples_simple")
+
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
 
-    # TODO move experiments
     # EXPERIMENT 1: Determine star allele calling for phased samples
-    # calling_phased = star_allele_calling_all(samples_phased.keys(), *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
-    # for sample, line in calling_phased.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # validate_calling(calling_phased, r"data\bastard.txt", soft=True) # validate phased star allele calling
-
+    if unphased and phased: 
+        raise ValueError("Either phased or unphased should be True")
+    if phased:
+        # TODO change used by detail?
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
+    
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
-    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
-    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
     # EXPERIMENT 2.2: use homozygous variants alleles
-    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
-    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
     # EXPERIMENT 2.3: use heterozygous variants alleles
-    # unphased_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
-    # calling_unphased = star_allele_calling_all(unphased_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
     # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
-    # calling_unphased_infer = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=1)
-    # for sample, line in calling_unphased_infer.items(): print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
-    # validate_calling(calling_unphased_infer, r"data\bastard.txt") # validate unphased star allele calling
+    if unphased:
+        # TODO change by detail?
+        # TODO use extended
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
-    # Check the relevance of the extra variants 
-    # TODO use extended?
-    variants_relevance = {sample: relevance(sample, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference) for sample in samples_phased}
+    # TEST 7: validate alternative callings
+    # validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
+
+    # Output as text
+    if text and visual or text and interactive or visual and interactive:
+        raise ValueError("Only one of text, visual or interactive can be True") 
+    if text:
+        # TODO filter selection
+        for sample, line in calling.items(): 
+            if type(select) == list and not any([sample in s for s in select]): 
+                continue
+            print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+
+        # TEST 8: validate calling
+        # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
-        # TODO handle None
-        # TODO handle multiple?
-        for sample in select:
-            visualised_sample = sample
-            context = [None, find_context([visualised_sample], pruned_samples_simple[1], as_edges=True)]
-            context[0] = set([n[0] for n in context[1]]) | set([n[1] for n in context[1]])
-            # TODO taxi edges?
-            display_graph(*context, data, functions, default_layout="dagre", relevance=variants_relevance[sample], auto_download=visualised_sample)
+        # TODO change by detail
+        if type(select) != list or len(select) != 1: # TODO handle multiple?
+            raise Exception("Only one sample can be selected for visualisation")
+        select = select[0]
+        sample, phase = select.split('_')
+        # Check the relevance of the extra variant
+        variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) # TODO remove relevance?
+        group = variants_relevance.keys() if len(variants_relevance.keys()) > 3 else None
+        # Mark the star-allele calling
+        marked_calling = None
+        if phase in "AB": 
+            marked_calling = calling[sample][phase]
+        else:
+            marked_calling = calling[sample]['A'] + calling[sample]['B']
+        # Find extend context (including core alleles)
+        nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
+        # Find homozygous
+        sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
+        sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
+        homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
+        homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
+        # TODO taxi edges?
+        display_graph(nodes, edges, data, functions, default_layout="breadthfirst", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
-        context = find_context(select, pruned_samples_simple[1], as_edges=True) if select else []
-        combined_relevance = {}
-        for sample in select: 
-            for variant in variants_relevance[sample]:
-                combined_relevance[variant] = variants_relevance[sample][variant] # TODO valid for multiple samples?
-        display_graph(*prune_relations(context + pruned_simple[1]), data, functions, relevance=combined_relevance)
+        # TODO include relevance?
+        edges = pruned_extended[1]
+        if type(select) == list:
+            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
+        nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
+        display_graph(nodes, edges, data, functions)
 
     # VISUALISATION 3: Generate images for report
-    # TODO automate more
-    # nodes, edges, positions = image_reduction_equivalence(relations_extended)
-    # display_graph(nodes, edges, data, functions positions=positions, default_layout="preset")
+    if example:
+        config = image_configs[example]
+        # TODO allow for multiple
+        nodes = config["selection"]
+        if "positions" in config:
+            positions = config["positions"]
+        else:
+            positions = None
+        if "edges" in config:
+            edges = config["edges"]
+        else:
+            edges = [] # TODO allow for edge selection
+            for s, t, r in pruned_extended[1]:
+                if s not in nodes or t not in nodes:
+                    continue
+                edges.append((s, t, r))
+        display_graph(nodes, edges, data, functions, default_layout="preset", positions=positions, auto_download=example)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')
-    # TODO make some options mutually exclusive
-    arguments_parser.add_argument('-t', '--text', type=bool, default=True, help="Output calling as text") # TODO handle this
-    arguments_parser.add_argument('-v', '--visual', type=bool, default=False, help="Output calling as image")
-    arguments_parser.add_argument('-i', '--interactive', type=bool, default=False, help="Run an interactive visualisation")
-    arguments_parser.add_argument('-s', '--select', nargs='+', default=None, help='Selection of samples to call')
-    arguments = arguments_parser.parse_args()
-    main(**vars(arguments))
+    group_output = arguments_parser.add_mutually_exclusive_group()
+    group_output.add_argument('-v', '--visual', action=argparse.BooleanOptionalAction, help="Output calling as image")
+    group_output.add_argument('-i', '--interactive', action=argparse.BooleanOptionalAction, help="Run an interactive visualisation")
+    group_output.add_argument('-t', '--text', action=argparse.BooleanOptionalAction, help="Output calling as text") 
+    group_output.add_argument('-e', '--example', type=str, help="Output specific example image") 
+    group_input = arguments_parser.add_mutually_exclusive_group()
+    group_input.add_argument('-p', '--phased', action=argparse.BooleanOptionalAction, help="Phased star allele calling")
+    group_input.add_argument('-u', '--unphased', action=argparse.BooleanOptionalAction, help="Unphased star allele calling")
+    arguments_parser.add_argument('-s', '--select', type=str, nargs='+', default=None, help='Selection of samples to call')
+    arguments_parser.add_argument('--detail', type=int, default=0, help="Output detail level") 
+    arguments_parser.add_argument('--download', action=argparse.BooleanOptionalAction, help="Download image")
+    arguments = vars(arguments_parser.parse_args())
+    main(**arguments)

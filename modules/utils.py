@@ -145,7 +145,7 @@ def validate_calling(callings, validate_filename, soft=False):
     with open(validate_filename, 'r') as validate:
         for line in validate:
             # convert to format of classifications
-            sample, reference = line.rstrip().split(' ')
+            sample, reference = line.strip().split(' ')
             reference = ["CYP2D6" + c for c in reference.split('/')]
             calling = [] # Get priority answer (assumes filtering has occurred already with representation method)  
             for c in callings[sample].values():
@@ -177,3 +177,73 @@ def make_samples_unphased():
         data = data.replace("1|0", "0/1")
         with open(os.path.join(new_directory, filename), 'w') as file:
             file.write(data)
+
+
+def validate_alternative_calling(calling_filename, validate_filename):
+    """Validate if alternative calling matches with the M&J method"""
+    # TODO integrate differently (not using file)
+    validate = {}
+    with open(validate_filename, 'r') as file:
+        for line in file:
+            # convert to format of classifications
+            sample, calling = line.rstrip().split(' ')
+            calling = calling.split('/')
+            calling.sort(key=lambda x: int(x.split('*')[1]))
+            calling = ["CYP2D6" + c for c in calling]
+            validate[sample] = calling
+    to_find = set(validate.keys())
+
+    def end_sample(sample, prev, how, found, count, totals):
+        if found != -1:
+            if how == '(hom)':
+                print(f"{sample} has the correct calling due to homozygous alleles")
+                totals['hom'] += 1
+            else:
+                print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
+                if found == 1: totals['preferred'] += 1
+                else: totals['not_preferred'] += 1
+        else:
+            print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
+            totals['incorrect'] += 1
+
+    # TODO make into single variable
+    totals = {
+        'hom': 0,
+        'preferred': 0,
+        'not_preferred': 0,
+        'incorrect': 0
+    }
+    with open(calling_filename, 'r', encoding="utf-16") as file:
+        sample, prev, how = None, None, None
+        found = -1
+        count = 0
+        for _line in file:
+            line = _line.strip()
+            if not line: 
+                continue
+            if line.startswith('CYP2D6'):
+                line = line.split(' ')[0] # Handle annotations
+                prev = line
+                count += 1
+                if line.split('/') == validate[sample]:
+                    found = count
+            else:
+                sample = line.split(' ')[0]
+                how = line.split(' ')[1]
+                to_find.remove(sample)
+                if prev is None:
+                    continue
+                end_sample(sample, prev, how, found, count, totals)
+                found = -1
+                count = 0
+        end_sample(sample, prev, how, found, count, totals)
+
+    print(f"{totals['hom']} samples correct due to homozygous alleles")
+    print(f"{totals['preferred']} samples correct as preferred allele")
+    print(f"{totals['not_preferred']} samples not correct preferred allele")
+    print(f"{totals['incorrect']} samples incorrect")
+    if len(to_find) > 0:
+        print(f"{len(to_find)} not in alternative callings:")
+        for sample in to_find:
+            print(f"\t{sample} should be {validate[sample]}")
+    print(f"{sum(totals.values()) + len(to_find)} total")

@@ -1,77 +1,81 @@
-def image_reduction_transitive(relations):
-    img_sel = ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147")
-    positions = ((0, 0), (0, 100), (100, 100))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+import algebra as va 
 
-def image_reduction_symmetric(relations):
-    img_sel = ("CYP2D6*115", "CYP2D6*109")
-    positions = ((0, 0), (100, 0))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+image_configs = {}
 
-def image_reduction_reflexive(relations):
-    img_sel = ("CYP2D6*109",)
-    positions = ((0, 0),)
-    nodes = img_sel
-    edges = set()
-    for edge in relations:
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-        break
-    return nodes, edges, positions
+image_configs["transitive"] = {
+    "selection": ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147"),
+    "positions": ((0, 0), (0, 100), (100, 100)),
+    "edges": [
+        ("CYP2D6*39", "CYP2D6*10", va.Relation.IS_CONTAINED),
+        ("CYP2D6*39", "CYP2D6*147", va.Relation.IS_CONTAINED),
+        ("CYP2D6*10", "CYP2D6*147", va.Relation.IS_CONTAINED),    
+    ]
+}
 
-def image_reduction_most_specific(relations):
-    img_sel = ("CYP2D6*17", "CYP2D6*82", "CYP2D6*58")
-    positions = ((0, 0), (100, 100), (100, 0))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if (edge[1], edge[0], edge[2]) in edges:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+image_configs["symmetric"] = {
+    "selection": ("CYP2D6*115", "CYP2D6*109"),
+    "positions": ((0, 0), (100, 0)),
+    "edges": [
+        ("CYP2D6*115", "CYP2D6*109", va.Relation.OVERLAP),
+        ("CYP2D6*109", "CYP2D6*115", va.Relation.OVERLAP)
+    ]
+}
 
-def image_reduction_common_ancestor(relations):
-    img_sel = ("CYP2D6*9", "CYP2D6*109", "CYP2D6*115")
-    positions = ((0, 0), (100, 100), (0, 100))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if (edge[1], edge[0], edge[2]) in edges:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+image_configs["reflexive"] = {
+    "selection": ("CYP2D6*109",),
+    "positions": ((0, 0),),
+    "edges": [
+        ("CYP2D6*109", "CYP2D6*109", va.Relation.EQUIVALENT)
+    ]
+}
 
-def image_reduction_equivalence(relations):
-    img_sel = ("CYP2D6*44", "CYP2D6*22", "CYP2D6*44.001")
-    positions = ((0, 0), (100, 100), (100, 0))
-    edges = set()
-    for edge in relations:
-        if edge[0] == edge[1]:
-            continue
-        if (edge[1], edge[0], edge[2]) in edges:
-            continue
-        if edge[0] not in img_sel or edge[1] not in img_sel:
-            continue
-        edges.add(edge)
-    return img_sel, edges, positions
+image_configs["most-specific"] = {
+    "selection": ("CYP2D6*17", "CYP2D6*82", "CYP2D6*58"),
+    "positions": ((0, 0), (0, 100), (100, 100)),
+    "edges": [
+        ("CYP2D6*17", "CYP2D6*82", va.Relation.IS_CONTAINED),
+        ("CYP2D6*82", "CYP2D6*58", va.Relation.OVERLAP),
+        ("CYP2D6*17", "CYP2D6*58", va.Relation.OVERLAP)
+    ]
+}
+
+image_configs["common-ancestor"] = {
+    "selection": ("CYP2D6*9", "CYP2D6*109", "CYP2D6*115"),
+    "positions": ((0, 0), (100, 100), (0, 100)),
+    "edges": [
+        ("CYP2D6*9", "CYP2D6*109", va.Relation.IS_CONTAINED),
+        ("CYP2D6*9", "CYP2D6*115", va.Relation.IS_CONTAINED),
+        ("CYP2D6*109", "CYP2D6*115", va.Relation.OVERLAP)
+    ]
+}
+
+image_configs["edge-contraction"] = {
+    "selection": ("CYP2D6*44", "CYP2D6*22", "CYP2D6*44.001"),
+    "positions": ((0, 0), (100, 100), (0, 100)),
+    "edges": [
+        ("CYP2D6*44", "CYP2D6*44.001", va.Relation.EQUIVALENT),
+        ("CYP2D6*44", "CYP2D6*22", va.Relation.IS_CONTAINED),
+        ("CYP2D6*44.001", "CYP2D6*22", va.Relation.IS_CONTAINED),
+    ]
+}
+
+image_configs["node-coreallele"] = {
+    "selection": ("CYP2D6*2",),
+    "edges": []
+}
+image_configs["node-suballele"] = {
+    "selection": ("CYP2D6*2.001",),
+    "edges": []
+} 
+image_configs["node-variant"] = {
+    "selection": ("NC_000022.11:g.42126611C>G",),
+    "edges": []
+} 
+image_configs["node-input"] = {
+    "selection": ("HG00373",),
+    "edges": []
+} 
+image_configs["node-personal-variant"] = {
+    "selection": ("42125924>G",),
+    "edges": []
+}

@@ -5,12 +5,14 @@ from .data import api_get
 from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, severity_pharmvar
 import re
 import copy
+from itertools import combinations, combinations_with_replacement
+from enum import IntEnum
 
-all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function']
+all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function', "function not assigned"]
+
 def sort_function(f):
     """Sort function annotation based on severity."""
     raise DeprecationWarning("This function is redundant now")
-    # TODO handle function not assigned (doesn't occur in calling)
     # TODO use enums
     # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
@@ -20,24 +22,32 @@ def sort_function(f):
         return 0 
     return functions.index(f) + 1
 
-def sort_types(v):
-    """Sort variant types in order of specificity (somewhat arbitrary)."""
-    # TODO use enums or types for the data
+class Type(IntEnum):
+    """ Enum for variant types, sorted by relevance. """
+    CORE = 1 # Core allele
+    SUB = 2 # Suballele
+    VAR = 3 # PharmVar variant
+    P_VAR = 4 # Personal variant
+    SAMPLE = 5 # Input sample
+
+def find_type(v):
+    """ Find type of variant. """
+    # TODO use datatypes instead of strings
     if '*' in v:
         if '.' in v:
-            return 2 # Suballele
+            return Type.SUB # Suballele
         else:
-            return 1 # Core allele
+            return Type.CORE # Core allele
     elif v[:2] in ('HG', 'NA'):
-        return 4 # Sample
+        return Type.SAMPLE # Sample
     else:
         if ':' in v:
-            return 3 # Variant
-        return 5 # Personal variant
+            return Type.VAR # Variant
+        return Type.P_VAR # Personal variant
     
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
-    raise DeprecationWarning("This function is not used anymore")
+    raise DeprecationWarning("This function is not used any more")
     if start in visited: return # Already visited
     visited.add(start) # Needed to avoid equivalence loop and to avoid doubles
     if sort_types(start) in find: # Need to find this type
@@ -59,6 +69,7 @@ def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find,
 
 def find_overlapping_variants(current, cont_graph, overlap_graph, find):
     """Recursively find the overlapping variants from a given current node."""
+    raise DeprecationWarning("This function is not used any more")
     # Find overlapping
     matches = set()
     if current in overlap_graph.nodes():
@@ -90,13 +101,14 @@ def prioritize_calling(matches, functions):
         prioritized_matching.append(annotated["no function"])
     # If uncertain or unknown functions are present, the ordering after no function cannot be determined
     # An unknown function could be as bad as no function.
-    if len(annotated["unknown function"]) > 0 or len(annotated["uncertain function"]) > 0:
+    if len(annotated["unknown function"]) + len(annotated["uncertain function"]) + len(annotated["function not assigned"]) > 0:
         # Put all in the same position of ordering
         prioritized_matching.append(
             annotated["decreased function"] |
             annotated["normal function"] |
             annotated["unknown function"] |
-            annotated["uncertain function"]
+            annotated["uncertain function"] | 
+            annotated["function not assigned"]
         )
     else: # No uncertain or unknown functions
         # Ordering can be determined between normal and decreased function when no uncertain or unknown functions are present
@@ -116,37 +128,35 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
 
     Returns a list of allele matches ordered by the strength of the relation.
     """
-    # QUESTION does this method work directly for unphased data?
-    # QUESTION: is it needed to look at suballeles for calling?
-    # QUESTION: is it needed to look at individual variants for calling?
     # Don't predict unparsable samples
     # Would be predicted as *1 otherwise
     # Empty alleles are in the supremal dictionary with None as a value
     if sample not in supremals: 
         return [{'CYP2D6*?',}]
     # All information of a calling
-    start = [sample]
     matches = []
     # Find equivalent allele if present
-    if sample in eq_graph.nodes() and len(eq_graph[sample]) != 0:
-        m_eq = [match for match in eq_graph[sample] if sort_types(match) in (1, 2)]
+    if sample in eq_graph.nodes():
+        m_eq = set([m for m in eq_graph[sample] if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
-            raise Exception(f"{sample}: This should not happen, multiple equivalent matches found: {matches['equivalent']}.")
+            raise Exception(f"{sample}: multiple equivalent matches found: {matches['equivalent']}.")
         if len(m_eq) == 1: 
-            matches.append(set(m_eq)) # Strongest match
-            start.append(m_eq[0]) # Also look for contained/overlapping from equivalent allele
+            matches.append(m_eq) # Strongest match
     # Find directly contained alleles
-    m_cont = set()
-    for eq in start:
-        if eq in cont_graph.nodes() and len(cont_graph.in_edges(eq)) != 0:
-            m_cont |= set([m for m, _ in cont_graph.in_edges(eq) if sort_types(m) in (1, 2)])
-    if len(m_cont) > 0: matches.append(m_cont) # Less strong match
+    if sample in cont_graph.nodes():
+        m_cont = set([m for m, _ in cont_graph.in_edges(sample) if find_type(m) in (Type.CORE, Type.SUB)])
+        if len(m_cont) > 0: 
+            matches.append(m_cont) # Less strong match than equivalent
     # Find directly overlapping alleles
-    # also need to check contained alleles because of most specific pruning
-    m_ov = set()
-    for eq in start:
-        m_ov |= find_overlapping_variants(eq, cont_graph, overlap_graph, (1, 2))
-    if len(m_ov) > 0: matches.append(m_ov) # Least strong match (can treat the same as contained?)
+    # not looking at overlaps that are a result of contained alleles
+    if sample in overlap_graph.nodes():
+        m_ov = set([m for m in overlap_graph[sample] if find_type(m) in (Type.CORE, Type.SUB)])
+        if len(m_ov) > 0: 
+            if len(matches) > 0:
+                # Overlap can be treated the same since there are no occurrences
+                matches[-1] |= m_ov # Least strong match 
+            else: # No equivalent or contained alleles
+                matches.append(m_ov)
     # Add default allele, will have the lowest priority
     matches.append({"CYP2D6*1",})
     # Return all matches to be filtered later (based on detail level)
@@ -156,47 +166,36 @@ def separate_callings(unphased_calling, cont_graph, functions):
     """Unpack a calling of a unphased sample into two phased callings."""
     samples = list(unphased_calling.keys())
     phased_calling = {sample: {'A': [], 'B': []} for sample in sorted(samples)} 
-    # Infer phasing or guess
+    # Infer phasing for some samples
     for sample in samples:
-        # Find groups
-        groups = {}
-        representation = calling_to_repr(unphased_calling[sample], cont_graph, functions, **detail_from_level(1), reorder=False)["all"]
-        if len(representation) <= 2:
-            groups[representation[0]] = "A"
-            if len(representation) == 2:
-                groups[representation[1]] = "B"
-        any_homozygous = False
-        for alleles in unphased_calling[sample]['all']:
+        # Handle unparsable samples
+        if unphased_calling[sample]['all'][-1] == {'CYP2D6*?',}:
+            phased_calling[sample]['A'].append({"CYP2D6*?",})
+            phased_calling[sample]['B'].append({"CYP2D6*?",})
+            continue
+        for i, alleles in enumerate(unphased_calling[sample]['all'][:-1]): # All non-default alleles
             phased_calling[sample]['A'].append(set()) # Maintain relation strength rank
             phased_calling[sample]['B'].append(set())
-            # Handle unparsable samples
-            if alleles == {'CYP2D6*?',}:
-                phased_calling[sample]['A'][-1].add("CYP2D6*?")
-                phased_calling[sample]['B'][-1].add("CYP2D6*?")
-                break
-            # Handle default allele
-            if len(representation) == 0: # No core matches
-                break
+            # TODO simplify the two loops below?
             # Add largest homozygous matches to both callings
+            # Don't guess the heterozygous/mixed matches but add them all to A
+            # This will be handled by alternative callings later
             for allele in alleles: # is largest instead of overlap
+                phased_calling[sample]['A'][-1].add(allele)
                 if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
-                if find_core_string(allele) == "CYP2D6*1": # Skip default, is added when no other matches found
-                    continue
-                phased_calling[sample]['A'][-1].add(allele)
                 phased_calling[sample]['B'][-1].add(allele)
-                any_homozygous = True
-            # Make a guess to phase the remaining alleles if no homozygous were found
-            if not any_homozygous:
-                for allele in alleles:
-                    core = find_core_string(allele)
-                    if len(representation) > 2: # Cannot group, add all to single phase
-                        # TODO remove grouping altogether and instead use alternative callings
-                        phased_calling[sample]['A'][-1].add("CYP2D6*?")
-                        phased_calling[sample]['B'][-1].add(allele)
-                        continue
-                    if core in groups:
-                        phased_calling[sample][groups[core]][-1].add(allele)
+            # # Also add homozygous matches that are not in all to both callings 
+            # d = len(unphased_calling[sample]['all']) - len(unphased_calling[sample]['hom']) # Handle array size difference
+            # if d+i >= len(unphased_calling[sample]['hom']):
+            #     continue
+            # for allele in unphased_calling[sample]['hom'][d+i]:
+            #     # Skip if already contained twice (as it will be found using alternative callings)
+            #     if ([allele in nx.ancestors(cont_graph, a) for phase in "AB" for all in phased_calling[sample][phase] for a in all]).count(True) >= 2:
+            #         continue
+            #     phased_calling[sample]["A"][-1].add(allele)
+            #     phased_calling[sample]["B"][-1].add(allele)
+        # Add defaults
         for phase in "AB":
             # remove empty
             phased_calling[sample][phase] = [c for c in phased_calling[sample][phase] if len(c) > 0] 
@@ -204,33 +203,288 @@ def separate_callings(unphased_calling, cont_graph, functions):
             phased_calling[sample][phase].append({"CYP2D6*1",})
     return phased_calling
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0):
+def valid_calling(calling, cont_graph, homozygous, CNV_possible=False):
+    """Check if a calling is valid based on homozygous contained alleles.
+    
+    The homozygous alleles should be present in both phases.
+    The homozygous alleles should be present only once in each phase.
+
+    TODO test CNV_possible option
+    TODO simplify
+    TODO make more efficient by not generating all ancestors?
+    """
+    # Find ancestors for both phases
+    ancestors = {}
+    for phase in 'AB':
+        ancestors[phase] = list()
+        for alleles in calling[phase][:-1]: # All non-default matches for a phase
+            for allele in alleles: 
+                ancestors[phase].append(allele)
+                if allele not in cont_graph.nodes():
+                    continue
+                for ancestor in nx.ancestors(cont_graph, allele): # All alleles that are contained in this allele
+                    if find_type(ancestor) in (Type.CORE, Type.SUB):
+                        ancestors[phase].append(ancestor)
+    hom_ancestors = list(homozygous)
+    for allele in list(homozygous):
+        if allele not in cont_graph.nodes():
+            continue
+        for ancestor in nx.ancestors(cont_graph, allele):
+            if find_type(ancestor) in (Type.CORE, Type.SUB):
+                hom_ancestors.append(ancestor)
+    # If this calling is valid the overlap between the ancestors of both phases should be equal to the ancestors of the homozygous alleles
+    for h in hom_ancestors:
+        if h not in ancestors['A'] or h not in ancestors['B']:
+            return False
+        if not CNV_possible and ancestors['A'].count(h) + ancestors['B'].count(h) > 2:
+            return False
+    for a in ancestors['A']:
+        if a not in ancestors['B']:
+            continue
+        if a not in hom_ancestors:
+            return False
+    return True
+
+def generate_alternative_callings(calling, cont_graph, homozygous, functions, detail_level, find_all=False):
+    """Generate valid alternative callings for a sample in a BFS manner.
+    
+    Generates most specific first.
+    Option to stop after first valid calling is found (find_all).
+
+    Only returns valid callings based on homozygous matches.
+
+    Only returns calling with a unique representation according to the required detail level.
+
+    Need to (deep)copy if generator not immediately consumed.
+
+    # TODO improve runtime for suballeles
+    # TODO prevent duplicates in generation instead of filtering (at move for instance)
+    # TODO prevent invalid generation (move to invalid state or extend with invalid state)
+    # TODO don't deepcopy everything?
+    # TODO fix runtime NA19174
+    # TODO don't extend if alternative already found (if this even occurs)
+    # TODO validate on suballeles
+    # TODO validate reduced method
+    """
+    def underlying(allele, cont_graph):
+        """Return the underlying alleles of some allele."""	
+        # TODO look at overlapping
+        for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
+            if find_type(contained) not in (Type.CORE, Type.SUB):
+                continue
+            yield contained
+    def move_alleles(calling):
+        """Move alleles to different phase"""
+        # TODO don't move to invalid state (keep homozygous in both)
+        # Move some alleles
+        for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
+            alleles = tuple(alleles)
+            # TODO Prevent duplicates here (X/Y = Y/X)
+            for r in range(1, len(alleles)): # Don't move all (r < n) since this would result in duplicates
+                for move in combinations(alleles, r):
+                    moved_alt = copy.deepcopy(calling)
+                    # Make B the same length as A
+                    while len(moved_alt['B']) < len(moved_alt['A']): 
+                        moved_alt['B'].insert(0, set())
+                    # Change phase 
+                    moved_alt['A'][i] -= set(move)
+                    moved_alt['B'][i] |= set(move)
+                    yield moved_alt
+        # Don't move anything (*1/*X+*Y)
+        # Last yielded since this notation is not preferred
+        yield copy.deepcopy(calling)
+    # Perform BFS on callings
+    queue = [(calling, set(), 0)]
+    unique = set()
+    while len(queue) > 0:
+        any_valid = False
+        # First alternative calling in the queue
+        alternative, extended, depth = queue.pop(0) 
+        # Try different phasing at the current depth
+        for moved_alt in move_alleles(alternative):
+            # Check if the representation of this alternative is unique
+            if valid_calling(moved_alt, cont_graph, homozygous):
+                representation = calling_to_repr(moved_alt, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
+                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
+                if representation in unique: continue # Only return unique
+                print(representation)
+                unique.add(representation)
+                any_valid = True
+                yield moved_alt
+        # Don't look deeper when calling valid (most specific)
+        if not find_all and any_valid: # TODO test
+            raise NotImplementedError("find_all not implemented")
+            continue
+        # Look deeper in the tree
+        for i, alleles in enumerate(alternative['A'][:-1]): # All non-default alleles
+            alleles = set(alleles)
+            for r in range(1, len(alleles)+1):
+                # Prevent extending a previous level (will be allowed if a allele occurs again in a different level)
+                for extend in combinations(alleles - extended, r=r): 
+                    # print("extend", extend)
+                    extend_alt = copy.deepcopy(alternative)
+                    extend = set(extend)
+                    # TODO can merge cases?
+                    # 1. Replace allele with underlying alleles
+                    for allele in extend:                        
+                        extend_alt['A'][i] -= {allele,}
+                        underlying_alleles = set(underlying(allele, cont_graph))
+                        extend_alt['A'][i] |= underlying_alleles
+                    queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1)) 
+                    # 2. Add underlying alleles to extended together with parent allele if homozygous
+                    extend_alt = copy.deepcopy(alternative)
+                    for allele in extend:
+                        # TODO allow variable number of underlying alleles?
+                        # TODO don't extend if number of a homozygous allele is > 2
+                        underlying_alleles = set(underlying(allele, cont_graph))
+                        for underlying_allele in underlying_alleles:
+                            # Extend if homozygous or contains homozygous  
+                            if not any(h in nx.ancestors(cont_graph, underlying_allele) | {underlying_allele,} for h in homozygous):
+                                continue
+                            # Add homozygous underlying and don't remove parent
+                            # Must be in the other phase as the parent for this to be valid (will be handled by move_alleles)
+                            underlying_alleles.add(underlying_allele)
+                            extend_alt['A'][i] |= {underlying_allele,}
+                    queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1))
+
+def generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
+    """Generate valid alternative callings for a sample.
+    
+    This is useful for unphased not homozygous matches.
+    Need to copy yielded callings to prevent changing the original calling
+    would not be needed in case of one iteration over this generator
+
+    Find_all can be used to find all alternative callings, if false valid callings are extended into less specific callings.
+
+    # TODO breadthfirst instead of depth first (lower are more specific)
+    # TODO don't extend if valid solution with more specific alleles is found (improve this to work with HG00421)
+    # TODO fix runtime of HG01190 and of with suballeles
+    """
+    raise DeprecationWarning("This function is deprecated, use generate_alternative_callings instead")	
+    def move_alleles(calling):
+        """Move alleles to other phase"""
+        # Move
+        for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
+            # Don't move all since this would result in a duplicate (X/Y = Y/X)
+            for r in range(1, len(alleles)):
+                # TODO how to avoid duplicates here?
+                for move in combinations(alleles, r=r):
+                    moved_calling = copy.deepcopy(calling)
+                    # Make B the same length as A
+                    while len(moved_calling['B']) < len(moved_calling['A']): 
+                        moved_calling['B'].insert(0, set())
+                    # Change phase 
+                    moved_calling['A'][i] -= set(move)
+                    moved_calling['B'][i] |= set(move)
+                    yield moved_calling
+        # Don't move
+        # Last since this notation is not preferred
+        yield copy.deepcopy(calling)
+    # Alternatives from moving at this depth
+    any_valid = False
+    for alternative in move_alleles(copy.deepcopy(calling)):
+        # Return only valid callings
+        if valid_calling(alternative, cont_graph, homozygous):
+            any_valid = True
+            yield alternative
+    # Go deeper by extending one allele
+    # Don't extend if already valid TODO test
+    if not any_valid or find_all:
+        # Find allele to extend
+        extend_allele, extend_underlying = None, None
+        for i, alleles in enumerate(calling['A'][:-1]): 
+            for allele in alleles:
+                # Avoid infinite recursion
+                # TODO test
+                if allele in extended:
+                    continue
+                # Find underlying alleles of this allele
+                if allele not in cont_graph.nodes(): 
+                    continue
+                # TODO check overlap graph
+                underlying = set()
+                for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
+                    if find_type(contained) not in (Type.CORE, Type.SUB):
+                        continue
+                    underlying.add(contained)
+                if len(underlying) == 0:
+                    continue
+                extend_allele, extend_underlying = allele, underlying
+                break # Don't extend further at this depth
+            else: # No break
+                continue
+            break
+        if extend_allele is not None:
+            # 1. Go deeper without extending or replacing the current
+            for alternative in generate_alternative_callings(calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
+                yield alternative
+            # 2. Go deeper with allele replaced by underlying
+            replaced_calling = copy.deepcopy(calling)
+            replaced_calling['A'][i].remove(extend_allele)
+            replaced_calling['A'][i] |= extend_underlying
+            # print(depth, "replace", allele, "with", underlying, "-", replaced_calling)
+            for alternative in generate_alternative_callings(replaced_calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
+                yield alternative
+            # 3. Go deeper with extended alleles
+            # Don't remove but add underlying which may be contained in it (if they are homozygous)
+            for r in range(1, len(extend_underlying)): 
+                for extend in combinations(extend_underlying, r):
+                    if not all([a in homozygous for a in extend]): # Can only extend an allele with itself and a homozygous allele
+                        continue
+                    extended_calling = copy.deepcopy(calling)
+                    extended_calling['A'][i] |= set(extend)
+                    for alternative in generate_alternative_callings(extended_calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
+                        yield alternative
+
+
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0, reorder=True):
     """Iterate over samples and call star alleles for each."""
-    eq_graph = nx.Graph()
-    eq_graph.add_nodes_from(nodes)
-    eq_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
-    cont_graph = nx.DiGraph()
-    cont_graph.add_nodes_from(nodes)
-    cont_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
-    overlap_graph = nx.Graph()
-    overlap_graph.add_nodes_from(nodes)
-    overlap_graph.add_edges_from([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
+    eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
+    cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
+    overlap_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
+
+    # Call each sample
     callings = {sample.split('_')[0]: {} for sample in sorted(samples)} 
     for sample in samples:
         calling = star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, supremals, reference)
         sample_source, phasing = sample.split('_')
         callings[sample_source][phasing] = calling
-    if not phased: # Single calling of unphased data contains multiple matches which must be separated
-        callings = separate_callings(callings, cont_graph, functions)
     # Create a textual representation of the calling based on the amount of detail needed
-    representation = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level)) for sample in callings}
-    return representation
+    if phased: # Calling is phased
+        representations = {sample: calling_to_repr(callings[sample], cont_graph, functions, **detail_from_level(detail_level), reorder=reorder) for sample in callings}
+        return representations
+    if not phased: # Unphased calling should be separated
+        sep_callings = separate_callings(callings, cont_graph, functions)
+        representations = {}
+        # TODO make this into function
+        # TODO allow for keeping of multiple alternative representations
+        for sample, calling in sep_callings.items():
+            if calling['A'] == calling['B']: # Already phased (homozygous)
+                representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
+                print(sample, "(hom)")
+                print(f"{'+'.join(representations[sample]['A'])}/{'+'.join(representations[sample]['B'])}")
+                print()
+                continue
+            # All homozygous alleles for the current sample
+            homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
+            # Generate unique valid alternative callings
+            alternatives = generate_alternative_callings(calling, cont_graph, homozygous, functions, detail_level, find_all=True)
+            preferred = None 
+            print(sample, "(alt)")
+            for alternative in alternatives:
+                # Prefer first as this is the most specific
+                if preferred is None:
+                    preferred = alternative
+            representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
+            print()
+        return representations
+
 
 def find_core_string(match):
     """Get the core allele from a match string wise."""
-    if sort_types(match) == 1:
+    if find_type(match) == Type.CORE:
         return match
-    elif sort_types(match) == 2:
+    elif find_type(match) == Type.SUB:
         return match[:-4]
     else:
         raise Exception(f"Unexpected match type: {match}")
@@ -245,9 +499,9 @@ def find_core_traversal(match, cont_graph):
     cores = []
     if match in cont_graph.nodes(): # Only have to check contained since everything is connected to the core
         for node, _ in cont_graph.in_edges(match):
-            if sort_types(node) == 1: # Found core contained in match, don't traverse further
+            if find_type(node) == Type.CORE: # Found core contained in match, don't traverse further
                 cores.append(node)
-            elif sort_types(node) == 2: # Traverse further
+            elif find_type(node) == Type.SUB: # Traverse further
                 cores.extend(find_core_traversal(node, cont_graph))
     return cores
 
@@ -324,12 +578,12 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
     # TODO do this on a graph?
     variants = []
     for edge in edges:
-        if edge[0] == sample and sort_types(edge[1]) in (3,5):
+        if edge[0] == sample and find_type(edge[1]) in (Type.VAR, Type.P_VAR):
             variants.append(edge[1])
-        elif edge[1] == sample and sort_types(edge[0]) in (3,5):
+        elif edge[1] == sample and find_type(edge[0]) in (Type.VAR, Type.P_VAR):
             variants.append(edge[0])
     if len(variants) == 0: # No variants found
-        return None
+        return {}
     # Check the relevance of each variant
     variants_relevance = {}
     for variant in variants:
@@ -337,9 +591,9 @@ def relevance(sample, nodes, edges, functions, supremals, reference):
         interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles if allele != "CYP2D6*1"])
         # Find the impact of the variant
         impact = functions[variant]
-        if sort_types(variant) == 5: # Personal variant
+        if find_type(variant) == Type.P_VAR: 
             severity = severity_GO(impact)
-        elif sort_types(variant) == 3: # pharmvar variant
+        elif find_type(variant) == Type.VAR:
             severity = severity_pharmvar(impact)
         if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
             severity = 1
@@ -355,16 +609,17 @@ def detail_from_level(level):
     Different detail levels are available.
     0: Only print best core match(es)
     1: Print all direct core matches
-    2: Also print suballeles 
-    3: Print direct all matches
+    2: Print all direct matches including suballeles
+    3: Print all direct matches without core allele lookup
+    4: Print all direct matches including the default allele
     TODO implement more levels?
     """
     kwargs = {}
-    kwargs["find_cores"] = True 
+    kwargs["find_cores"] = level <= 2
     kwargs["prioritize_function"] = level <= 0
     kwargs["prioritize_strength"] = level <= 0
-    kwargs["suballeles"] = not (level <= 1)
-    kwargs["default"] = not (level <= 2)
+    kwargs["suballeles"] = level >= 2
+    kwargs["default"] = level == 4
     return kwargs
 
 def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, default, prioritize_function, prioritize_strength, reorder=True):
@@ -398,7 +653,7 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
             for match2 in matches[:]:
                 if match1 == match2:
                     continue
-                if sort_types(match2) == 2: # Cores can be contained in subs
+                if find_type(match2) == Type.SUB: # Cores can be contained in subs
                     continue
                 if match2 not in cont_graph.nodes():
                     continue
@@ -412,11 +667,11 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         for alleles in calling[phase]:
             for allele in alleles:
                 # Add detail
-                if find_cores and sort_types(allele) == 2: # Find cores of suballeles
+                if find_cores and find_type(allele) == Type.SUB: # Find cores of suballeles
                     cores = find_core_traversal(allele, cont_graph) # Cores of suballele
                     representation[phase].extend(cores)
                 # Remove detail
-                if not suballeles and sort_types(allele) == 2: # Don't represent suballeles
+                if not suballeles and find_type(allele) == Type.SUB: # Don't represent suballeles
                     continue
                 if not default and allele == "CYP2D6*1": # Don't represent default allele if there are other matches
                     if len(representation[phase]) > 0: # Works since default is always last
