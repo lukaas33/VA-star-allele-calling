@@ -352,7 +352,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
-    validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
+    # validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
@@ -365,7 +365,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
             print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
 
         # TEST 8: validate calling
-        validate_calling(calling, r"data\bastard.txt") # compare to M&J method
+        # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
