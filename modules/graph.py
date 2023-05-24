@@ -292,7 +292,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 severity = severity_GO(functions[node])
         elif find_type(node) == Type.SAMPLE: # Sample
             category = "sample"
-            label = node
+            label = node.replace('_', '-') # Needed for latex
         element = {            
             # TODO don't store all fields of data
             "data": {
