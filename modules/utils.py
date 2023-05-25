@@ -25,12 +25,15 @@ def count_relations(relations):
     for _, _, relation in relations:
         counts[relation.name] += 1
     counts["CONTAINS"] = counts["IS_CONTAINED"]
+    counts["total"] = sum(counts.values())
     return counts
 
 def count_arity(nodes, relations):
     # TODO not accurate since it doesn't account for unreduced relations
     arity = {node: {relationType.name: 0 for relationType in va.Relation} for node in nodes}
     for l_allele, r_allele, relation in relations:
+        if l_allele not in arity or r_allele not in arity:
+            continue
         arity[l_allele][relation.name] += 1
         # Find inverse
         if relation.name == "IS_CONTAINED": # Directional
@@ -40,6 +43,8 @@ def count_arity(nodes, relations):
             arity[r_allele]["IS_CONTAINED"] += 1
             continue
         arity[r_allele][relation.name] += 1
+    for node in arity:
+        arity[node]["total"] = sum(arity[node].values())
     return arity
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):

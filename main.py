@@ -8,7 +8,7 @@ from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
-from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling
+from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity
 from modules.assets.generate_images import image_configs
 import algebra as va
 
@@ -202,6 +202,25 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
+def statistics(corealleles, suballeles, relations, pruned_relations):
+    print("Core alleles:", len(corealleles.keys()))
+    var_core = list(set([var["hgvs"] for core in corealleles.keys() for var in corealleles[core]["variants"]]))
+    print("Core variants:", len(var_core), var_core[:4])
+    all_sub = [sub for core in corealleles.keys() for sub in suballeles[core]]
+    print("Suballeles:", len(all_sub))
+    var_all = list(set([var["hgvs"] for core in corealleles.keys() for sub in suballeles[core] for var in suballeles[core][sub]["variants"]]))
+    print("All variants:", len(var_all), var_all[:5])
+    print("Alleles:", len(corealleles.keys()) + len(all_sub))
+    print("Theoretical relation count:", (len(corealleles.keys()) + len(all_sub) + len(var_all))**2)
+    print("Variants:", len(set(var_core + var_all)))
+    print("Relations before pruning")
+    print(count_relations(relations))
+    print("Relations after pruning")
+    print(count_relations(pruned_relations))
+    print("Most common nodes:")
+    arity = count_arity(corealleles.keys(), pruned_relations)
+    print(sorted([(a["total"], n) for n, a in arity.items()], reverse=True)[:5])
+
 def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
     reference_name = "NC_000022.11"
@@ -238,6 +257,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     relations_simple = find_relations_all(reference_sequence, supremal_simple, cache_name="relations_simple")
     pruned_simple = prune_relations(relations_simple, cache_name="relations_pruned_simple")
     pruned_simple[0].add("CYP2D6*1") # Add since it won't be found in the relations
+
+    # statistics(corealleles, suballeles, relations_extended, pruned_extended[1])
 
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
