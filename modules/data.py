@@ -93,7 +93,6 @@ def parse_samples(directory, reference, phased=False):
     """ Parse sample VCF files as variant objects."""
     # TODO detect if phased
     # TODO handle mixed phasing
-    # TODO handle unphased samples
     samples = {}
     for filename in os.listdir(directory):
         sample_name = filename.split('.')[0]
@@ -101,25 +100,28 @@ def parse_samples(directory, reference, phased=False):
             allele = {"A": {}, "B": {}} # First and second allele
         else:
             allele = {"hom": {}, "het": {}, "all": {}} # Homozygous, heterozygous and all variants
-        # TODO check that no records are double
         with open(os.path.join(directory, filename), 'r') as file:
             reader = vcf.Reader(file)
             # QUESTION: what are the filter, quality, format, info fields?
-            # QUESTION: what is the format of alt
             for record in reader:
                 # Validate if reference of vcf files is on the reference sequence
-                if record.REF != reference[record.start:record.end]:
+                if record.REF != reference["sequence"][record.start:record.end]:
                     raise ValueError("Reference sequence does not match")
+                phasing = record.samples[0].data[0]
+                # Alternative variants known to be heterozygous are stored in the ALT field
+                if phasing == '1/2': 
+                    pass
+                    continue
                 # Check ALT field. Can have multiple values for different phases, etc.
                 if len(record.ALT) > 1: 
                     raise ValueError("Multiple ALT alleles not supported") # TODO handle different alt values?
                 # Check multiple samples
                 if len(record.samples) > 1:
                     raise ValueError("Multiple samples not supported") # TODO handle
-                # Create variant with Zero based half-open positions
-                variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
-                hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants) TODO normalise TODO use gene ref
-                phasing = record.samples[0].data[0]
+                # Create variant with Zero based half-open positions 
+                variant = va.Variant(record.start, record.end, record.ALT[0].sequence)
+                hgvs = va.variants.to_hgvs([variant], reference="P_" + reference["name"], sequence_prefix=True) # TODO normalize
+                # TODO allow differentiation elsewhere and convert to gene ref elsewhere
                 # Store variant in correct alleles
                 if phased:
                     if '|' not in phasing: 
