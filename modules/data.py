@@ -118,7 +118,7 @@ def parse_samples(directory, reference, phased=False):
                     raise ValueError("Multiple samples not supported") # TODO handle
                 # Create variant with Zero based half-open positions
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence) 
-                hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants)
+                hgvs = va.variants.to_hgvs([variant]) # TODO add prefix and reference (but allow differentiation from pharmvar variants) TODO normalise TODO use gene ref
                 phasing = record.samples[0].data[0]
                 # Store variant in correct alleles
                 if phased:

@@ -273,6 +273,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # test_variant_annotation_position(variants, supremal_extended, functions)
 
     # parse samples
+    make_samples_unphased(reference)
+    exit()
     samples_phased = parse_samples("data/samples", reference_sequence, phased=True) 
     samples_unphased = parse_samples("data/samples_unphased", reference_sequence) 
     # TODO move to function

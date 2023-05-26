@@ -4,6 +4,7 @@ from itertools import chain, combinations
 from .data import cache_get
 import warnings
 import os
+import vcf
 
 def print_seq_diff(sequence1, sequence2, start=1):
     """ Output the difference between two aligned sequences as insertions and deletions. """
@@ -167,7 +168,7 @@ def validate_calling(callings, validate_filename, soft=False):
         print(f"{n_errors} errors found in the classifications")
                 
 
-def make_samples_unphased():
+def make_samples_unphased(reference):
     """Make all samples unphased"""
     # TODO retire
     directory = "data/samples"
@@ -177,6 +178,61 @@ def make_samples_unphased():
     for filename in os.listdir(directory):
         with open(os.path.join(directory, filename), 'r') as file:
             data = file.read()
+        # Find variants with overlapping variants
+        variants = []
+        info = []
+        with open(os.path.join(directory, filename), 'r') as file:
+            reader = vcf.Reader(file)
+            for record in reader:
+                var = va.Variant(record.start, record.end, record.ALT[0].sequence)
+                if var in variants: # Ignore duplicates here, will not be changed
+                    continue
+                info.append((var, record))
+        overlapping = []
+        for i, (var, record) in enumerate(info):
+            for var2, record2 in info[i+1:]:
+                phase, phase2 = record.samples[0].data[0], record2.samples[0].data[0]
+                id, id2 = record.ID, record2.ID
+                if max(var.start, var2.start) <= min(var.end, var2.end)-1: # Overlap in positions
+                    if phase == phase2: # Same phase, cannot coexist
+                        continue
+                    # Overlapping in two phases can exist
+                    overlapping.append((record, record2))
+        # Combine overlapping
+        if len(overlapping) > 0:
+            for record, record2 in overlapping:
+                # print(f"{filename} has overlapping variants {record.ID} and {record2.ID}")
+                for line in data.split('\n'):
+                    if record.ID in line: # Change notation of this line
+                        # Find reference sequence
+                        pos1, pos2 = record.start, record2.start
+                        end1, end2 = record.end, record2.end
+                        ref1, ref2 = record.REF, record2.REF
+                        change1, change2 = record.ALT[0].sequence, record2.ALT[0].sequence
+                        # print(pos1, end1, ref1, change1)
+                        # print(pos2, end2, ref2, change2)
+                        min_pos = min(pos1, pos2)
+                        max_pos = max(end1, end2)
+                        ref = reference["sequence"][min_pos:max_pos]
+                        if len(ref) > len(ref1):
+                            change1 = change1 + ref[len(ref1):]
+                        if len(ref) > len(ref2):
+                            change2 = change2 + ref[len(ref2):]
+                        # Find change and scale to reference
+                        columns = line.split('\t')
+                        # print('\t'.join(columns[:5]))
+                        columns[1] = str(min(pos1, pos2)+1) # Lowest position
+                        columns[2] = record.ID + '+' + record2.ID
+                        columns[3] = ref # Reference sequence
+                        columns[4] = f"{change1},{change2}" # Combine sequences TODO fix for differing positions
+                        columns[-1] = "1/2" # Notation heterozygous unphased
+                        # TODO should also combine other fields but not necessary for now
+                        data = data.replace(line, '\t'.join(columns))
+                        # print('\t'.join(columns[:5]))
+                        # print()
+                    elif record2.ID in line: # Remove line
+                        data = data.replace(line, "")
+        # Replace all phased with unphased
         data = data.replace("1|1", "1/1")
         data = data.replace("0|1", "0/1")
         data = data.replace("1|0", "0/1")
