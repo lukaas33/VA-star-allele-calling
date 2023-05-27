@@ -121,8 +121,9 @@ def parse_samples(directory, reference, phased=False):
                 # Create variant with Zero based half-open positions 
                 # TODO parse insT and >T variants differently
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence)
-                hgvs = va.variants.to_hgvs([variant], reference="P_" + reference["name"], sequence_prefix=True) # TODO normalize
-                # TODO allow differentiation elsewhere and convert to gene ref elsewhere
+                hgvs = va.variants.to_hgvs([variant])
+                # hgvs = va.variants.to_hgvs([variant], reference="P_" + reference["name"], sequence_prefix=True) # TODO normalize, prefix P_ reference
+                # TODO allow differentiation elsewhere and convert to gene ref in display
                 # Store variant in correct alleles
                 if phased:
                     if '|' not in phasing: 

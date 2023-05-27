@@ -404,6 +404,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         if phase in "AB": 
             marked_calling = calling[sample][phase]
         else:
+            # TODO use unphased calling here
             marked_calling = calling[sample]['A'] + calling[sample]['B']
         # Find extend context (including core alleles)
         nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
@@ -418,9 +419,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         # TODO include relevance?
-        edges = pruned_extended[1]
+        # TODO use extended
+        edges = pruned_simple[1]
         if type(select) == list:
-            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
+            edges.extend(find_context(set(select), pruned_samples_simple[1])[1])
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 
