@@ -275,11 +275,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
         'incorrect': 0
     }
     with open(calling_filename, 'r', encoding="utf-16") as file:
-        sample, prev, how = None, None, None
+        line = next(file).strip()
+        sample, how = line.split(' ')
+        prev = None
         found = -1
         count = 0
-        for _line in file:
-            line = _line.strip()
+        for line in file:
+            line = line.strip()
             if not line: 
                 continue
             if line.startswith('CYP2D6'):
@@ -289,14 +291,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
                 if line.split('/') == validate[sample]:
                     found = count
             else:
+                end_sample(sample, prev, how, found, count, totals)
+                to_find.remove(sample)
                 sample = line.split(' ')[0]
                 how = line.split(' ')[1]
-                to_find.remove(sample)
-                if prev is None:
-                    continue
-                end_sample(sample, prev, how, found, count, totals)
                 found = -1
                 count = 0
+                prev = None
         end_sample(sample, prev, how, found, count, totals)
 
     print(f"{totals['hom']} samples correct due to homozygous alleles")
