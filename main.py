@@ -276,7 +276,6 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # make_samples_unphased(reference)
     samples_phased = parse_samples("data/samples", reference, phased=True) 
     samples_unphased = parse_samples("data/samples_unphased", reference) 
-    exit()
     # TODO move to function
     try:
         supremal_samples = cache_get("supremal_samples")

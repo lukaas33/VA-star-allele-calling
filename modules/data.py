@@ -109,8 +109,8 @@ def parse_samples(directory, reference, phased=False):
                     raise ValueError("Reference sequence does not match")
                 phasing = record.samples[0].data[0]
                 # Alternative variants known to be heterozygous are stored in the ALT field
-                if phasing == '1/2': 
-                    pass
+                if not phased and phasing == '1/2': 
+                    # TODO handle
                     continue
                 # Check ALT field. Can have multiple values for different phases, etc.
                 if len(record.ALT) > 1: 
@@ -119,6 +119,7 @@ def parse_samples(directory, reference, phased=False):
                 if len(record.samples) > 1:
                     raise ValueError("Multiple samples not supported") # TODO handle
                 # Create variant with Zero based half-open positions 
+                # TODO parse insT and >T variants differently
                 variant = va.Variant(record.start, record.end, record.ALT[0].sequence)
                 hgvs = va.variants.to_hgvs([variant], reference="P_" + reference["name"], sequence_prefix=True) # TODO normalize
                 # TODO allow differentiation elsewhere and convert to gene ref elsewhere
