@@ -505,7 +505,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         test_i = 0
         for sample, calling in sep_callings.items():
             if sample == "NA19174": continue
-            # if sample != "HG00337": continue
+            if sample != "HG01190": continue
             # test_i += 1
             # if test_i > 13:
             #     exit()
