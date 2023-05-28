@@ -204,14 +204,18 @@ def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph):
         if find_type(a) == Type.VAR:
             yield a
             continue # Don't find variants in variant
+        # check contained
         if a in cont_graph.nodes():
             for cont in cont_graph.predecessors(a):
                 queue.add(cont)
-        # is equivalent to one
+        # check equivalents
         if a in eq_graph.nodes():
-            for eq in nx.shortest_path(eq_graph, a).keys():
+            for eq in list(nx.shortest_path(eq_graph, a))[1:]: # not self but eq
                 if find_type(eq) == Type.VAR:
                     yield eq
+                elif eq in cont_graph.nodes(): # Look at contained in eq (needed when variant exactly equals star allele)
+                    for cont in cont_graph.predecessors(eq):
+                        queue.add(cont)
 
 def valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, most_specific, CNV_possible=False):
     """Check if a calling is valid based on homozygous contained alleles.
@@ -571,10 +575,12 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
     TODO change how alternatives are generated based on detail level
         now returning wrong results for a detail level 1
     TODO check for duplicates being generated
+    TODO make more efficient by reverse hash of definitions
     """
     # Find star allele definitions to check for most specific
     definitions = {}
     for node in cont_graph.nodes():
+        # if find_type(node) != Type.CORE or detail_level > 1 and find_type(node) != Type.SUB:
         if find_type(node) not in (Type.CORE, Type.SUB):
             continue
         ancestors = set(find_ancestor_variants(node, eq_graph, cont_graph, ov_graph))
@@ -696,7 +702,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         representations = {}
         # TODO make this into function
         # TODO allow for keeping of multiple alternative representations?
-        test_i = 0
+        # test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
             # if sample != "NA19174": continue

@@ -234,13 +234,18 @@ def test_alternative_callings(supremals, reference, relations_ref, functions):
                     continue
                 rel = va.relations.supremal_based.compare(reference["sequence"], o_supremal, r_supremal)
                 relations.append((o_allele, r_allele, rel))
+                if rel == va.Relation.CONTAINS:
+                    rel = va.Relation.IS_CONTAINED
+                elif rel == va.Relation.IS_CONTAINED:
+                    rel = va.Relation.CONTAINS
+                relations.append((r_allele, o_allele, rel))
                 c += 1
                 print(c, len(supremals))
         cache_set(relations, "TEST_relations")
     supremals = supremals | alleles
-    relations += relations_ref # TODO test with extended
+    relations += relations_ref 
     pruned = prune_relations(relations)
-    star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=1)
+    star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=2)
 
 def statistics(corealleles, suballeles, relations, pruned_relations):
     print("Core alleles:", len(corealleles.keys()))
