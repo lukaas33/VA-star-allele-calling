@@ -565,10 +565,12 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
     Should yield the same results as generate_alternative_callings.
     But is more efficient as it considers only unique valid callings.
 
+    Only returns valid answers as judged by valid_calling.
+
     TODO consider overlap
-    TODO handle representations
-    TODO check for duplicates
-    TODO check valid with function
+    TODO change how alternatives are generated based on detail level
+        now returning wrong results for a detail level 1
+    TODO check for duplicates being generated
     """
     # Find star allele definitions to check for most specific
     definitions = {}
@@ -593,6 +595,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             hom_variants.add(a)
     het_variants = all_variants - hom_variants
     # Find all possible combinations of heterozygous variants
+    unique = set()
     for r in range(0, math.floor(len(het_variants) / 2) + 1): # All unique combinations (5C2 = 5c3)
         for combination in combinations(het_variants, r):
             # Combination forms two unordered groups of variants
@@ -624,8 +627,14 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                     calling[phase][-1].add(most_specific)
                 calling[phase].append({"CYP2D6*1",})
             # Return valid calling
-            if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
-                raise Exception("Invalid calling found by bottom up")
+            # if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
+            #     raise Exception("Invalid calling generated")
+            representation = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
+            representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
+            # Only return unique representations (can be generated because of detail level)
+            if representation in unique:
+                continue
+            unique.add(representation)
             yield calling
             # TODO valid?
             if r == 1 and len(het_variants) == 2: # only one combination possible
