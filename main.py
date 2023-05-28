@@ -422,7 +422,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # validate_alternative_calling(r"results\calling\calling_alt_bu.txt", r"data\bastard.txt")
 
     # TEST 8: validate alternative calling method on simulated data
-    test_alternative_callings(supremal_extended, reference, relations_extended, functions)
+    # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:

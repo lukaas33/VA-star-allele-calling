@@ -471,7 +471,7 @@ def generate_alternative_callings_recursive(calling, cont_graph, homozygous, ext
                     for alternative in generate_alternative_callings(extended_calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
                         yield alternative
 
-def generate_alternative_callings(sample, start_calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
+def generate_alternative_callings_top_down(sample, start_calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """Generate unique valid alternative callings for a sample.
     
     Function attempts to only generate valid callings.
@@ -486,10 +486,10 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
     This method doesn't look ahead to the variants.
     Another approach is the bottom up approach which starts from the variants.
 
+    TODO fix not working in all cases
     TODO only return valid results (without looking ahead)
     TODO only return unique results efficiently
     """
-    raise DeprecationWarning("Does not work in all cases")
     def placements(calling):
         """Generate all possible placements for a calling."""
         # TODO test if valid
@@ -520,14 +520,15 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
 
     # Find star allele definitions to check for most specific
     # TODO handle suballele detail level mismatch
-    most_specific = {}
+    definitions = {}
     for node in cont_graph.nodes():
+        # if find_type(node) != Type.CORE or detail_level > 1 and find_type(node) != Type.SUB:
         if find_type(node) not in (Type.CORE, Type.SUB):
             continue
         ancestors = set(find_ancestor_variants(node, eq_graph, cont_graph, ov_graph))
         if not ancestors:
             continue
-        most_specific[node] = ancestors
+        definitions[node] = ancestors
     # BFS over valid alternative callings
     queue = [start_calling]
     # Track unique representations 
@@ -537,7 +538,7 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
         # Try different placements
         for placement in placements(calling):
             # print(placement)
-            if not valid_calling(sample, placement, homozygous, cont_graph, eq_graph, ov_graph, most_specific):
+            if not valid_calling(sample, placement, homozygous, cont_graph, eq_graph, ov_graph, definitions):
                 continue
             representation = calling_to_repr(placement, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
             representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
@@ -552,7 +553,7 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
             for allele in alleles:
                 # Find underlying alleles and variants
                 # TODO overlap?
-                underlying = set(cont_graph.predecessors(allele))
+                underlying = set([u for u in cont_graph.predecessors(allele) if find_type(u) in (Type.CORE, Type.SUB, Type.VAR)])
                 # Extend by replacing with underlying
                 # TODO avoid duplicates (A -> a; B -> b and B -> b; A -> a in next iteration)
                 if not underlying: continue # Don't replace equivalent alleles
