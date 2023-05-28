@@ -634,8 +634,8 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                     calling[phase][-1].add(most_specific)
                 calling[phase].append({"CYP2D6*1",})
             # Return valid calling
-            # if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
-            #     raise Exception("Invalid calling generated")
+            if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
+                raise Exception("Invalid calling generated")
             representation = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
             representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
             # Only return unique representations (can be generated because of detail level)
