@@ -374,7 +374,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
-    # validate_alternative_calling(r"results\calling\calling_alt_all.txt", r"data\bastard.txt")
+    validate_alternative_calling(r"results\calling\calling_alt_bu.txt", r"data\bastard.txt")
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:

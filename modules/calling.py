@@ -214,7 +214,7 @@ def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph):
             continue
         # is equivalent to one
         if a in eq_graph.nodes():
-            for eq in eq_graph[a]:
+            for eq in nx.shortest_path(eq_graph, a).keys():
                 if find_type(eq) == Type.VAR:
                     yield eq
 
@@ -562,13 +562,75 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
                 new_calling['A'][i] |= underlying
                 queue.append(new_calling)
 
-def generate_alternative_callings_bottom_up():
+def generate_alternative_callings_bottom_up(sample, start_calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """Generate all valid alternative calling in a bottom up approach.
     
     Should yield the same results as generate_alternative_callings.
     But is more efficient as it considers only unique valid callings.
+
+    TODO consider overlap
+    TODO handle representations
     """
-    raise NotImplementedError("TODO")
+    # Find star allele definitions to check for most specific
+    definitions = {}
+    for node in cont_graph.nodes():
+        if find_type(node) not in (Type.CORE, Type.SUB):
+            continue
+        ancestors = set(find_ancestor_variants(node, eq_graph, cont_graph, ov_graph))
+        if not ancestors:
+            continue
+        definitions[node] = ancestors
+    # Find what variants the sample contains indirectly
+    all_variants = set(find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph))
+    if sample + "_all" in cont_graph.nodes():
+        for variant in cont_graph.predecessors(sample + "_all"):
+            if find_type(variant) != Type.VAR:
+                continue
+            all_variants.remove(variant)
+    # Split into homozygous and heterozygous
+    hom_variants = set()
+    for h in homozygous:
+        for a in find_ancestor_variants(h, eq_graph, cont_graph, ov_graph):
+            hom_variants.add(a)
+    het_variants = all_variants - hom_variants
+    # Find all possible combinations of heterozygous variants
+    for r in range(0, math.floor(len(het_variants) / 2) + 1): # All unique combinations (5C2 = 5c3)
+        for combination in combinations(het_variants, r):
+            # Combination forms two unordered groups of variants
+            combination = set(combination)
+            variants = {
+                "A": combination | hom_variants,
+                "B": all_variants - combination | hom_variants,
+            }
+            # print(all_variants)
+            # Convert to calling
+            calling = {}
+            for phase in ("A", "B"):
+                calling[phase] = []
+                while len(variants[phase]) > 0:
+                    # Find most specific allele descriptions for variants
+                    most_specific = {}
+                    n = 0
+                    for allele, ancestors in definitions.items():
+                        if ancestors <= variants[phase]: # definition is subset of variants
+                            if len(ancestors) > n: # More specific
+                                most_specific = allele
+                                n = len(ancestors)
+                    if len(calling[phase]) == 0: calling[phase].append(set())
+                    if n == 0: # No allele definition found
+                        calling[phase][-1] |= variants[phase]
+                        break
+                    # Found, replace variants with allele
+                    variants[phase] -= definitions[most_specific]
+                    calling[phase][-1].add(most_specific)
+                calling[phase].append({"CYP2D6*1",})
+            representation = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
+            representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
+            print(representation)
+            yield calling
+            # TODO valid?
+            if r == 1 and len(het_variants) == 2: # only one combination possible
+                break
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0, reorder=True):
     """Iterate over samples and call star alleles for each."""
@@ -593,8 +655,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # TODO allow for keeping of multiple alternative representations?
         test_i = 0
         for sample, calling in sep_callings.items():
-            if sample == "NA19174": continue
-            # if sample != "HG00421": continue
+            # if sample == "NA19174": continue
+            # if sample != "HG03780": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()
@@ -607,7 +669,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
+            alternatives = generate_alternative_callings_bottom_up(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
             preferred = None 
             print(sample, "(alt)")
             for alternative in alternatives:

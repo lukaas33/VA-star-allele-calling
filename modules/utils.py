@@ -254,7 +254,7 @@ def validate_alternative_calling(calling_filename, validate_filename):
             validate[sample] = calling
     to_find = set(validate.keys())
 
-    def end_sample(sample, prev, how, found, count, totals):
+    def end_sample(sample, prev, how, found, count, totals, to_find):
         if found != -1:
             if how == '(hom)':
                 print(f"{sample} has the correct calling due to homozygous alleles")
@@ -266,6 +266,7 @@ def validate_alternative_calling(calling_filename, validate_filename):
         else:
             print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
             totals['incorrect'] += 1
+        to_find.remove(sample)
 
     # TODO make into single variable
     totals = {
@@ -291,14 +292,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
                 if line.split('/') == validate[sample]:
                     found = count
             else:
-                end_sample(sample, prev, how, found, count, totals)
-                to_find.remove(sample)
+                end_sample(sample, prev, how, found, count, totals, to_find)
                 sample = line.split(' ')[0]
                 how = line.split(' ')[1]
                 found = -1
                 count = 0
                 prev = None
-        end_sample(sample, prev, how, found, count, totals)
+        end_sample(sample, prev, how, found, count, totals, to_find)
 
     print(f"{totals['hom']} samples correct due to homozygous alleles")
     print(f"{totals['preferred']} samples correct as preferred allele")
