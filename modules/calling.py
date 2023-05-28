@@ -8,8 +8,9 @@ import copy
 from itertools import combinations, combinations_with_replacement
 import math
 from enum import IntEnum
+import functools
 
-all_functions = ['unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function', "function not assigned"]
+all_functions = ("function not assigned", 'unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function')
 
 def sort_function(f):
     """Sort function annotation based on severity."""
@@ -183,16 +184,7 @@ def separate_callings(unphased_calling, cont_graph, functions):
                 if not any([allele in alls for alls in unphased_calling[sample]['hom']]): # check if is homozygous
                     continue
                 phased_calling[sample]['B'][-1].add(allele)
-            # # Also add homozygous matches that are not in all to both callings 
-            # d = len(unphased_calling[sample]['all']) - len(unphased_calling[sample]['hom']) # Handle array size difference
-            # if d+i >= len(unphased_calling[sample]['hom']):
-            #     continue
-            # for allele in unphased_calling[sample]['hom'][d+i]:
-            #     # Skip if already contained twice (as it will be found using alternative callings)
-            #     if ([allele in nx.ancestors(cont_graph, a) for phase in "AB" for all in phased_calling[sample][phase] for a in all]).count(True) >= 2:
-            #         continue
-            #     phased_calling[sample]["A"][-1].add(allele)
-            #     phased_calling[sample]["B"][-1].add(allele)
+            # TODO Also add homozygous matches that are not in all to both callings ?
         # Add defaults
         for phase in "AB":
             # remove empty
@@ -489,6 +481,7 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
     TODO only return valid results (without looking ahead)
     TODO only return unique results efficiently
     """
+    raise DeprecationWarning("Does not work in all cases")
     def placements(calling):
         """Generate all possible placements for a calling."""
         # TODO test if valid
@@ -562,7 +555,7 @@ def generate_alternative_callings(sample, start_calling, homozygous, cont_graph,
                 new_calling['A'][i] |= underlying
                 queue.append(new_calling)
 
-def generate_alternative_callings_bottom_up(sample, start_calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
+def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """Generate all valid alternative calling in a bottom up approach.
     
     Should yield the same results as generate_alternative_callings.
@@ -570,6 +563,8 @@ def generate_alternative_callings_bottom_up(sample, start_calling, homozygous, c
 
     TODO consider overlap
     TODO handle representations
+    TODO check for duplicates
+    TODO check valid with function
     """
     # Find star allele definitions to check for most specific
     definitions = {}
@@ -624,13 +619,45 @@ def generate_alternative_callings_bottom_up(sample, start_calling, homozygous, c
                     variants[phase] -= definitions[most_specific]
                     calling[phase][-1].add(most_specific)
                 calling[phase].append({"CYP2D6*1",})
-            representation = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
-            representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
-            print(representation)
             yield calling
             # TODO valid?
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
+
+def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
+    """Order alternative callings by clinical relevance.
+    
+    no_default: prefer callings with not all on one side, (e.g. *X/*Y over *1+*X/*Y)
+    shortest: Prefer shorter callings, equal to without '+' (e.g. *Q/*Z over *X+*Y/*Z)
+    no_uncertain: Prefer certain function over uncertain ones.
+    
+    TODO prefer worse function over better one?
+
+    TODO make this a comparison function?
+    """
+    score = 0
+    any_default = False
+    for phase in ("A", "B"):
+        matches = set()
+        uncertain_function = False
+        for alleles in calling[phase][:-1]:
+            for allele in alleles:
+                if find_type(allele) not in (Type.CORE, Type.SUB):
+                    continue
+                matches.add(allele)
+                function = functions[allele]
+                if all_functions.index(function) <= 2:
+                    uncertain_function = True
+        if no_uncertain and uncertain_function:
+            score += 1
+        if shortest:
+            score += len(matches) * 10 # Assume no more than 99 matches
+        if len(matches) == 0:
+            any_default = True
+    if no_default and any_default and score >= 20: 
+        score += 1000 # Prefer callings with not all on one side
+    return score
+                    
 
 def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0, reorder=True):
     """Iterate over samples and call star alleles for each."""
@@ -656,7 +683,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
-            # if sample != "HG03780": continue
+            # if sample != "NA21105": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()
@@ -669,13 +696,16 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings_bottom_up(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
-            preferred = None 
+            alternatives = generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
             print(sample, "(alt)")
+            alternatives = list(alternatives)
+            alternatives.sort(key=lambda a: order_callings(a, functions))
             for alternative in alternatives:
-                # Prefer first as this is the most specific
-                if preferred is None:
-                    preferred = alternative
+                representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
+                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"# ({order_callings(alternative, functions)})"            
+                print(representation)
+            # Select the most relevant alternative
+            preferred = alternatives[0] 
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
             print()
         return representations
