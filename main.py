@@ -11,6 +11,8 @@ from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, fi
 from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity
 from modules.assets.generate_images import image_configs
 import algebra as va
+import math
+from itertools import combinations
 
 # TODO move checks to own file
 def test_naming(corealleles, suballeles):
@@ -202,6 +204,44 @@ def test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pr
         else:
             print(f"Calling with {phase} variants is the same for simple and extended relations")
 
+def test_alternative_callings(supremals, reference, relations_ref, functions):
+    """Test alternative calling method on simulated data"""
+    variants = {"NC_000022.11:g.42126611C>G", "NC_000022.11:g.42127941G>A", "NC_000022.11:g.42130692G>A"}
+    alleles = {}
+    i = 0
+    for r in range(0, len(variants)+1):
+        for comb in combinations(variants, r):
+            i += 1
+            for t, vs in (("all", variants), ("hom", comb)):
+                alleles[f"HG{i}_{t}"] = []
+                print(f"HG{i}_{t}:", end=' ')
+                for o in vs:
+                    print(f"{o}", end=', ')
+                    alleles[f"HG{i}_{t}"].extend(va.variants.parse_hgvs(o))
+                print()
+                if len(alleles[f"HG{i}_{t}"]) == 0:
+                    alleles[f"HG{i}_{t}"] = None
+                    continue
+                alleles[f"HG{i}_{t}"] = to_supremal(alleles[f"HG{i}_{t}"], reference["sequence"])
+    try:
+        relations = cache_get("TEST_relations")
+    except:
+        relations = []
+        for o_allele, o_supremal in alleles.items():
+            c = 0
+            for r_allele, r_supremal in supremals.items():
+                if o_supremal is None or r_supremal is None:
+                    continue
+                rel = va.relations.supremal_based.compare(reference["sequence"], o_supremal, r_supremal)
+                relations.append((o_allele, r_allele, rel))
+                c += 1
+                print(c, len(supremals))
+        cache_set(relations, "TEST_relations")
+    supremals = supremals | alleles
+    relations += relations_ref # TODO test with extended
+    pruned = prune_relations(relations)
+    star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=1)
+
 def statistics(corealleles, suballeles, relations, pruned_relations):
     print("Core alleles:", len(corealleles.keys()))
     var_core = list(set([var["hgvs"] for core in corealleles.keys() for var in corealleles[core]["variants"]]))
@@ -374,7 +414,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
-    validate_alternative_calling(r"results\calling\calling_alt_bu.txt", r"data\bastard.txt")
+    # validate_alternative_calling(r"results\calling\calling_alt_bu.txt", r"data\bastard.txt")
+
+    # TEST 8: validate alternative calling method on simulated data
+    test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
