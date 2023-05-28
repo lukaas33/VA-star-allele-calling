@@ -196,14 +196,17 @@ def separate_callings(unphased_calling, cont_graph, functions):
 def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph):
     """Find all variants that are ancestors of allele."""
     # TODO use ov_graph?
+    # TODO return smallest variant?
     queue = {allele,}
-    if allele in cont_graph.nodes():
-        queue |= nx.ancestors(cont_graph, allele)
-    for a in queue:
+    while len(queue) > 0:
+        a = queue.pop()
         # Check if variant 
         if find_type(a) == Type.VAR:
             yield a
-            continue
+            continue # Don't find variants in variant
+        if a in cont_graph.nodes():
+            for cont in cont_graph.predecessors(a):
+                queue.add(cont)
         # is equivalent to one
         if a in eq_graph.nodes():
             for eq in nx.shortest_path(eq_graph, a).keys():
@@ -245,7 +248,8 @@ def valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, m
                     if len(predecessors) > len(largest[1]):
                         largest = specific, predecessors
             if largest[0] is None: # No allele found
-                return False
+                # TODO is this a valid state or not?
+                break
             if largest[0] not in alleles[p]: # Most specific allele not in calling
                 return False
             anc -= largest[1]
@@ -597,7 +601,6 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                 "A": combination | hom_variants,
                 "B": all_variants - combination | hom_variants,
             }
-            # print(all_variants)
             # Convert to calling
             calling = {}
             for phase in ("A", "B"):
@@ -613,12 +616,16 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                                 n = len(ancestors)
                     if len(calling[phase]) == 0: calling[phase].append(set())
                     if n == 0: # No allele definition found
+                        # TODO allow this?
                         calling[phase][-1] |= variants[phase]
                         break
                     # Found, replace variants with allele
                     variants[phase] -= definitions[most_specific]
                     calling[phase][-1].add(most_specific)
                 calling[phase].append({"CYP2D6*1",})
+            # Return valid calling
+            if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
+                raise Exception("Invalid calling found by bottom up")
             yield calling
             # TODO valid?
             if r == 1 and len(het_variants) == 2: # only one combination possible
@@ -683,7 +690,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
-            # if sample != "NA21105": continue
+            # if sample != "NA19174": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()
@@ -705,7 +712,11 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"# ({order_callings(alternative, functions)})"            
                 print(representation)
             # Select the most relevant alternative
-            preferred = alternatives[0] 
+            if len(alternatives) > 0:
+                preferred = alternatives[0] 
+            else:
+                # TODO handle differently?
+                raise Exception("No valid alternative callings found for ", sample)
             representations[sample] = calling_to_repr(preferred, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
             print()
         return representations
