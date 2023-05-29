@@ -196,7 +196,6 @@ def separate_callings(unphased_calling, cont_graph, functions):
 def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph):
     """Find all variants that are ancestors of allele."""
     # TODO use ov_graph?
-    # TODO return smallest variant?
     queue = {allele,}
     while len(queue) > 0:
         a = queue.pop()
@@ -382,7 +381,7 @@ def old_generate_alternative_callings(sample, calling, homozygous, cont_graph, e
                             extend_alt['A'][i] |= {underlying_allele,}
                     queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1))
 
-def generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
+def old_generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
     """Generate valid alternative callings for a sample.
     
     This is useful for unphased not homozygous matches.
@@ -490,6 +489,7 @@ def generate_alternative_callings_top_down(sample, start_calling, homozygous, co
     TODO only return valid results (without looking ahead)
     TODO only return unique results efficiently
     """
+    raise DeprecationWarning("Doesn't work in all cases")
     def placements(calling):
         """Generate all possible placements for a calling."""
         # TODO test if valid
@@ -581,8 +581,8 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
     # Find star allele definitions to check for most specific
     definitions = {}
     for node in cont_graph.nodes():
-        # if find_type(node) != Type.CORE or detail_level > 1 and find_type(node) != Type.SUB:
-        if find_type(node) not in (Type.CORE, Type.SUB):
+        # Only look at core allele definitions if suballeles are not considered
+        if find_type(node) != Type.CORE or (detail_level > 1 and find_type(node) != Type.SUB):
             continue
         ancestors = set(find_ancestor_variants(node, eq_graph, cont_graph, ov_graph))
         if not ancestors:
@@ -611,6 +611,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                 "A": combination | hom_variants,
                 "B": all_variants - combination | hom_variants,
             }
+            # print(variants)
             # Convert to calling
             calling = {}
             for phase in ("A", "B"):
@@ -628,6 +629,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                     if n == 0: # No allele definition found
                         # TODO allow this?
                         calling[phase][-1] |= variants[phase]
+                        # variants[phase].clear()
                         break
                     # Found, replace variants with allele
                     variants[phase] -= definitions[most_specific]
@@ -642,6 +644,9 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if representation in unique:
                 continue
             unique.add(representation)
+            # print(calling)
+            # print(representation)
+            # print()
             yield calling
             # TODO valid?
             if r == 1 and len(het_variants) == 2: # only one combination possible
@@ -706,7 +711,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
-            # if sample != "NA19174": continue
+            # if sample != "HG00421": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()

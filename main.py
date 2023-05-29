@@ -468,9 +468,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if interactive:
         # TODO include relevance?
         # TODO use extended
-        edges = pruned_simple[1]
+        edges = pruned_extended[1]
         if type(select) == list:
-            edges.extend(find_context(set(select), pruned_samples_simple[1])[1])
+            edges.extend(find_context(set(select), pruned_samples_extended[1])[1])
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
         display_graph(nodes, edges, data, functions)
 
