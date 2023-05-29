@@ -62,7 +62,7 @@ default_stylesheet.append({
     "style": {
         "font-size": "10px",
         "width": "80px", 
-        "height": "15px",
+        "height": "20px",
         "shape": "rectangle",
         "text-wrap": "ellipsis",
         "text-max-width": "80px"
