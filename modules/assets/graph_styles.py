@@ -71,7 +71,7 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".variant.personal",
     "style": {
-        "shape": "tag",
+        "shape": "round-rectangle",
     }
 })
 default_stylesheet.append({
@@ -84,7 +84,6 @@ default_stylesheet.append({
         "background-color": "#b0bec5",
         "border-width": 0,
         "text-max-width": "35px",
-        "height": "15px",
         "text-valign": "bottom",
         "text-halign": "right",
         "text-margin-y": "-10px",
@@ -97,14 +96,18 @@ default_stylesheet.append({
         "shape": "square",
         "width": "75px",
         "text-margin-x": "-70px",
+        "height": f"{10 * 20 + 10}px", # Max 20 lines of text
+        "text-margin-y": f"-{10 * 20 + 5}px",
     }
 })
 default_stylesheet.append({
     "selector": ".group.p_var",
     "style": {
-        "shape": "tag",
-        "width": "120px",
-        "text-margin-x": "-115px",
+        "shape": "round-rectangle",
+        "width": "150px",
+        "text-margin-x": "-145px",
+        "height": f"{10 * 20 + 10}px", # Max 20 lines of text
+        "text-margin-y": f"-{10 * 20 + 5}px",
     }
 })
 default_stylesheet.append({

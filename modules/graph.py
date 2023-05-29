@@ -139,8 +139,8 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=N
                     "tile": False,
                     "animate": False,
                     # Dagre
-                    "spacingFactor": 0.65 if default_layout == "dagre" else 1,
-                    "rankSep": 150,
+                    "spacingFactor": 0.75 if default_layout == "dagre" else 1,
+                    # "rankSep": 150,
                     # "ranker": "longest-path",
                     # breadthfirst
                     "roots": f"[id = '{sample}']" if sample is not None else None,
@@ -341,9 +341,30 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             if target in ids:
                 edges.remove((source, target, relation))
                 edges.add((source, f"extra-variants-{t.name.lower()}", relation))
-    # Add edges
+    # Invert terminal equivalence for layout
     arity = {n: 0 for n in nodes}
     connected = {n: None for n in nodes}
+    for source, target, relation in edges:
+        if source not in nodes or target not in nodes:
+            continue
+        arity[source] += 1
+        arity[target] += 1
+        if relation != va.Relation.EQUIVALENT:
+            continue
+        connected[source] = target
+        connected[target] = source
+    for n in nodes:
+        if arity[n] != 1 or connected[n] is None:
+            continue
+        source, target = connected[n], n
+        if find_type(n) == Type.SAMPLE:
+            source, target = target, source
+        old_edge = (source, target, va.Relation.EQUIVALENT)
+        if old_edge in edges: edges.remove(old_edge)
+        new_edge = (target, source, va.Relation.EQUIVALENT)
+        if new_edge not in edges: edges.add(new_edge)
+    
+    # Add edges
     for source, target, relation in edges:
         element = {
             "data": {
@@ -352,22 +373,8 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             },
             "classes": relation.name
         }
-        # if source not in nodes or target not in nodes:
-        #     continue
-        # arity[source] += 1
-        # arity[target] += 1
-        # connected[source] = target
-        # connected[target] = source
         elements.append(element)
-    # Add fake node to all terminal nodes (needed for dagre layout)
-    # if sample is not None:
-    #     for n, a in arity.items():
-    #         if a != 1 or find_type(n) == Type.SAMPLE:
-    #             continue
-    #         for i in range(2):
-    #             # elements.append({"data": {"id": f"fake-{n}-{i}"}, "classes": "fake"})
-    #             # elements.append({"data": {"source": n, "target": f"fake-{n}-{i}"}, "classes": "fake"})
-    #             elements.append({"data": {"source": n, "target": connected[n]}, "classes": "fake"})
+
 
     # Setup graph webpage
     cyto.load_extra_layouts()
