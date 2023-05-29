@@ -7,10 +7,16 @@ from itertools import combinations
 
 # TODO use consistent datastructure with OOP
 
-def find_context(nodes, edges, directional=False, extend=False, extended=None, depth=0):
-    """Find the context (connected nodes) for a given set of nodes based on an edge list."""
-    # TODO show some information of indirect matches?
+def find_context(nodes, edges, directional=False, extend=False, extended=None, overlap=True, depth=0):
+    """Find the context (connected nodes) for a given set of nodes based on an edge list.
+    
+    Direct context is the nodes directly connected to the input.
+    Extended context also includes edges while the relation becomes stronger so you would show equivalent nodes of a contained node but not overlaps.
+
+    Doesn't include samples.
+    """
     # TODO make graph the input
+    # TODO make more efficient
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
     overlap_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.OVERLAP])
@@ -20,42 +26,53 @@ def find_context(nodes, edges, directional=False, extend=False, extended=None, d
         va.Relation.OVERLAP: overlap_graph
     }
     context_nodes = set()
-    context_nodes |= nodes
     context_edges = set()
-
-    for node in nodes:	
-        neighbour_nodes = set()
-        for rel, graph in graphs.items():
+    context_nodes |= nodes
+    if extend: extended |= nodes
+    # Depth limit for debugging
+    if depth == 99:
+        return context_nodes, context_edges
+    # Find context for each node
+    for node in nodes:
+        for rel, graph in graphs.items(): 
             if node not in graph.nodes():
                 continue
+            if not overlap and rel == va.Relation.OVERLAP:
+                continue
+            direct = set()
+            # Find direct context of node
+            # Nodes
             if rel == va.Relation.IS_CONTAINED:
-                for neighbour, _ in graph.in_edges(node):
-                    if find_type(neighbour) == Type.SAMPLE:
-                        continue
-                    neighbour_nodes.add(neighbour)
-                    context_edges.add((neighbour, node, rel))
-                if directional: # Single direction of containment
+                direct |= set([n for n in graph.predecessors(node) if find_type(n) != Type.SAMPLE])
+                if not directional:
+                    direct |= set([n for n in graph.successors(node) if find_type(n) != Type.SAMPLE])
+            else:
+                direct |= set([n for n in graph[node] if find_type(n) != Type.SAMPLE])
+            # Edges
+            for n in direct:
+                if find_type(n) == Type.SAMPLE:
                     continue
-            for neighbour in graph[node]:
-                if find_type(neighbour) == Type.SAMPLE:
+                if extend and n in extended:
                     continue
-                neighbour_nodes.add(neighbour)
                 if rel == va.Relation.IS_CONTAINED:
-                    context_edges.add((node, neighbour, rel))
-                else: # Order to avoid duplicates
-                    context_edges.add((*sorted([node, neighbour]), rel))
-        context_nodes |= neighbour_nodes
-        # Extend suballeles
-        if extend:
-            for neighbour in neighbour_nodes:
-                if find_type(neighbour) not in (Type.CORE, Type.SUB):
-                    continue
-                if neighbour in extended:
-                    continue
-                extended.add(neighbour)
-                extended_nodes, extended_edges = find_context({neighbour,}, edges, directional, find_type(neighbour) == Type.SUB, extended, depth+1)
-                context_nodes |= extended_nodes
-                context_edges |= extended_edges
+                    context_edges.add((n, node, rel))
+                    if directional: # Single direction of containment
+                        continue
+                    rel = va.Relation.CONTAINS
+                context_edges.add((node, n, rel))
+            if not extend:
+                context_nodes |= direct
+                continue
+            # Find extended context of node
+            # Only allow overlap when relation is not stronger.
+            # Equivalence will always be a terminal node
+            novel = direct - context_nodes - extended
+            context_nodes |= direct
+            for n in novel:
+                deeper_nodes, deeper_edges = find_context({n,}, edges, directional, extend, extended | direct, rel == va.Relation.OVERLAP, depth+1)
+                context_nodes |= deeper_nodes
+                context_edges |= deeper_edges
+            
     return context_nodes, context_edges
 
 
