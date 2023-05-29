@@ -319,7 +319,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
         elements.append(element)
     # Treat group as single node with aggregated data
     for t, group in grouping.items():
-        if len(group) <= 0: # Minimal group size
+        if len(group) == 0:
             continue
         # Add group node
         ids = [element["data"]["id"] for element in group]

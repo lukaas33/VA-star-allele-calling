@@ -61,11 +61,11 @@ default_stylesheet.append({
     "selector": ".variant",
     "style": {
         "font-size": "10px",
-        "width": "80px", 
+        "width": "95px", 
+        "text-max-width": "90px",
         "height": "20px",
         "shape": "rectangle",
         "text-wrap": "ellipsis",
-        "text-max-width": "80px"
     }   
 })
 default_stylesheet.append({

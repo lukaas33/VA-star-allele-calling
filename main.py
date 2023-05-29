@@ -447,7 +447,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         sample, phase = select.split('_')
         # Check the relevance of the extra variant
         variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) # TODO remove relevance?
-        group = variants_relevance.keys() if len(variants_relevance.keys()) > 3 else None
+        group = variants_relevance.keys() if len(variants_relevance.keys()) > 5 else None
         # Mark the star-allele calling
         marked_calling = None
         if phase in "AB": 
