@@ -1,7 +1,7 @@
 # Define default style
 # Colour codes from https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
 default_color = '#455A64' # Blue gray 700
-calling_color = "#ff8a65" # deep orange 300
+calling_color = "#03a9f4" # Blue 500
 
 default_stylesheet = []
 # General style of types
@@ -24,12 +24,6 @@ default_stylesheet.append({
         'curve-style': 'bezier' 
     }
 })
-# default_stylesheet.append({
-#     "selector": "node:selected",
-#     "style": {
-#         "background-color": selection_color,
-#     }
-# })
 default_stylesheet.append({
     "selector": "node[?homozygous]",
     "style": {
@@ -60,18 +54,18 @@ default_stylesheet.append({
     "style": {
         "overlay-color": calling_color,
         "overlay-padding": "10px",
-        "overlay-opacity": "0.25",
+        "overlay-opacity": "0.15",
     }
 })
 default_stylesheet.append({
     "selector": ".variant",
     "style": {
-        "font-size": "5px",
-        "width": "40px", 
+        "font-size": "10px",
+        "width": "80px", 
         "height": "15px",
         "shape": "rectangle",
         "text-wrap": "ellipsis",
-        "text-max-width": "35px"
+        "text-max-width": "80px"
     }   
 })
 default_stylesheet.append({
@@ -83,16 +77,17 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": ".group",
     "style": {
+        "font-size": "10px",
         "color": "black",
         "text-wrap": "wrap",
         "text-justification": "left",
         "background-color": "#b0bec5",
         "border-width": 0,
         "text-max-width": "35px",
-        "font-size": "5px",
-        "height": "10px",
+        "height": "15px",
         "text-valign": "bottom",
-        "text-margin-y": "-7px",
+        "text-halign": "right",
+        "text-margin-y": "-10px",
     }
 })
 # TODO change height?
@@ -100,15 +95,16 @@ default_stylesheet.append({
     "selector": ".group.var",
     "style": {
         "shape": "square",
-        "width": "45px",
+        "width": "75px",
+        "text-margin-x": "-70px",
     }
 })
 default_stylesheet.append({
     "selector": ".group.p_var",
     "style": {
         "shape": "tag",
-        "text-margin-x": "5px",
-        "width": "60px",
+        "width": "120px",
+        "text-margin-x": "-115px",
     }
 })
 default_stylesheet.append({
@@ -171,7 +167,7 @@ default_stylesheet.append({
 # Style for different functional annotations 
 function_colours = (
     ('no function', '#F44336'), # Red 500
-    ('decreased function', '#FFEB3B'), # Yellow 500
+    ('decreased function', '#ffc107'), # Orange 500
     ('normal function', '#4CAF50'), # Green 500
     ('function not assigned', '#E0E0E0'), # Gray 300
     ('unknown function', '#BDBDBD'), # Gray 400
@@ -189,7 +185,7 @@ for function, colour in function_colours:
 impact_colours = (
     (0, '#BDBDBD'), # Gray 400
     (1, '#4CAF50'), # Green 500
-    (2, '#FFEB3B'), # Yellow 500
+    (2, '#ffc107'), # Orange 500
     (3, '#F44336'), # Red 500
 )
 for severity, colour in impact_colours:
