@@ -452,10 +452,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         if phase in "AB": 
             marked_calling = calling[sample][phase]
         else:
-            # TODO use unphased calling here
             marked_calling = calling[sample]['A'] + calling[sample]['B']
-        # Find extend context (including core alleles)
-        nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True)
+        # Find extended context
+        # TODO leave out overlap? (can mess up dagre)
+        nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True, overlap=False)
         # Find homozygous
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
         sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)

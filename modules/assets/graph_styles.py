@@ -75,19 +75,39 @@ default_stylesheet.append({
     }   
 })
 default_stylesheet.append({
-    "selector": ".variant.observed",
+    "selector": ".variant.personal",
     "style": {
         "shape": "tag",
     }
 })
 default_stylesheet.append({
-    "selector": ".variant.group",
+    "selector": ".group",
     "style": {
-        "width": "120px",
-        "text-max-width": "110px",
-        "height": "70px",
+        "color": "black",
         "text-wrap": "wrap",
         "text-justification": "left",
+        "background-color": "#b0bec5",
+        "border-width": 0,
+        "text-max-width": "35px",
+        "font-size": "5px",
+        "height": "10px",
+        "text-valign": "bottom",
+        "text-margin-y": "-7px",
+    }
+})
+default_stylesheet.append({
+    "selector": ".group.var",
+    "style": {
+        "shape": "square",
+        "width": "45px",
+    }
+})
+default_stylesheet.append({
+    "selector": ".group.p_var",
+    "style": {
+        "shape": "tag",
+        "text-margin-x": "5px",
+        "width": "60px",
     }
 })
 default_stylesheet.append({
@@ -111,7 +131,7 @@ default_stylesheet.append({
     'selector': '.EQUIVALENT',
     'style': {
         'line-color': '#37474F', # Blue gray 800
-        'width': '3'
+        'width': '2',
     }
 })
 default_stylesheet.append({

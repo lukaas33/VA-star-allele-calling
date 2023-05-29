@@ -133,12 +133,15 @@ def layout_graph(elements, nodes, edges, default_layout='cose-bilkent', sample=N
                     "width": "80vw"
                 },
                 layout = {
+                    # General
                     "name": default_layout,
                     "nodeDimensionsIncludeLabels": True,
                     "tile": False,
                     "animate": False,
-                    "spacingFactor": 0.6,
-                    "roots": [sample] if sample is not None else None,
+                    # Dagre
+                    "spacingFactor": 0.6 if default_layout == "dagre" else 1,
+                    # breadthfirst
+                    "roots": f"[id = '{sample}']" if sample is not None else None,
                 },
                 stylesheet = default_stylesheet,
                 elements = elements,
@@ -263,7 +266,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
     # Convert to proper format for cytoscape
     elements = []
     # Add nodes
-    to_group = []
+    grouping = {Type.VAR: [], Type.P_VAR: []}
     for i, node in enumerate(nodes):
         function, impact, severity = None, None, None
         relevant = True
@@ -302,36 +305,41 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 "impact": impact,
                 "severity": severity,
                 "relevant": relevant,
-                "homozygous": node in homozygous if homozygous is not None else False,
                 "data": data[node] if node in data else None,
+                "homozygous": node in homozygous if homozygous is not None else False,
             },
             "classes": category,
         }
         if positions is not None: element["position"] = {"x": positions[i][0], "y": positions[i][1]}
         if group_variants is not None and node in group_variants:
-            to_group.append(element)
+            grouping[find_type(node)].append(element)
             continue
         elements.append(element)
     # Treat group as single node with aggregated data
-    if len(to_group) > 0:
+    for t, group in grouping.items():
+        if len(group) <= 0: # Minimal group size
+            continue
+        # Add group node
+        ids = [element["data"]["id"] for element in group]
         elements.append({
             "data": {
-                "id": "extra-variants",
-                "label": "; ".join([element["data"]["label"] for element in to_group]),
-                "severity": 0 if 0 in [element["data"]["severity"] for element in to_group if element is not None] else max([element["data"]["severity"] for element in to_group if element is not None]),
-                "relevant": any([element["data"]["relevant"] for element in to_group if element is not None]),
+                "id": f"extra-variants-{t.name.lower()}",
+                "label": " ".join(sorted([element["data"]["label"] for element in group])),
+                # "severity": 0 if 0 in [element["data"]["severity"] for element in group if element is not None] else max([element["data"]["severity"] for element in group if element is not None]),
+                # "relevant": any([element["data"]["relevant"] for element in group if element is not None]),
             },
-            "classes": "variant group"
+            # "classes": f"variant group {'personal' if t == Type.P_VAR else ''}" 
+            "classes": f"group {t.name.lower()}"
         })
         # Attach edges to some in group to group
         # TODO only attach edges to all?
         for source, target, relation in list(edges):
-            if source in group_variants: 
+            if source in ids: 
                 edges.remove((source, target, relation))
-                edges.add(("extra-variants", target, relation))
-            if target in group_variants:
+                edges.add((f"extra-variants-{t.name.lower()}", target, relation))
+            if target in ids:
                 edges.remove((source, target, relation))
-                edges.add((source, "extra-variants", relation))
+                edges.add((source, f"extra-variants-{t.name.lower()}", relation))
     # Add edges
     for source, target, relation in edges:
         element = {
