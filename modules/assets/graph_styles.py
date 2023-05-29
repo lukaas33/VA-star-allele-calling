@@ -95,6 +95,7 @@ default_stylesheet.append({
         "text-margin-y": "-7px",
     }
 })
+# TODO change height?
 default_stylesheet.append({
     "selector": ".group.var",
     "style": {

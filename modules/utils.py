@@ -1,7 +1,7 @@
 import algebra as va
 import difflib
 from itertools import chain, combinations
-from .data import cache_get
+from .data import cache_get, api_get
 import warnings
 import os
 import vcf
@@ -309,3 +309,14 @@ def validate_alternative_calling(calling_filename, validate_filename):
         for sample in to_find:
             print(f"\t{sample} should be {validate[sample]}")
     print(f"{sum(totals.values()) + len(to_find)} total")
+
+def change_ref(hgvs, from_ref="NC_000022.11", to_ref="NM_000106.6"):
+    "Change the reference of a hgvs"
+    raise NotImplementedError("Not implemented yet")
+    inv = {"A": "T", "T": "A", "C": "G", "G": "C"}
+    hgvs = f"{from_ref}:g.{hgvs}" if ':' not in hgvs else hgvs
+    lookup = api_get(f"https://mutalyzer.nl/api/normalize/{hgvs}")
+    for eq, _ in lookup['equivalent_descriptions']['c']:
+        if to_ref in eq:
+            eq = eq.split('(')[1].split(')')[0] + eq.split('(')[1].split(')')[1]
+            return eq

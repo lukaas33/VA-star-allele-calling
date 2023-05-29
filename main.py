@@ -8,7 +8,7 @@ from modules.parse import extract_variants, to_supremal
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
-from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity
+from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity, change_ref
 from modules.assets.generate_images import image_configs
 import algebra as va
 import math
@@ -423,6 +423,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # TEST 8: validate alternative calling method on simulated data
     # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
+
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
