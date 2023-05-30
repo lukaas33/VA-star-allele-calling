@@ -15,7 +15,8 @@ default_stylesheet.append({
         "color": "white",
         "font-family": "times new roman",
         "border-width": "2px",
-        "border-color": default_color
+        "border-color": default_color,
+        "border-style": "solid"
     }
 })
 default_stylesheet.append({
@@ -27,7 +28,7 @@ default_stylesheet.append({
 default_stylesheet.append({
     "selector": "node[?homozygous]",
     "style": {
-        "border-style": "double",
+        # "border-style": "double",
         "border-width": "6px",
     }
 })

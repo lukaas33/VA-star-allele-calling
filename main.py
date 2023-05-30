@@ -461,7 +461,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
         sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
         homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
+        print(homozygous)
         homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True, overlap=False)
+        print(homozygous)
         # TODO taxi edges?
         display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
         
