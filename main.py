@@ -245,7 +245,7 @@ def test_alternative_callings(supremals, reference, relations_ref, functions):
     supremals = supremals | alleles
     relations += relations_ref 
     pruned = prune_relations(relations)
-    star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=2)
+    star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=1)
 
 def statistics(corealleles, suballeles, relations, pruned_relations):
     print("Core alleles:", len(corealleles.keys()))
@@ -416,7 +416,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased:
         # TODO change by detail?
         # TODO use extended
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
     # validate_alternative_calling(r"results\calling\calling_alt_new.txt", r"data\bastard.txt")

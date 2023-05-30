@@ -224,6 +224,7 @@ def valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, m
 
     TODO don't use in generation but generate only correct solutions
     TODO test CNV_possible option
+    TODO is still correct with new finding of most specific?
     """
     # Find ancestors for both phases
     alleles = {p: set([a for alls in calling[p] for a in alls]) for p in "AB"}
