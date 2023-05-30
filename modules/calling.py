@@ -616,24 +616,23 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             calling = {}
             for phase in ("A", "B"):
                 calling[phase] = []
-                while len(variants[phase]) > 0:
-                    # Find most specific allele descriptions for variants
-                    most_specific = {}
-                    n = 0
-                    for allele, ancestors in definitions.items():
-                        if ancestors <= variants[phase]: # definition is subset of variants
-                            if len(ancestors) > n: # More specific
-                                most_specific = allele
-                                n = len(ancestors)
-                    if len(calling[phase]) == 0: calling[phase].append(set())
-                    if n == 0: # No allele definition found
-                        # TODO allow this?
-                        calling[phase][-1] |= variants[phase]
-                        # variants[phase].clear()
-                        break
-                    # Found, replace variants with allele
-                    variants[phase] -= definitions[most_specific]
-                    calling[phase][-1].add(most_specific)
+                # Find most specific allele descriptions for variants
+                covers = set()
+                most_specific = set()
+                for allele, ancestors in definitions.items():
+                    if ancestors <= variants[phase]: # definition is subset of variants
+                        if len(covers | ancestors) >= len(covers): # Covers more of the variants
+                            if covers <= ancestors: # This allele is more specific than the current one
+                                most_specific = {allele,}
+                                covers = set(ancestors)
+                            else: # This allele should be present together with the current one
+                                most_specific.add(allele)
+                                covers |= ancestors
+                # Add variants not covered by any allele definition
+                # TODO allow?
+                most_specific |= (variants[phase] - covers)
+                # Add most specific alleles to calling
+                calling[phase].append(most_specific)
                 calling[phase].append({"CYP2D6*1",})
             # Return valid calling
             # if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
