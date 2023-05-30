@@ -622,10 +622,10 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                 for allele, ancestors in definitions.items():
                     if ancestors <= variants[phase]: # definition is subset of variants
                         if len(covers | ancestors) >= len(covers): # Covers more of the variants
-                            if covers <= ancestors: # This allele is more specific than the current one
+                            if covers | ancestors == ancestors: # This allele is more specific than the current one
                                 most_specific = {allele,}
                                 covers = set(ancestors)
-                            else: # This allele should be present together with the current one
+                            elif not (ancestors <= covers): # This allele should be present together with the current one
                                 most_specific.add(allele)
                                 covers |= ancestors
                 # Add variants not covered by any allele definition
@@ -710,7 +710,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
-            # if sample != "HG00421": continue
+            # if sample != "HG00337": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()
@@ -729,7 +729,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             alternatives.sort(key=lambda a: order_callings(a, functions))
             for alternative in alternatives:
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
-                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"# ({order_callings(alternative, functions)})"            
+                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}" # ({order_callings(alternative, functions)})"            
                 print(representation)
             # Select the most relevant alternative
             if len(alternatives) > 0:
