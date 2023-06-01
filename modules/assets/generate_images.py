@@ -1,3 +1,4 @@
+# TODO move to scripts
 import algebra as va 
 
 image_configs = {}
