@@ -91,3 +91,62 @@ image_configs["node-personal-variant"] = {
     "edges": [],
     "color": False
 }
+
+image_configs["function-normal"] = {
+    "selection": ("CYP2D6*2",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-no"] = {
+    "selection": ("CYP2D6*4",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-decreased"] = {
+    "selection": ("CYP2D6*10",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-uncertain"] = {
+    "selection": ("CYP2D6*22",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-unknown"] = {
+    "selection": ("CYP2D6*58",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-uncertain"] = {
+    "selection": ("CYP2D6*22",),
+    "edges": [],
+    "color": True
+}
+image_configs["function-na"] = {
+    "selection": ("CYP2D6*162",),
+    "edges": [],
+    "color": True
+}
+image_configs["impact-3"] = {
+    "selection": ("NC_000022.11:g.42128945C>T",),
+    "edges": [],
+    "color": True
+}
+
+image_configs["impact-2"] = {
+    "selection": ("NC_000022.11:g.42130692G>A",),
+    "edges": [],
+    "color": True
+}
+
+image_configs["impact-1"] = {
+    "selection": ("NC_000022.11:g.42131469C>T",),
+    "edges": [],
+    "color": True
+}
+
+image_configs["impact-0"] = {
+    "selection": ("42132027delinsCT",),
+    "edges": [],
+    "color": True
+}
