@@ -291,7 +291,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 impact = functions[node]
                 severity = severity_pharmvar(functions[node])
             elif find_type(node) == Type.P_VAR: # Personal variant
-                category += " observed"
+                category += " personal"
                 label = node
                 impact = "; ".join(functions[node])
                 severity = severity_GO(functions[node])
