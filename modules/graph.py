@@ -273,7 +273,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
         function, impact, severity = None, None, None
         relevant = True
         if find_type(node) in (Type.CORE, Type.SUB):
-            function = functions[node]
+            function = functions[node] if functions else None
             label = "*" + node.split("*")[1]
             if find_type(node) == Type.CORE: # Core allele
                 category = "core"
@@ -288,13 +288,13 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
             relevant = relevance[node] if relevance is not None and node in relevance else True
             if find_type(node) == Type.VAR: # PharmVar variant
                 label = node.split(':')[1].split('.')[1]
-                impact = functions[node]
-                severity = severity_pharmvar(functions[node])
+                impact = functions[node] if functions else None
+                severity = severity_pharmvar(functions[node]) if functions else None
             elif find_type(node) == Type.P_VAR: # Personal variant
                 category += " personal"
                 label = node
-                impact = "; ".join(functions[node])
-                severity = severity_GO(functions[node])
+                impact = "; ".join(functions[node]) if functions else None
+                severity = severity_GO(functions[node]) if functions else None
         elif find_type(node) == Type.SAMPLE: # Sample
             category = "sample"
             label = node.replace('_', '-') # Needed for latex

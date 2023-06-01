@@ -490,7 +490,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 if s not in nodes or t not in nodes:
                     continue
                 edges.append((s, t, r))
-        display_graph(nodes, edges, data, functions, default_layout="preset", positions=positions, auto_download=example)
+        display_graph(nodes, edges, data, functions if config["color"] else None, default_layout="preset", positions=positions, auto_download=example)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')

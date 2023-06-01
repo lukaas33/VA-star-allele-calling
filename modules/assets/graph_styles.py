@@ -176,6 +176,7 @@ function_colours = (
     ('function not assigned', '#E0E0E0'), # Gray 300
     ('unknown function', '#BDBDBD'), # Gray 400
     ('uncertain function', '#9E9E9E'), # Gray 500
+    (None, default_color)
 )
 for function, colour in function_colours:
     default_stylesheet.append({
@@ -191,6 +192,7 @@ impact_colours = (
     (1, '#4CAF50'), # Green 500
     (2, '#ffc107'), # Orange 500
     (3, '#F44336'), # Red 500
+    (None, default_color)
 )
 for severity, colour in impact_colours:
     default_stylesheet.append({
