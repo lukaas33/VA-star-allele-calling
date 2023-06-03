@@ -463,7 +463,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
         homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True, overlap=False)
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=variants_relevance, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=None, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
