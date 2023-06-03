@@ -872,7 +872,7 @@ def detail_from_level(level):
     Different detail levels are available.
     0: Only print best core match(es)
     1: Print all direct core matches
-    2: Print all direct matches including suballeles
+    2: Print all direct sub allele matches
     3: Print all direct matches without core allele lookup
     4: Print all direct matches including the default allele
     TODO implement more levels?
@@ -945,6 +945,9 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
                 representation[phase].append(allele) # Add match
             if prioritize_strength and len(representation[phase]) > 0: # Only keep strongest related alleles
                 break
+        # Remove suballeles of default allele if there are other core matches
+        if not default and len(set([find_core_string(a) for a in representation[phase]])) > 1:
+            representation[phase] = [a for a in representation[phase] if find_core_string(a) != "CYP2D6*1"]
         # Remove cores contained in other cores 
         # These can occur because of get_core_traversal
         representation[phase] = remove_contained(representation[phase], cont_graph)
