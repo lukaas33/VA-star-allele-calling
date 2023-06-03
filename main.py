@@ -1,17 +1,18 @@
 import warnings
 import argparse
-from modules.data import reference_get, pharmvar_get, parse_samples
+from modules.data import reference_get, pharmvar_get
 from modules.graph import display_graph
 from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
-from modules.parse import extract_variants, to_supremal
+from modules.parse import extract_variants, to_supremal, parse_samples
 from modules.data import cache_get, cache_set, api_get
 from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
 from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
-from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity, change_ref
+from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity, change_ref, normalise
 from modules.assets.generate_images import image_configs
 import algebra as va
 import math
+import copy
 from itertools import combinations
 
 # TODO move checks to own file
@@ -319,8 +320,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # parse samples
     # make_samples_unphased(reference)
-    samples_phased = parse_samples("data/samples", reference, phased=True) 
-    samples_unphased = parse_samples("data/samples_unphased", reference) 
+    samples_phased = parse_samples("data/samples", reference, phased=True, cache_name="samples_phased") 
+    samples_unphased = parse_samples("data/samples_unphased", reference, phased=False, cache_name="samples_unphased") 
     # TODO move to function
     try:
         supremal_samples = cache_get("supremal_samples")

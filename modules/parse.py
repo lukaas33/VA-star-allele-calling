@@ -1,6 +1,9 @@
 import algebra as va
 import warnings
 from .data import cache_get, cache_set
+import os
+import vcf
+from .utils import normalise
 
 def to_supremal(variants, reference_sequence):
     """Convert a list of variants to a supremal representation.
@@ -68,3 +71,72 @@ def extract_variants(reference_sequence, corealleles, suballeles=None, cache_nam
                     raise e
     if cache_name: cache_set(all_variants, cache_name)
     return all_variants
+
+
+def parse_samples(directory, reference, phased=False, cache_name=None):
+    """ Parse sample VCF files as variant objects."""
+    # TODO detect if phased
+    # TODO handle mixed phasing
+    if cache_name:
+        try:
+            return cache_get(cache_name)
+        except:
+            pass
+    samples = {}
+    for filename in os.listdir(directory):
+        sample_name = filename.split('.')[0]
+        if phased:
+            allele = {"A": {}, "B": {}} # First and second allele
+        else:
+            allele = {"hom": {}, "het": {}, "all": {}} # Homozygous, heterozygous and all variants
+        with open(os.path.join(directory, filename), 'r') as file:
+            reader = vcf.Reader(file)
+            # QUESTION: what are the filter, quality, format, info fields?
+            for record in reader:
+                # Validate if reference of vcf files is on the reference sequence
+                if record.REF != reference["sequence"][record.start:record.end]:
+                    raise ValueError("Reference sequence does not match")
+                phasing = record.samples[0].data[0]
+                # Alternative variants known to be heterozygous are stored in the ALT field
+                if not phased and phasing == '1/2': 
+                    # TODO handle
+                    continue
+                # Check ALT field. Can have multiple values for different phases, etc.
+                if len(record.ALT) > 1: 
+                    raise ValueError("Multiple ALT alleles not supported") # TODO handle different alt values?
+                # Check multiple samples
+                if len(record.samples) > 1:
+                    raise ValueError("Multiple samples not supported") # TODO handle
+                # Create variant with Zero based half-open positions 
+                # TODO parse insT and >T variants differently?
+                variant = va.Variant(record.start, record.end, record.ALT[0].sequence)
+                hgvs = normalise(va.variants.to_hgvs([variant])).split(':')[1].split('.')[1]
+                # Store variant in correct alleles
+                if phased:
+                    if '|' not in phasing: 
+                        raise ValueError("Sample is not phased")
+                    # Add to correct phased allele
+                    # 0|1 or 1|0 shows that the variant is one of the two alleles, and can be used to group variants into two alleles
+                    # 1|1 
+                    for p, phase in zip("AB", phasing.split('|')):
+                        if phase == '1':
+                            allele[p][hgvs] = variant
+                else:
+                    if '|' in phasing:
+                        raise ValueError("Sample is phased")
+                    # Add to unphased allele
+                    # 1/1 is homozygous, here perfect phasing information is available
+                    # 1/0 or 0/1 is heterozygous and no phasing information is available
+                    allele["all"][hgvs] = variant
+                    if phasing == "1/1":
+                        allele["hom"][hgvs] = variant
+                    elif phasing == "1/0" or phasing == "0/1": # TODO handle 1/0 differently?
+                        allele["het"][hgvs] = variant
+                    else:
+                        raise ValueError("Unknown phasing", phasing)   
+            if not phased: del allele["het"] # Remove as not used
+            # Add alleles to sample
+            for p in allele:
+                samples[f"{sample_name}_{p}"] = allele[p]
+    if cache_name: cache_set(samples, cache_name)
+    return samples

@@ -1,7 +1,7 @@
 import algebra as va
 import difflib
 from itertools import chain, combinations
-from .data import cache_get, api_get
+from .data import api_get
 import warnings
 import os
 import vcf
@@ -309,6 +309,11 @@ def validate_alternative_calling(calling_filename, validate_filename):
         for sample in to_find:
             print(f"\t{sample} should be {validate[sample]}")
     print(f"{sum(totals.values()) + len(to_find)} total")
+
+def normalise(hgvs, ref="NC_000022.11"):
+    hgvs = f"{ref}:g.{hgvs}" if ':' not in hgvs else hgvs
+    lookup = api_get(f"https://mutalyzer.nl/api/normalize/{hgvs}")
+    return lookup['normalized_description']
 
 def change_ref(hgvs, from_ref="NC_000022.11", to_ref="NM_000106.6"):
     "Change the reference of a hgvs"
