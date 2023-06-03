@@ -759,6 +759,7 @@ def find_core_traversal(match, cont_graph):
     Will not return indirectly contained corealleles.
     This won't find the corealleles that are not contained in the suballele by design.
     """
+    raise DeprecationWarning("Not used as find core string is used instead")
     cores = []
     if match in cont_graph.nodes(): # Only have to check contained since everything is connected to the core
         for node, _ in cont_graph.in_edges(match):
