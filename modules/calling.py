@@ -931,8 +931,9 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
             for allele in alleles:
                 # Add detail
                 if find_cores and find_type(allele) == Type.SUB: # Find cores of suballeles
-                    cores = find_core_traversal(allele, cont_graph) # Cores of suballele
-                    representation[phase].extend(cores)
+                    core = find_core_string(allele) # Cores of suballele
+                    if core != "CYP2D6*1": # Wild type will already be present
+                        representation[phase].append(core)
                 # Remove detail
                 if not suballeles and find_type(allele) == Type.SUB: # Don't represent suballeles
                     continue
