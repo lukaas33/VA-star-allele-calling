@@ -4,6 +4,7 @@ from .data import cache_get, cache_set
 import os
 import vcf
 from .utils import normalise
+from modules.calling import find_type, Type
 
 def to_supremal(variants, reference_sequence):
     """Convert a list of variants to a supremal representation.
@@ -140,3 +141,45 @@ def parse_samples(directory, reference, phased=False, cache_name=None):
                 samples[f"{sample_name}_{p}"] = allele[p]
     if cache_name: cache_set(samples, cache_name)
     return samples
+
+def samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, cache_name=None):
+    if cache_name:
+        try:
+            supremal_samples = cache_get(cache_name)
+            return supremal_samples
+        except:
+            pass
+    supremal_samples = {}
+    for sample, variants in (samples_phased | samples_unphased).items():
+        if variants == {}: # No supremal for empty, will be disjoint with everything, can be ignored
+            supremal_samples[sample] = None
+            continue
+        # Parse alleles (variants together)
+        try:
+            supremal_samples[sample] = to_supremal(list(variants.values()), reference["sequence"]) # Try to find supremal for sample
+        except ValueError as e:
+            # TODO can assume that overlapping variants are in different phases?
+            # TODO use different placement for the overlapping variants?
+            if "unorderable variants" in str(e):
+                warnings.warn(f"Could not parse sample {sample} due to double/overlapping variants")
+                print(*variants.keys())
+            else:
+                raise e
+        # Parse individual variants
+        for hgvs, variant in list(variants.items()): # Find supremal for individual variants
+            if hgvs in supremal_samples:
+                continue
+            supremal_v = to_supremal([variant], reference["sequence"] )
+            # Filter out variants that are in the database (not personal)
+            # Relations with these variants will show up later
+            for v in supremal_extended:
+                if find_type(v) != Type.VAR:
+                    continue
+                rel = va.relations.supremal_based.compare(reference["sequence"], supremal_v, supremal_extended[v])
+                if rel == va.Relation.EQUIVALENT: # Not personal
+                    del variants[hgvs] # Can delete since already parsed as allele
+                    break
+            else: # Personal variant is saved individually
+                supremal_samples[hgvs] = supremal_v
+    if cache_name: cache_set(supremal_samples, "supremal_samples")
+    return supremal_samples

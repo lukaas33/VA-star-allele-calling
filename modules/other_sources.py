@@ -72,7 +72,7 @@ def find_id_hgvs(variant, reference=None):
     chromosome = re.findall(r"NC_0*([0-9]*)\.", variant)[0]
     va_variant = va.variants.parse_hgvs(variant) if reference is None else va.variants.parse_hgvs(variant, reference=reference)
     # TODO smarter range 
-    position = f"{va_variant[0].start - 25}:{va_variant[0].end + 25}" # Larger since position of target must be entirely in range 
+    position = f"{va_variant[0].start - 50}:{va_variant[0].end + 50}" # Larger since position of target must be entirely in range 
     # Lookup ids around the position
     result = entrez_api.search(
         {"chromosome": chromosome, "organism": 'human', "position": position},
@@ -243,7 +243,10 @@ def get_personal_ids(personal_variants, reference, cache_name=None):
     for personal_variant in personal_variants:
         hgvs = f"{reference['name']}:g.{personal_variant}"
         id = find_id_hgvs(hgvs, reference["sequence"])
-        # TODO handle None
+        if id is None:
+            # TODO handle None
+            raise Exception(f"{personal_variant} no id found.")
+        # print(hgvs, id)
         personal_ids |= {personal_variant: id}
     if cache_name is not None: cache_set(personal_ids, cache_name)
     return personal_ids
