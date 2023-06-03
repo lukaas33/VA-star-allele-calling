@@ -310,10 +310,16 @@ def validate_alternative_calling(calling_filename, validate_filename):
             print(f"\t{sample} should be {validate[sample]}")
     print(f"{sum(totals.values()) + len(to_find)} total")
 
+temp_cache = {}
 def normalise(hgvs, ref="NC_000022.11"):
+    global temp_cache
     hgvs = f"{ref}:g.{hgvs}" if ':' not in hgvs else hgvs
-    lookup = api_get(f"https://mutalyzer.nl/api/normalize/{hgvs}")
-    return lookup['normalized_description']
+    if hgvs in temp_cache:
+        return temp_cache[hgvs]
+    else:
+        lookup = api_get(f"https://mutalyzer.nl/api/normalize/{hgvs}")
+        temp_cache[hgvs] = lookup['normalized_description']
+        return lookup['normalized_description']
 
 def change_ref(hgvs, from_ref="NC_000022.11", to_ref="NM_000106.6"):
     "Change the reference of a hgvs"
