@@ -687,7 +687,7 @@ def order_callings(calling, functions, no_default=True, shortest=True, no_uncert
     return score
                     
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=0, reorder=True):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=1, reorder=True):
     """Iterate over samples and call star alleles for each."""
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
