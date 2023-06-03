@@ -401,16 +401,16 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
     # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'all'] 
-    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
-    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['all'])}/")
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {','.join(line['all'])}/")
     # EXPERIMENT 2.2: use homozygous variants alleles
     # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
-    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
-    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['hom'])}/")
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {','.join(line['hom'])}/")
     # EXPERIMENT 2.3: use heterozygous variants alleles
     # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
-    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_simple, functions, supremal_extended | supremal_samples, reference, detail_level=1)
-    # for sample, line in calling_unphased.items(): print(f"{sample}: {'+'.join(line['het'])}/")
+    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
+    # for sample, line in calling_unphased.items(): print(f"{sample}: {','.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
@@ -433,7 +433,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         for sample, line in calling.items(): 
             if type(select) == list and not any([sample in s for s in select]): 
                 continue
-            print(f"{sample}: {'+'.join(line['A'])}/{'+'.join(line['B'])}")
+            print(f"{sample}: {','.join(line['A'])}/{','.join(line['B'])}")
 
         # TEST 8: validate calling
         # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
