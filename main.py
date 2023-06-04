@@ -88,6 +88,14 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
     # Manually remove unparsable TODO fix the parsing of these
+    for sample in ("HG00373_all","HG01680_all","NA18526_all", "NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all"):
+        supremal_samples[sample] = None
+        for s, t, r in list(relations_samples_extended):
+            if s == sample or t == sample:
+                relations_samples_extended.remove((s, t, r))
+        for s, t, r in list(relations_samples_simple):
+            if s == sample or t == sample:
+                relations_samples_simple.remove((s, t, r))
 
 
     # TEST 5: check if relations are consistent with atomic variants
