@@ -13,12 +13,14 @@ from modules.tests import *
 
 def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
+    print("Get reference sequence...")
     reference_name = "NC_000022.11"
     reference_sequence = reference_get(reference_name)
     reference = {"name": reference_name, "sequence": reference_sequence}
     # List genes as symbols in Pharmvar
     genes = pharmvar_get("genes/list") 
     # All information associated with the (current) gene of interest
+    print("Get gene information...")
     gene = pharmvar_get("genes/CYP2D6") 
     # Group suballeles by core alleles and index by the star-allele notation of the core allele
     # QUESTION should variants within a suballele be disjoint?
@@ -39,12 +41,13 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # test_naming(corealleles, suballeles)
 
     # Find the relation between all corealleles, suballeles and the contained variants
+    print("Find relations...")
     supremal_extended = extract_variants(reference_sequence, corealleles, suballeles, cache_name="supremal_extended")
-    relations_extended = find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended")	
+    relations_extended = set(find_relations_all(reference_sequence, supremal_extended, cache_name="relations_extended"))
     pruned_extended = prune_relations(relations_extended, cache_name="relations_pruned_extended")
     pruned_extended[0].add("CYP2D6*1") # Add since it won't be found in the relations
     supremal_simple = extract_variants(reference_sequence, corealleles, cache_name="supremal_simple")
-    relations_simple = find_relations_all(reference_sequence, supremal_simple, cache_name="relations_simple")
+    relations_simple = set(find_relations_all(reference_sequence, supremal_simple, cache_name="relations_simple"))
     pruned_simple = prune_relations(relations_simple, cache_name="relations_pruned_simple")
     pruned_simple[0].add("CYP2D6*1") # Add since it won't be found in the relations
 
@@ -64,11 +67,13 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # parse samples
     # make_samples_unphased(reference)
+    print("Parse samples...")
     samples_phased = parse_samples("data/samples", reference, phased=True, cache_name="samples_phased") 
     samples_unphased = parse_samples("data/samples_unphased", reference, phased=False, cache_name="samples_unphased") 
     supremal_samples = samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, "supremal_samples")
 
     # Split into personal variants and samples
+    # TODO fix for personal
     personal_variants = {variant: value for variant, value in supremal_samples.items() if find_type(variant) == Type.P_VAR} 
     samples = {sample: value for sample, value in supremal_samples.items() if find_type(sample) == Type.SAMPLE} 
 
@@ -77,26 +82,31 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     functions |= get_personal_impacts(personal_variants, ids, reference, cache_name="impacts_personal")
  
     # Find all relations with samples
-    relations_samples_extended = find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended")
-    relations_samples_extended += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
-    relations_samples_extended += find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended")
-    relations_samples_extended += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    print("Find relations with samples...")
+    relations_samples_extended = set(find_relations_all(reference_sequence, supremal_extended, samples, cache_name="relations_samples_extended"))
+    relations_samples_extended |= set(find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
+    relations_samples_extended |= set(find_relations_all(reference_sequence, supremal_extended, personal_variants, cache_name="relations_personal_extended"))
+    relations_samples_extended |= set(find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal_ex"))
     # Simplified
-    relations_samples_simple = find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple")
-    relations_samples_simple += find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal")
-    relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
-    relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
+    relations_samples_simple = set(find_relations_all(reference_sequence, supremal_simple, samples, cache_name="relations_samples_simple"))
+    relations_samples_simple |= set(find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
+    relations_samples_simple |= set(find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple"))
+    relations_samples_simple |= set(find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal_si"))
 
-    # Manually remove unparsable TODO fix the parsing of these
-    for sample in ("HG00373_all","HG01680_all","NA18526_all", "NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all"):
-        supremal_samples[sample] = None
-        for s, t, r in list(relations_samples_extended):
-            if s == sample or t == sample:
-                relations_samples_extended.remove((s, t, r))
-        for s, t, r in list(relations_samples_simple):
-            if s == sample or t == sample:
-                relations_samples_simple.remove((s, t, r))
-
+    # Manually remove unparsable TODO fix the parsing of these and remove this
+    unparsable_samples = ("HG00373_all","HG01680_all","NA18526_all", "NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all")
+    for s in unparsable_samples:
+        supremal_samples[s] = None
+    to_remove_ex = set()
+    for s, t, r in relations_samples_extended:
+        if s in unparsable_samples or t in unparsable_samples:
+            to_remove_ex.add((s, t, r))
+    relations_samples_extended -= to_remove_ex
+    to_remove_si = set()
+    for s, t, r in relations_samples_simple:
+        if s in unparsable_samples or t in unparsable_samples:
+            to_remove_si.add((s, t, r))
+    relations_samples_simple -= to_remove_si
 
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
@@ -105,8 +115,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
     # Simplify sample relations
-    pruned_samples_extended = prune_relations(relations_samples_extended + relations_extended, cache_name="relations_pruned_samples_extended")
-    pruned_samples_simple = prune_relations(relations_samples_simple + relations_simple, cache_name="relations_pruned_samples_simple")
+    print("Simplify sample relations...")
+    pruned_samples_extended = prune_relations(relations_samples_extended | relations_extended, cache_name="relations_pruned_samples_extended")
+    pruned_samples_simple = prune_relations(relations_samples_simple | relations_simple, cache_name="relations_pruned_samples_simple")
 
     # TEST 6: test if star allele based on corealleles is the same as calling with suballeles
     # test_extended_simplified(samples, pruned_samples_simple, supremal_simple, pruned_samples_extended, supremal_extended, supremal_samples, functions, reference)
@@ -127,15 +138,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
     # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail)
     # for sample, line in calling_unphased.items(): print(f"{sample}: {','.join(line['hom'])}/")
-    # EXPERIMENT 2.3: use heterozygous variants alleles
-    # sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'het'] 
-    # calling_unphased = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=1)
-    # for sample, line in calling_unphased.items(): print(f"{sample}: {','.join(line['het'])}/")
 
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
         # TODO change by detail?
-        # TODO use extended
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
@@ -143,7 +149,6 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # TEST 8: validate alternative calling method on simulated data
     # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
-
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
@@ -198,8 +203,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         config = image_configs[example]
         # TODO allow for multiple
         nodes = config["selection"]
+        layout = "cose-bilkent"
+        if "layout" in config:
+            layout = config["layout"]
         if "positions" in config:
             positions = config["positions"]
+            layout = "preset"
         else:
             positions = None
         if "edges" in config:
@@ -210,7 +219,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 if s not in nodes or t not in nodes:
                     continue
                 edges.append((s, t, r))
-        display_graph(nodes, edges, data, functions if config["color"] else None, default_layout="preset", positions=positions, auto_download=example)
+        display_graph(nodes, edges, data, functions if config["color"] else None, default_layout=layout, positions=positions, auto_download=example)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')

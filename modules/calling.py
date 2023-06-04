@@ -269,208 +269,6 @@ def valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, m
         return False
     return True
 
-def old_generate_alternative_callings(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
-    """Generate valid alternative callings for a sample in a BFS manner.
-    
-    Generates most specific first.
-    Option to stop after first valid calling is found (find_all).
-
-    Only returns valid callings based on homozygous matches.
-
-    Only returns calling with a unique representation according to the required detail level.
-
-    Need to (deep)copy if generator not immediately consumed.
-
-    # TODO improve runtime for suballeles
-    # TODO prevent duplicates in generation instead of filtering (at move for instance)
-    # TODO prevent invalid generation (move to invalid state or extend with invalid state)
-    # TODO don't deepcopy everything?
-    # TODO fix runtime NA19174
-    # TODO validate on suballeles
-    """
-    raise DeprecationWarning("Use generate_alternative_callings instead")
-    def underlying(allele, cont_graph):
-        """Return the underlying alleles of some allele."""	
-        # TODO look at overlapping
-        for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
-            if find_type(contained) in (Type.CORE, Type.SUB):
-                yield contained
-    def move_alleles(calling):
-        """Move alleles to different phase"""
-        # TODO don't move to invalid state (keep homozygous in both)
-        # TODO don't move to have alleles within a phase be contained in each other
-        # Move some alleles
-        for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
-            alleles = tuple(alleles)
-            # TODO Prevent duplicates here (X/Y = Y/X)
-            for r in range(1, len(alleles)): # Don't move all (r < n) since this would result in duplicates
-                for move in combinations(alleles, r):
-                    moved_alt = copy.deepcopy(calling)
-                    # Make B the same length as A
-                    while len(moved_alt['B']) < len(moved_alt['A']): 
-                        moved_alt['B'].insert(0, set())
-                    # Change phase 
-                    moved_alt['A'][i] -= set(move)
-                    moved_alt['B'][i] |= set(move)
-                    yield moved_alt
-        # Don't move anything (*1/*X+*Y)
-        # Last yielded since this notation is not preferred
-        yield copy.deepcopy(calling)
-    # Find star allele definitions consisting of only star alleles
-    extendable = {}
-    for node in cont_graph.nodes():
-        if find_type(node) not in (Type.CORE, Type.SUB):
-            continue
-        predecessors = set(cont_graph.predecessors(node))
-        if not predecessors:
-            continue
-        if all([find_type(s) in (Type.CORE, Type.SUB) for s in predecessors]):
-            extendable[node] = predecessors
-    # print(valid_calling(sample, {"A": [{"CYP2D6*4", "CYP2D6*10", "CYP2D6*74"}], "B": [{"CYP2D6*41"}]}, homozygous, cont_graph, eq_graph, ov_graph, extendable))
-    # Perform BFS on callings
-    queue = [(calling, set(), 0)]
-    unique = set()
-    while len(queue) > 0:
-        any_valid = False
-        # First alternative calling in the queue
-        alternative, extended, depth = queue.pop(0) 
-        # Try different phasing at the current depth
-        for moved_alt in move_alleles(alternative):
-            # Check if the representation of this alternative is unique
-            if valid_calling(sample, moved_alt, homozygous, cont_graph, eq_graph, ov_graph, extendable):
-                representation = calling_to_repr(moved_alt, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
-                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
-                if representation in unique: continue # Only return unique
-                print(representation)
-                unique.add(representation)
-                any_valid = True
-                yield moved_alt
-        # Don't look deeper when calling valid (don't replace description with same information)
-        # if any_valid: # TODO test
-        #     continue
-        # Look deeper in the tree
-        for i, alleles in enumerate(alternative['A'][:-1]): # All non-default alleles
-            alleles = set(alleles)
-            for r in range(1, len(alleles)+1):
-                # Prevent extending a previous level (will be allowed if a allele occurs again in a different level)
-                for extend in combinations(alleles - extended, r=r): 
-                    # print("extend", extend)
-                    extend_alt = copy.deepcopy(alternative)
-                    extend = set(extend)
-                    # TODO can merge cases?
-                    # 1. Replace allele with underlying alleles
-                    # TODO is this approach valid?
-                    if not any_valid: # Don't replace if already valid as this adds no information
-                        for allele in extend:                        
-                            underlying_alleles = set(underlying(allele, cont_graph))
-                            extend_alt['A'][i] -= {allele,}
-                            extend_alt['A'][i] |= underlying_alleles
-                        queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1)) 
-                    # 2. Add underlying alleles to extended together with parent allele if homozygous
-                    extend_alt = copy.deepcopy(alternative)
-                    for allele in extend:
-                        # TODO allow variable number of underlying alleles?
-                        # TODO don't extend if number of a homozygous allele is > 2
-                        underlying_alleles = set(underlying(allele, cont_graph))
-                        for underlying_allele in underlying_alleles:
-                            # Extend if homozygous or contains homozygous  
-                            if not any(h in nx.ancestors(cont_graph, underlying_allele) | {underlying_allele,} for h in homozygous):
-                                continue
-                            # Add homozygous underlying and don't remove parent
-                            # Must be in the other phase as the parent for this to be valid (will be handled by move_alleles)
-                            underlying_alleles.add(underlying_allele)
-                            extend_alt['A'][i] |= {underlying_allele,}
-                    queue.append((extend_alt, extended | alleles - underlying_alleles, depth+1))
-
-def old_generate_alternative_callings_recursive(calling, cont_graph, homozygous, extended, find_all=False, depth=1):
-    """Generate valid alternative callings for a sample.
-    
-    This is useful for unphased not homozygous matches.
-    Need to copy yielded callings to prevent changing the original calling
-    would not be needed in case of one iteration over this generator
-
-    Find_all can be used to find all alternative callings, if false valid callings are extended into less specific callings.
-
-    # TODO breadthfirst instead of depth first (lower are more specific)
-    # TODO don't extend if valid solution with more specific alleles is found (improve this to work with HG00421)
-    # TODO fix runtime of HG01190 and of with suballeles
-    """
-    raise DeprecationWarning("This function is deprecated, use generate_alternative_callings instead")	
-    def move_alleles(calling):
-        """Move alleles to other phase"""
-        # Move
-        for i, alleles in enumerate(calling['A'][:-1]): # All non-default matches for this sample; maintain rank
-            # Don't move all since this would result in a duplicate (X/Y = Y/X)
-            for r in range(1, len(alleles)):
-                # TODO how to avoid duplicates here?
-                for move in combinations(alleles, r=r):
-                    moved_calling = copy.deepcopy(calling)
-                    # Make B the same length as A
-                    while len(moved_calling['B']) < len(moved_calling['A']): 
-                        moved_calling['B'].insert(0, set())
-                    # Change phase 
-                    moved_calling['A'][i] -= set(move)
-                    moved_calling['B'][i] |= set(move)
-                    yield moved_calling
-        # Don't move
-        # Last since this notation is not preferred
-        yield copy.deepcopy(calling)
-    # Alternatives from moving at this depth
-    any_valid = False
-    for alternative in move_alleles(copy.deepcopy(calling)):
-        # Return only valid callings
-        if valid_calling(alternative, cont_graph, homozygous):
-            any_valid = True
-            yield alternative
-    # Go deeper by extending one allele
-    # Don't extend if already valid TODO test
-    if not any_valid or find_all:
-        # Find allele to extend
-        extend_allele, extend_underlying = None, None
-        for i, alleles in enumerate(calling['A'][:-1]): 
-            for allele in alleles:
-                # Avoid infinite recursion
-                # TODO test
-                if allele in extended:
-                    continue
-                # Find underlying alleles of this allele
-                if allele not in cont_graph.nodes(): 
-                    continue
-                # TODO check overlap graph
-                underlying = set()
-                for contained, _ in cont_graph.in_edges(allele): # Find underlying alleles
-                    if find_type(contained) not in (Type.CORE, Type.SUB):
-                        continue
-                    underlying.add(contained)
-                if len(underlying) == 0:
-                    continue
-                extend_allele, extend_underlying = allele, underlying
-                break # Don't extend further at this depth
-            else: # No break
-                continue
-            break
-        if extend_allele is not None:
-            # 1. Go deeper without extending or replacing the current
-            for alternative in generate_alternative_callings(calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
-                yield alternative
-            # 2. Go deeper with allele replaced by underlying
-            replaced_calling = copy.deepcopy(calling)
-            replaced_calling['A'][i].remove(extend_allele)
-            replaced_calling['A'][i] |= extend_underlying
-            # print(depth, "replace", allele, "with", underlying, "-", replaced_calling)
-            for alternative in generate_alternative_callings(replaced_calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
-                yield alternative
-            # 3. Go deeper with extended alleles
-            # Don't remove but add underlying which may be contained in it (if they are homozygous)
-            for r in range(1, len(extend_underlying)): 
-                for extend in combinations(extend_underlying, r):
-                    if not all([a in homozygous for a in extend]): # Can only extend an allele with itself and a homozygous allele
-                        continue
-                    extended_calling = copy.deepcopy(calling)
-                    extended_calling['A'][i] |= set(extend)
-                    for alternative in generate_alternative_callings(extended_calling, cont_graph, homozygous, extended | {extend_allele,}, depth+1):
-                        yield alternative
-
 def generate_alternative_callings_top_down(sample, start_calling, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """Generate unique valid alternative callings for a sample.
     
@@ -576,7 +374,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
     TODO consider overlap
     TODO change how alternatives are generated based on detail level
         now returning wrong results for a detail level 1
-    TODO check for duplicates being generated
+    TODO prevent duplicates being generated
     TODO make more efficient by reverse hash of definitions
     """
     # Find star allele definitions to check for most specific
@@ -618,6 +416,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             for phase in ("A", "B"):
                 calling[phase] = []
                 # Find most specific allele descriptions for variants
+                # TODO don't allow multiple cores
                 covers = set()
                 most_specific = set()
                 for allele, ancestors in definitions.items():
@@ -630,9 +429,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                                 most_specific.add(allele)
                                 covers |= ancestors
                 # Add variants not covered by any allele definition
-                # TODO allow?
                 most_specific |= (variants[phase] - covers)
-                # Add most specific alleles to calling
                 calling[phase].append(most_specific)
                 calling[phase].append({"CYP2D6*1",})
             # Return valid calling
@@ -651,6 +448,8 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             # TODO valid?
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
+
+#  TODO implement more efficient algorithm
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.

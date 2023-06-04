@@ -10,7 +10,8 @@ image_configs["NA07348_B-simple"] = {
         ("CYP2D6*169", "NC_000022.11:g.42126962C>G", va.Relation.EQUIVALENT),
         ("CYP2D6*169", "NA07348_B", va.Relation.OVERLAP),
     ]),
-    "color": True
+    "color": True,
+    "layout": "dagre"
 }
 
 image_configs["transitive"] = {
