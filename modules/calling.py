@@ -129,6 +129,7 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
     Graph must also contain relations between all PharmVar alleles.
 
     Returns a list of allele matches ordered by the strength of the relation.
+    TODO test if made redundant for calling method
     """
     # Don't predict unparsable samples
     # Would be predicted as *1 otherwise
@@ -385,13 +386,19 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
     """
     # Find star allele definitions to check for most specific
     definitions = {}
+    alleles = {}
     for node in cont_graph.nodes():
         # Only look at core allele definitions if suballeles are not considered
-        if find_type(node) != Type.CORE or (detail_level > 1 and find_type(node) != Type.SUB):
+        if find_type(node) != Type.CORE and (detail_level <= 1 or find_type(node) != Type.SUB):
             continue
+        if find_type(node) == Type.SUB:
+            core = find_core_string(node)
+            if core not in alleles:
+                alleles[core] = set()
+            alleles[core].add(node)
         ancestors = set(find_ancestor_variants(node, eq_graph, cont_graph, ov_graph))
         if not ancestors:
-            continue
+            pass # TODO handle (overlap)
         definitions[node] = ancestors
     # Find what variants the sample contains indirectly
     all_variants = set(find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph))
@@ -421,22 +428,32 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             calling = {}
             for phase in ("A", "B"):
                 calling[phase] = []
+                core_covers = set()
+                core_alleles = set()
                 # Find most specific allele descriptions for variants
-                # TODO don't allow multiple cores
-                covers = set()
-                most_specific = set()
-                for allele, ancestors in definitions.items():
-                    if ancestors <= variants[phase]: # definition is subset of variants
-                        if len(covers | ancestors) >= len(covers): # Covers more of the variants
-                            if covers | ancestors == ancestors: # This allele is more specific than the current one
-                                most_specific = {allele,}
-                                covers = set(ancestors)
-                            elif not (ancestors <= covers): # This allele should be present together with the current one
-                                most_specific.add(allele)
-                                covers |= ancestors
-                # Add variants not covered by any allele definition
-                most_specific |= (variants[phase] - covers)
-                calling[phase].append(most_specific)
+                # TODO correct heuristic?
+                # TODO use td structure for this
+                for core, subs in alleles.items():
+                    covers = set()
+                    most_specific = set()
+                    for allele in subs | {core,}:
+                        if core == "CYP2D6*1":
+                            continue
+                        ancestors = definitions[allele]
+                        if ancestors <= variants[phase]: # definition is subset of variants
+                            if len(covers | ancestors) >= len(covers): # Covers more of the variants
+                                if covers | ancestors == ancestors: # This allele is more specific than the current coverage
+                                    most_specific = {allele,}
+                                    covers = set(ancestors)
+                                elif not (ancestors <= covers): # This allele should be present together with the current one
+                                    most_specific.add(allele)
+                                    covers |= ancestors                
+                    # Add variants not covered by any allele definition
+                    most_specific |= (variants[phase] - covers)
+                    if len(covers) > len(core_covers):
+                        core_covers = covers
+                        core_alleles = most_specific
+                calling[phase].append(core_alleles)
                 calling[phase].append({"CYP2D6*1",})
             # Return valid calling
             # if not valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, definitions):
@@ -446,6 +463,8 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             # Only return unique representations (duplicates can be generated because of detail level)
             if representation in unique:
                 continue
+            print(calling)
+            print(representation)
             unique.add(representation)
             # print(calling)
             # print(representation)
@@ -455,7 +474,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-#  TODO implement more efficient algorithm
+#  TODO implement more efficient algorithm here
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -516,7 +535,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # test_i = 0
         for sample, calling in sep_callings.items():
             # if sample == "NA19174": continue
-            # if sample != "HG00337": continue
+            if sample != "HG00337": continue
             # test_i += 1
             # if test_i > 14:
             #     exit()
