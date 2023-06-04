@@ -240,7 +240,7 @@ def test_alternative_callings(supremals, reference, relations_ref, functions):
     pruned = prune_relations(relations)
     star_allele_calling_all(alleles.keys(), *pruned, functions, supremals, reference, phased=False, detail_level=1)
 
-def statistics(corealleles, suballeles, relations, pruned_relations):
+def statistics(corealleles, suballeles, relations, pruned_relations, callings):
     print("Core alleles:", len(corealleles.keys()))
     var_core = list(set([var["hgvs"] for core in corealleles.keys() for var in corealleles[core]["variants"]]))
     print("Core variants:", len(var_core), var_core[:4])
@@ -258,3 +258,29 @@ def statistics(corealleles, suballeles, relations, pruned_relations):
     print("Most common nodes:")
     arity = count_arity(corealleles.keys(), pruned_relations)
     print(sorted([(a["total"], n) for n, a in arity.items()], reverse=True)[:5])
+    counts = {}
+    calling_count = {"hom": 0, "het": 0, "1def": 0, "2def": 0}
+    for sample, calling in callings.items():
+        if sample == "NA18526": # skip unparsable TODO fix
+            continue
+        for phase in "AB":
+            name = f"{sample}_{phase}"
+            if calling[phase][0] not in counts:
+                counts[calling[phase][0]] = 0
+            counts[calling[phase][0]] += 1
+        if calling['A'][0] == calling['B'][0] == "CYP2D6*1":
+            calling_count["2def"] += 1
+        elif calling['A'][0] == "CYP2D6*1" or calling['B'][0] == "CYP2D6*1":
+            calling_count["1def"] += 1
+        elif calling['A'] == calling['B']:
+            calling_count["hom"] += 1
+        else:
+            calling_count["het"] += 1
+    assert sum(counts.values()) == 240
+    counts = list(counts.items()) 
+    counts.sort(key=lambda x: x[1], reverse=True)
+    print(counts[:10])
+    assert sum(calling_count.values()) == 120
+    print(calling_count)
+
+  

@@ -143,11 +143,13 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
         if len(m_eq) > 1: # More equivalents found, not possible for correct dataset
             raise Exception(f"{sample}: multiple equivalent matches found: {matches['equivalent']}.")
         if len(m_eq) == 1: 
+            # print(sample, m_eq, "equivalent")
             matches.append(m_eq) # Strongest match
     # Find directly contained alleles
     if sample in cont_graph.nodes():
         m_cont = set([m for m, _ in cont_graph.in_edges(sample) if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_cont) > 0: 
+            # print(sample, m_cont, "contained")
             matches.append(m_cont) # Less strong match than equivalent
     # Find directly overlapping alleles
     # not looking at overlaps that are a result of contained alleles
@@ -155,8 +157,12 @@ def star_allele_calling(sample, eq_graph, cont_graph, overlap_graph, functions, 
         m_ov = set([m for m in overlap_graph[sample] if find_type(m) in (Type.CORE, Type.SUB)])
         if len(m_ov) > 0: 
             # Overlap treated with lower priority than equivalent and contained
+            # print(sample, m_ov, "overlap")
             matches.append(m_ov)
     # Add default allele, will have the lowest priority
+    if len(matches) == 0:
+        # print(sample, "default", set([m for m, _ in cont_graph.in_edges(sample) if find_type(m) not in (Type.CORE, Type.SUB)]))
+        pass
     matches.append({"CYP2D6*1",})
     # Return all matches to be filtered later (based on detail level)
     return matches

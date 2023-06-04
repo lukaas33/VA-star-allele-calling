@@ -51,8 +51,6 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     pruned_simple = prune_relations(relations_simple, cache_name="relations_pruned_simple")
     pruned_simple[0].add("CYP2D6*1") # Add since it won't be found in the relations
 
-    # statistics(corealleles, suballeles, relations_extended, pruned_extended[1])
-
     # TEST 2: validate the relations
     # validate_relations(relations_extended, variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc.txt")
     # validate_relations(pruned_extended[1], variants, r"..\pharmvar-tools\data\pharmvar_5.2.19_CYP2D6_relations-nc-reduced.txt")
@@ -146,6 +144,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         print("Calling unphased...")
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
+    # Statistics
+    # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
+
     # TEST 7: validate alternative callings
     # validate_alternative_calling(r"results\calling\calling_alt_new.txt", r"data\bastard.txt")
 
@@ -163,7 +164,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
             print(f"{sample}: {','.join(line['A'])}/{','.join(line['B'])}")
 
         # TEST 8: validate calling
-        validate_calling(calling, r"data\bastard.txt") # compare to M&J method
+        # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
