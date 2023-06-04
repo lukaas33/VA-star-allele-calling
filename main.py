@@ -126,6 +126,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased and phased: 
         raise ValueError("Either phased or unphased should be True")
     if phased:
+        print("Calling phased...")
         # TODO change used by detail?
         calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
     
@@ -142,6 +143,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # EXPERIMENT 3: unphased star allele calling and trying to infer phasing
     if unphased:
         # TODO change by detail?
+        print("Calling unphased...")
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
 
     # TEST 7: validate alternative callings
@@ -154,17 +156,18 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if text and visual or text and interactive or visual and interactive:
         raise ValueError("Only one of text, visual or interactive can be True") 
     if text:
-        # TODO filter selection
+        print(f"Outputting text (detail={detail})...")
         for sample, line in calling.items(): 
             if type(select) == list and not any([sample in s for s in select]): 
                 continue
             print(f"{sample}: {','.join(line['A'])}/{','.join(line['B'])}")
 
         # TEST 8: validate calling
-        # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
+        validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context
     if visual:
+        print("Visualising calling...")
         # TODO change by detail
         if type(select) != list or len(select) != 1: # TODO handle multiple?
             raise Exception("Only one sample can be selected for visualisation")
@@ -192,6 +195,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
+        print("Interactive map...")
         edges = set(pruned_extended[1])
         if type(select) == list:
             edges |= find_context(set(select), pruned_samples_extended[1])[1]
@@ -201,6 +205,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # VISUALISATION 3: Generate images for report
     if example:
         config = image_configs[example]
+        print(f"Visualising example {example}...")
         # TODO allow for multiple
         nodes = config["selection"]
         layout = "cose-bilkent"

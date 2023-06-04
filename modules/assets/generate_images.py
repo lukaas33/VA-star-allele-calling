@@ -14,6 +14,19 @@ image_configs["NA07348_B-simple"] = {
     "layout": "dagre"
 }
 
+image_configs["NA07348_B-extended"] = {
+    "selection": ("NA07348_B", "CYP2D6*169", "CYP2D6*169.001", "NC_000022.11:g.42126962C>G", "NC_000022.11:g.42126963C>T", "CYP2D6*1.002"),
+    "edges": set([
+        ("NA07348_B", "CYP2D6*1.002", va.Relation.EQUIVALENT),
+        ("CYP2D6*1.002", "NC_000022.11:g.42126963C>T", va.Relation.EQUIVALENT),
+        ("CYP2D6*1.002", "CYP2D6*169", va.Relation.OVERLAP),
+        ("CYP2D6*169", "NC_000022.11:g.42126962C>G", va.Relation.EQUIVALENT),
+        ("CYP2D6*169", "CYP2D6*169.001", va.Relation.EQUIVALENT),
+    ]),
+    "color": True,
+    "layout": "dagre"
+}
+
 image_configs["transitive"] = {
     "selection": ("CYP2D6*39", "CYP2D6*10", "CYP2D6*147"),
     "positions": ((0, 0), (0, 100), (100, 100)),
