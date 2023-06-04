@@ -174,8 +174,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
             raise Exception("Only one sample can be selected for visualisation")
         select = select[0]
         sample, phase = select.split('_')
-        # Check the relevance of the extra variant
-        group = {}
+        # Group extra variants
+        group = set()
         for var1, var2, _ in pruned_samples_extended[1]:
             if var1 != select and var2 != select:
                 continue
@@ -183,7 +183,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
             if find_type(var) not in (Type.VAR, Type.P_VAR):
                 continue            
             group.add(var)
-        if len(group.keys()) <= 5:
+        if len(group) <= 5:
             group = None
         # Mark the star-allele calling
         marked_calling = None
