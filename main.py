@@ -87,6 +87,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     relations_samples_simple += find_relations_all(reference_sequence, supremal_simple, personal_variants, cache_name="relations_personal_simple")
     relations_samples_simple += find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal")
 
+    # Manually remove unparsable TODO fix the parsing of these
+
+
     # TEST 5: check if relations are consistent with atomic variants
     # test_variant_containment(corealleles, suballeles, relations_extended)
     # test_personal_variant_containment(samples_source, relations_samples)
