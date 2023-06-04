@@ -250,3 +250,26 @@ def prune_relations(relations, cache_name=None):
             edges.append((s, t, rel))
     if cache_name: cache_set((nodes, edges), cache_name)
     return nodes, edges    
+
+def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
+    """Find a path from s to t in the graphs"""
+    # TODO fix
+    raise NotImplementedError("Implementation contains bugs")
+    # TODO integrate in web interface
+    if path is None: path = [s]
+    if visited is None: visited = set()
+    if s in visited: return None
+    visited.add(s)
+    if s == t:
+        return path
+    for g in (cont_graph, eq_graph, overlap_graph):
+        if s in g.nodes():
+            for n in g[s]:
+                if sort_types(n) in (4, 5): # Don't use samples for iteration
+                    continue
+                path.append(n)
+                result = find_path(n, t, cont_graph, eq_graph, overlap_graph, path, visited)
+                if result is not None:
+                    return result
+                path.pop()
+    return None

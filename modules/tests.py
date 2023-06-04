@@ -1,9 +1,9 @@
 from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity, change_ref, normalise
 from modules.data import cache_get, cache_set, api_get
 import warnings
-from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
+from modules.calling import star_allele_calling_all, find_type, Type
 import algebra as va
-from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts
+from modules.other_sources import is_silent_mutalyzer, get_annotation_entrez, find_id_hgvs, get_personal_ids, get_personal_impacts, impact_position, relevance
 from itertools import combinations
 from modules.parse import to_supremal
 from modules.relations import prune_relations

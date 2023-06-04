@@ -5,7 +5,7 @@ from modules.graph import display_graph
 from modules.compare import find_relations_all
 from modules.relations import prune_relations, find_context, redundant_reflexive
 from modules.parse import extract_variants, to_supremal, parse_samples, samples_to_supremal
-from modules.calling import star_allele_calling_all, find_type, Type, impact_position, relevance
+from modules.calling import star_allele_calling_all, find_type, Type
 from modules.other_sources import get_personal_ids, get_personal_impacts
 from modules.assets.generate_images import image_configs
 import algebra as va
@@ -175,8 +175,16 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         select = select[0]
         sample, phase = select.split('_')
         # Check the relevance of the extra variant
-        variants_relevance = relevance(select, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference) # TODO remove relevance?
-        group = variants_relevance.keys() if len(variants_relevance.keys()) > 5 else None
+        group = {}
+        for var1, var2, _ in pruned_samples_extended[1]:
+            if var1 != select and var2 != select:
+                continue
+            var = var2 if var1 == select else var1
+            if find_type(var) not in (Type.VAR, Type.P_VAR):
+                continue            
+            group.add(var)
+        if len(group.keys()) <= 5:
+            group = None
         # Mark the star-allele calling
         marked_calling = None
         if phase in "AB": 

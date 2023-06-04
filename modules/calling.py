@@ -2,7 +2,6 @@ import algebra as va
 import networkx as nx
 import warnings
 from .data import api_get
-from .other_sources import find_id_hgvs, get_annotation_entrez, severity_GO, severity_pharmvar
 import re
 import copy
 from itertools import combinations, combinations_with_replacement
@@ -456,6 +455,8 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
                 break
 
 #  TODO implement more efficient algorithm
+def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
+    print(sample)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -574,102 +575,6 @@ def find_core_traversal(match, cont_graph):
                 cores.extend(find_core_traversal(node, cont_graph))
     return cores
 
-def impact_position(supremal):
-    """Check if a variant is silent based on positions of variants.
-    
-    This is a different approach to the other methods since it doesn't rely on online sources.
-    Therefore it can be used on novel variants.
-    Instead it uses the position of a variant to see if it can influence the protein.
-    This is based on the intron-exon borders.
-    """
-    raise DeprecationWarning("Will not be finished since annotations are used")
-    # TODO do earlier for all personal variants (and more?)
-    # TODO find exons dynamically for any gene
-    # Exon borders (one-based; closed end) 
-    # Source? https://www.ncbi.nlm.nih.gov/genome/gdv/browser/gene/?id=1565
-    # QUESTION are there more exons sometimes?
-    # QUESTION Does alternative splicing occur?
-    # QUESTION are these fixed?
-    exons = [ 
-        (42126499, 42126752),
-        (42126851, 42126992),
-        (42127447, 42127634),
-        (42127842, 42127983),
-        (42128174, 42128350),
-        (42128784, 42128944),
-        (42129033, 42129185),
-        (42129738, 42129909),
-        (42130612, 42130810)
-    ]    
-    # Length of splice site
-    # Part of intron that is used for recognition by spliceosome
-    # Source: https://www.ncbi.nlm.nih.gov/gene/1565
-    # TODO get dynamically
-    # QUESTION is this correct?
-    splice_sites = ("GT", "AG") 
-    # Functions for checking exon influence
-    # Check if a range is entirely in an exon
-    in_exon = lambda s, e: any(
-        start <= s and e <= end # Interval is contained in exon
-        for start, end in exons)
-    # Check if a range overlaps with an exon 
-    overlap_exon = lambda s, e: any(
-        max(s, start) <= min(e, end) # Interval overlaps with exon (highest begin is lowe than lowest end)
-        for start, end in exons) 
-    # Check if a range overlaps with a splice site
-    overlap_splice_site = lambda s, e: any(
-        s <= (start - len(splice_sites[0]) <= e) or # interval contains left splice site
-        s <= (end + len(splice_sites[1])) <= e
-        for start, end in exons)
-    # Check if a mutation disturbs triplets by itself
-    # difference (deleted or inserted) between area of influence and sequence is not a multiple of 3 
-    frameshift = lambda v: (abs(v.end - v.start - len(v.sequence)) % 3) != 0 # TODO is this correct?
-    # Check if supremal representation of variant (covers different placements) can influence the exon
-    start = supremal.start + 1 # One-based position
-    end = supremal.end # Closed end position
-    if overlap_splice_site(start, end):
-        return "possible splice defect" # QUESTION is this correct or can splice sites occur in a different way as well?
-    if in_exon(start, end) or overlap_exon(start, end): 
-        if frameshift(supremal): 
-            return "possible frameshift" # QUESTION is this correct
-        # TODO split further into synonymous, early stop and missense?
-        return "possible missense" 
-    return None # Intronic and thus certainly silent TODO correct value?
-
-def relevance(sample, nodes, edges, functions, supremals, reference): 
-    """Determine if extra variants may be relevant for calling."""
-    def overlap(a1, a2): max(a1.start, a2.start) <= min(a1.end, a2.end)
-    # Get all called corealleles
-    # TODO Only cores needed?
-    alleles = star_allele_calling_all([sample], nodes, edges, functions, supremals, reference, detail_level=1)
-    alleles = alleles[sample.split("_")[0]][sample.split("_")[1]]
-    # Find extra variants: variants in the sample but not in any of the called alleles (pruned edges)
-    # TODO do this on a graph?
-    variants = []
-    for edge in edges:
-        if edge[0] == sample and find_type(edge[1]) in (Type.VAR, Type.P_VAR):
-            variants.append(edge[1])
-        elif edge[1] == sample and find_type(edge[0]) in (Type.VAR, Type.P_VAR):
-            variants.append(edge[0])
-    if len(variants) == 0: # No variants found
-        return {}
-    # Check the relevance of each variant
-    variants_relevance = {}
-    for variant in variants:
-        # Check if variant possibly interferes with any allele (overlaps with supremal)
-        interferes = any([overlap(supremals[variant], supremals[allele]) for allele in alleles if allele != "CYP2D6*1"])
-        # Find the impact of the variant
-        impact = functions[variant]
-        if find_type(variant) == Type.P_VAR: 
-            severity = severity_GO(impact)
-        elif find_type(variant) == Type.VAR:
-            severity = severity_pharmvar(impact)
-        if severity == 2 and not interferes: # Change on protein level but doesn't interfere with any allele
-            severity = 1
-        variants_relevance[variant] = severity != 1 # Only not relevant if benign and doesn't interfere
-        # TODO be less conservative with unknown impact?
-    return variants_relevance
-
 def detail_from_level(level):
     """Return a dictionary of options for a specific detail level
     
@@ -767,26 +672,3 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
         sorted_alleles = sorted(representation.values(), key=lambda matches: min([star_num(match) for match in matches]))
         representation = {phase: matches for phase, matches in zip(representation.keys(), sorted_alleles)}
     return representation
-        
-def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None):
-    """Find a path from s to t in the graphs"""
-    # TODO fix
-    raise NotImplementedError("Implementation contains bugs")
-    # TODO integrate in web interface
-    if path is None: path = [s]
-    if visited is None: visited = set()
-    if s in visited: return None
-    visited.add(s)
-    if s == t:
-        return path
-    for g in (cont_graph, eq_graph, overlap_graph):
-        if s in g.nodes():
-            for n in g[s]:
-                if sort_types(n) in (4, 5): # Don't use samples for iteration
-                    continue
-                path.append(n)
-                result = find_path(n, t, cont_graph, eq_graph, overlap_graph, path, visited)
-                if result is not None:
-                    return result
-                path.pop()
-    return None
