@@ -215,6 +215,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if example:
         config = image_configs[example]
         print(f"Visualising example {example}...")
+        homozygous = None if "homozygous" not in config else config["homozygous"]
         # TODO allow for multiple
         nodes = config["selection"]
         layout = "cose-bilkent"
@@ -233,7 +234,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 if s not in nodes or t not in nodes:
                     continue
                 edges.append((s, t, r))
-        display_graph(nodes, edges, data, functions if config["color"] else None, default_layout=layout, positions=positions, auto_download=example)
+        display_graph(nodes, edges, data, functions if config["color"] else None, default_layout=layout, positions=positions, auto_download=example, homozygous=homozygous)
 
 if __name__ == "__main__":
     arguments_parser = argparse.ArgumentParser(description='Star allele calling')

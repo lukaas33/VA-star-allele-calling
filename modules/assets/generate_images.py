@@ -3,6 +3,26 @@ import algebra as va
 
 image_configs = {}
 
+
+image_configs["HG00421_all-simple"] = {
+    "selection": ("HG00421_all","CYP2D6*65", "CYP2D6*2", "CYP2D6*10", "NC_000022.11:g.42130692G>A", "CYP2D6*34", "NC_000022.11:g.42127941G>A", "CYP2D6*39", "NC_000022.11:g.42126611C>G"),
+    "edges": set([
+        ("NC_000022.11:g.42130692G>A", "CYP2D6*10", va.Relation.IS_CONTAINED),
+        ("CYP2D6*39", "CYP2D6*10", va.Relation.IS_CONTAINED),
+        ("CYP2D6*39", "CYP2D6*2", va.Relation.IS_CONTAINED),
+        ("CYP2D6*34", "CYP2D6*2", va.Relation.IS_CONTAINED),
+        ("CYP2D6*2", "CYP2D6*65", va.Relation.IS_CONTAINED),
+        ("CYP2D6*10", "CYP2D6*65", va.Relation.IS_CONTAINED),
+        ("NC_000022.11:g.42127941G>A", "CYP2D6*34", va.Relation.EQUIVALENT),
+        ("NC_000022.11:g.42126611C>G", "CYP2D6*39", va.Relation.EQUIVALENT),
+        ("HG00421_all","CYP2D6*65", va.Relation.EQUIVALENT),
+    ]),
+    "color": True,
+    "layout": "dagre",
+    "homozygous": ("CYP2D6*39", "NC_000022.11:g.42126611C>G")
+}
+
+
 image_configs["NA07348_B-simple"] = {
     "selection": ("NA07348_B", "CYP2D6*169", "NC_000022.11:g.42126962C>G", "NC_000022.11:g.42126963C>T"),
     "edges": set([
