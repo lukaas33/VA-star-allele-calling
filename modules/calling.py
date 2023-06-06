@@ -512,7 +512,6 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
             if c > 1:
                 return False
         return True
-    # print(sample)
     # Find star allele definitions
     allele_definitions = {}
     suballeles = {}
@@ -550,6 +549,12 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
     while len(queue) > 0:
         _calling = queue.pop(0)
         count += 1
+        # Compress containing alleles
+        # TODO do at move and extend?
+        for i in range(2):
+            for c in set(_calling[i]):
+                if any((c in nx.ancestors(cont_graph, a) for a in _calling[i] if a != c)):
+                    _calling[i].remove(c)
         # print(count)
         # Find all possible phasing possibilities for these alleles
         # TODO prevent generating duplicates here
@@ -580,22 +585,21 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
         # TODO make use of homozygosity to avoid generating invalid states?
         for extend in _calling[0]:
             # Ignore suballeles of *1 as this doesn't affect the calling
-            underlying = set((p for p in cont_graph.predecessors(extend) if (find_type(p) != Type.SUB or find_core_string(p) != "CYP2D6*1")))
+            # Ignore variants as this doesn't affect the calling
+            _underlying = (
+                p for p in cont_graph.predecessors(extend) 
+                if find_type(p) != Type.VAR and 
+                find_type(p) != Type.P_VAR and 
+                (find_type(p) != Type.SUB or find_core_string(p) != "CYP2D6*1"))
+            # Filter out underlying alleles contained in other alleles
+            underlying = set(_underlying)
             # Don't extend if this can add no information
             # TODO fix for 10.004 --> 10.001
-            if len(underlying) <= 1:
+            if len(underlying) <= 0:
                 continue
-            # Ignore variants as this doesn't affect the calling
-            underlying = set((p for p in underlying if find_type(p) != Type.VAR and find_type(p) != Type.P_VAR))
-            # print(extend, underlying)
-            queue.append([_calling[0] - {extend,} | underlying, _calling[1]])
-            # TODO Allow for homozygous alleles to be in both phases (handle homozyous and contained homozygous)
-            if hom_variants <= _pattern[0]:
-                if not (hom_variants <= _pattern[1]):
-                    queue.append([_calling[0] - {extend,} | homozygous, _calling[1] | {extend,}])
-            # if extend in homozygous:
-            #     queue.append([_calling[0], _calling[1] | {extend,}])
-    # print(count)
+            _new_calling = [_calling[0] - {extend,} | underlying, _calling[1]]
+            queue.append(_new_calling)
+    print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -729,6 +733,8 @@ def detail_from_level(level):
     4: Print all direct matches including the default allele
     TODO implement more levels?
     """
+    if level == 0:
+        warnings.warn("Detail level 0 may lose some useful information")
     kwargs = {}
     kwargs["find_cores"] = level <= 2
     kwargs["prioritize_function"] = level <= 0
