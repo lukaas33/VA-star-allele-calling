@@ -180,8 +180,9 @@ def samples_to_supremal(samples_phased, samples_unphased, reference, supremal_ex
                     del variants[hgvs] # Can delete since already parsed as allele
                     # Change homozygous hgvs
                     for _, hs in homozygous.items():
-                        hs -= {hgvs,}
-                        hs |= {v,}
+                        if hgvs in hs:
+                            hs -= {hgvs,}
+                            hs |= {v,}
                     break
             else: # Personal variant is saved individually
                 supremal_samples[hgvs] = supremal_v

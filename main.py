@@ -70,9 +70,6 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     samples_unphased = parse_samples("data/samples_unphased", reference, phased=False, cache_name="samples_unphased") 
     supremal_samples, homozygous = samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, "supremal_samples")
 
-    print(homozygous)
-    exit()
-
     # Split into personal variants and samples
     # TODO fix for personal
     personal_variants = {variant: value for variant, value in supremal_samples.items() if find_type(variant) == Type.P_VAR} 
