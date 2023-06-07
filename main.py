@@ -68,7 +68,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     print("Parse samples...")
     samples_phased = parse_samples("data/samples", reference, phased=True, cache_name="samples_phased") 
     samples_unphased = parse_samples("data/samples_unphased", reference, phased=False, cache_name="samples_unphased") 
-    supremal_samples = samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, "supremal_samples")
+    supremal_samples, homozygous = samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, "supremal_samples")
+
+    print(homozygous)
+    exit()
 
     # Split into personal variants and samples
     # TODO fix for personal
@@ -142,7 +145,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased:
         # TODO change by detail?
         print("Calling unphased...")
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, phased=False, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
 
     # Statistics
     # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
@@ -197,10 +200,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         # Find homozygous
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
         sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
-        homozygous = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
-        homozygous, _ = find_context(homozygous, pruned_samples_extended[1], extend=True, extended=set(), directional=True, overlap=False)
+        homozygous_alleles = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
         # TODO taxi edges?
-        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=None, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous)
+        display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=None, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous[sample] | homozygous_alleles)
         
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:

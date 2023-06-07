@@ -487,21 +487,21 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level):
+def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """ 
     
     TODO handle equivalence
     TODO handle overlap
     TODO handle equivalence (will always be homozygous)
     """
-    def valid(_calling, _ancestors, homozygous, heterozygous):
+    def valid(_calling, _ancestors, hom_variants, heterozygous):
         # Only one core allele
         for i in range(2):
             cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
             if len(cores) > 1:
                 return False
         # Hom must be present in both phases
-        for hom in homozygous:
+        for hom in hom_variants:
             if hom not in _ancestors[0] or hom not in _ancestors[1]:
                 return False
         # Het must be present in only one phase
@@ -525,22 +525,20 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
         ancestors = find_ancestor_variants(node, eq_graph, cont_graph, ov_graph)
         allele_definitions[node] = ancestors
     # Find contained alleles of sample
-    alleles = set((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and not (find_type(a) == Type.SUB and find_core_string(a) == "CYP2D6*1")))
-    homozygous = set((h for h in homozygous if not (find_type(h) == Type.SUB and find_core_string(h) == "CYP2D6*1")))
+    alleles = set((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
+    homozygous_alleles = set(homozygous_alleles)
     # Find fundamental variants of sample
     variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph) 
     variants -= set(cont_graph.predecessors(sample + "_all"))
     # Check which variants are homozygous
-    hom_variants = set()
-    for h in homozygous:
-        for a in find_ancestor_variants(h, eq_graph, cont_graph, ov_graph):
-            hom_variants.add(a)
     het_variants = variants - hom_variants
     # Remove suballeles of *1 as this doesn't affect the calling?
     for sub in suballeles["CYP2D6*1"]:
         variants -= allele_definitions[sub]
         hom_variants -= allele_definitions[sub]
         het_variants -= allele_definitions[sub]
+        homozygous_alleles -= {sub,}
+        alleles -= {sub,}
     # Generate alternative callings
     # TODO optimize
     patterns = [] # Cache to check redundancy
@@ -555,23 +553,28 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
             for c in set(_calling[i]):
                 if any((c in nx.ancestors(cont_graph, a) for a in _calling[i] if a != c)):
                     _calling[i].remove(c)
-        # print(count)
         # Find all possible phasing possibilities for these alleles
-        # TODO prevent generating duplicates here
+        # TODO prevent generating duplicates here (use combinations)
         # TODO do pattern filtering before this (but allow for *65->*2,*10 in different phases)
         for move in _calling[0]:
+            # if find_type(move) == Type.P_VAR or find_type(move) == Type.VAR:
+            #     continue
             # Don't move individual variants as this won't affect the calling
             queue.append([_calling[0] - {move,}, _calling[1] | {move,}])
         # Find pattern of this calling
         _pattern = [set(), set()]
         for i in range(2):
             for allele in _calling[i]:
+                if find_type(allele) == Type.P_VAR or find_type(allele) == Type.VAR:
+                    _pattern[i].add(allele)
+                    continue
                 _pattern[i] |= allele_definitions[allele]
         # Check if this distribution has been seen before
-        # TODO use different representation
+        # TODO use different representation?
         if _pattern in patterns or _pattern[::-1] in patterns:
             continue
         patterns.append(_pattern)
+        print(count, _calling) 
         # Test if valid
         if valid(_calling, _pattern, hom_variants, het_variants):
             calling = {"AB"[i]: [_calling[i], {"CYP2D6*1",}] for i in range(2)}
@@ -585,10 +588,10 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
         # TODO make use of homozygosity to avoid generating invalid states?
         for extend in _calling[0]:
             # Ignore suballeles of *1 as this doesn't affect the calling
-            # Ignore variants as this doesn't affect the calling
+            # TODO can Ignore variants as this doesn't affect the calling? (10 > 39)
             _underlying = (
-                p for p in cont_graph.predecessors(extend) 
-                if find_type(p) != Type.VAR and 
+                p for p in cont_graph.predecessors(extend) if 
+                find_type(p) != Type.VAR and 
                 find_type(p) != Type.P_VAR and 
                 (find_type(p) != Type.SUB or find_core_string(p) != "CYP2D6*1"))
             # Filter out underlying alleles contained in other alleles
@@ -597,9 +600,13 @@ def generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_g
             # TODO fix for 10.004 --> 10.001
             if len(underlying) <= 0:
                 continue
+            # Add correct phasing for homozygous variants (as these will not be moved)
+            # for h in hom_variants:
+            #     if h in underlying:
+            #         _new_calling[1].add(h)
             _new_calling = [_calling[0] - {extend,} | underlying, _calling[1]]
             queue.append(_new_calling)
-    print(count)
+    # print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -636,7 +643,7 @@ def order_callings(calling, functions, no_default=True, shortest=True, no_uncert
     return score
                     
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, phased=True, detail_level=1, reorder=True):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, homozygous=None, phased=True, detail_level=1, reorder=True):
     """Iterate over samples and call star alleles for each."""
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
@@ -673,9 +680,9 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 print()
                 continue
             # All homozygous alleles for the current sample
-            homozygous = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
+            homozygous_alleles = set([allele for alleles in callings[sample]['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings(sample, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous, cont_graph, eq_graph, ov_graph, functions, detail_level)
             print(sample, "(alt)")
             alternatives = list(alternatives)
             alternatives.sort(key=lambda a: order_callings(a, functions))

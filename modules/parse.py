@@ -145,11 +145,11 @@ def parse_samples(directory, reference, phased=False, cache_name=None):
 def samples_to_supremal(samples_phased, samples_unphased, reference, supremal_extended, cache_name=None):
     if cache_name:
         try:
-            supremal_samples = cache_get(cache_name)
-            return supremal_samples
+            return cache_get(cache_name)
         except:
             pass
     supremal_samples = {}
+    homozygous = {sample.split('_')[0]: set(samples_unphased[sample].keys()) for sample in samples_unphased if sample.split('_')[1] == 'hom'}
     for sample, variants in (samples_phased | samples_unphased).items():
         if variants == {}: # No supremal for empty, will be disjoint with everything, can be ignored
             supremal_samples[sample] = None
@@ -178,8 +178,12 @@ def samples_to_supremal(samples_phased, samples_unphased, reference, supremal_ex
                 rel = va.relations.supremal_based.compare(reference["sequence"], supremal_v, supremal_extended[v])
                 if rel == va.Relation.EQUIVALENT: # Not personal
                     del variants[hgvs] # Can delete since already parsed as allele
+                    # Change homozygous hgvs
+                    for _, hs in homozygous.items():
+                        hs -= {hgvs,}
+                        hs |= {v,}
                     break
             else: # Personal variant is saved individually
                 supremal_samples[hgvs] = supremal_v
-    if cache_name: cache_set(supremal_samples, "supremal_samples")
-    return supremal_samples
+    if cache_name: cache_set((supremal_samples, homozygous), "supremal_samples")
+    return supremal_samples, homozygous
