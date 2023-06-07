@@ -492,7 +492,10 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
 def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """ 
     ...
-    
+
+    TODO check correctness for HG00421
+    TODO fix no answers found for NA07056 and HG01190
+    TODO make less complex by grouping suballeles (often multiple present for *4)
     TODO ordering
     TODO handle overlap?
     """
@@ -500,7 +503,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Only one core allele
         # TODO needed?
         for i in range(2):
-            cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
+            cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1"))
             if len(cores) > 1:
                 return False
         # Hom must be present in both phases
@@ -549,15 +552,17 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
     het_variants = variants - hom_variants
-    # Remove suballeles of *1 as this doesn't affect the calling?
-    # TODO introduce again
+    # Remove suballeles of *1 as this doesn't affect the calling
+    # TODO test if valid?
+    # Keep variants as these can be used for pruning solutions
     if "CYP2D6*1" in suballeles: # Not for simplified data
         for sub in suballeles["CYP2D6*1"]:
-            variants -= allele_definitions[sub]
-            hom_variants -= allele_definitions[sub]
-            het_variants -= allele_definitions[sub]
+    #         variants -= allele_definitions[sub]
+    #         hom_variants -= allele_definitions[sub]
+    #         het_variants -= allele_definitions[sub]
             homozygous_alleles -= {sub,}
             alleles -= {sub,}
+            pass
     # Generate alternative callings
     patterns = [] # Cache to check redundancy
     queue = [[alleles, set()]] # BFS queue
@@ -632,7 +637,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 continue
             _new_calling = [_calling[0] - {extend,} | underlying, _calling[1]]
             queue.append(_new_calling)
-    # print(count)
+    print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -703,17 +708,10 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00111": continue # Simple homozygous (eq)
             # if sample != "NA18861": continue # Homozygous
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
-            # if sample != "HG01190": continue # Infinite loop?
+            if sample != "HG01190": continue # High complexity
             # test_i += 1
             # if test_i >= 5:
             #     exit()
-            # TODO handle this with the same method
-            # if calling['A'] == calling['B']: # Already phased (homozygous)
-                # representations[sample] = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=reorder)
-                # print(sample, "(hom)")
-                # print(f"{','.join(representations[sample]['A'])}/{','.join(representations[sample]['B'])}")
-                # print()
-                # continue
             # Filter out unparsable
             if calling["all"][0] == {"CYP2D6*?"}:
                 representations[sample] = {"A": ["CYP2D6*?",], "B": ["CYP2D6*?",]}
@@ -728,7 +726,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             preferred = None
             for alternative in alternatives:
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
-                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}" # ({order_callings(alternative, functions)})"            
+                representation = f"{'+'.join(representation['A'])}/{'+'.join(representation['B'])}"
+                # TODO filter out non-unique representations (arise due to detail level mismatch)    
                 print(representation)
                 if preferred is None:
                     preferred = alternative
