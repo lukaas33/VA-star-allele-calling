@@ -539,12 +539,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     het_variants = variants - hom_variants
     # Remove suballeles of *1 as this doesn't affect the calling?
     # TODO introduce again
-    for sub in suballeles["CYP2D6*1"]:
-        variants -= allele_definitions[sub]
-        hom_variants -= allele_definitions[sub]
-        het_variants -= allele_definitions[sub]
-        homozygous_alleles -= {sub,}
-        alleles -= {sub,}
+    if "CYP2D6*1" in suballeles: # Not for simplified data
+        for sub in suballeles["CYP2D6*1"]:
+            variants -= allele_definitions[sub]
+            hom_variants -= allele_definitions[sub]
+            het_variants -= allele_definitions[sub]
+            homozygous_alleles -= {sub,}
+            alleles -= {sub,}
     # Generate alternative callings
     patterns = [] # Cache to check redundancy
     queue = [[alleles, set()]] # BFS queue
@@ -579,6 +580,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # TODO use different representation?
         if _pattern in patterns or _pattern[::-1] in patterns:
             continue
+        # print(_calling)
         patterns.append(_pattern)
         # print(count, _calling) 
         # Test if valid
@@ -609,6 +611,15 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 continue
             _new_calling = [_calling[0] - {extend,} | underlying, _calling[1]]
             queue.append(_new_calling)
+            # Allow extending together with homozygous allele
+            # TODO needed for indirect contained alleles?
+            for h in homozygous_alleles:
+                if not h in nx.ancestors(cont_graph, extend):
+                    continue
+                if any((h in nx.ancestors(cont_graph, a) for a in _calling[0] if a != extend)): # Already present in other so will show up by itself
+                    continue
+                _new_calling = [_calling[0] - {extend,} | {h,}, _calling[1] | {extend,}] # Prevent infinite recursion
+                queue.append(_new_calling)    
     print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
