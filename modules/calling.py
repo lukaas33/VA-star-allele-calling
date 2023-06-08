@@ -491,7 +491,9 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
 
 def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, detail_level):
     """ 
-    ...
+    Checks which alleles the sample contains and sees if a valid calling (*x/*y) n_cores = 2 is possible.
+    If so, test if the distribution of variants is valid by homozygosity.
+    If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
     TODO check correctness for HG00421
     TODO fix no answers found for NA07056 and HG01190
@@ -499,13 +501,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     TODO ordering
     TODO handle overlap?
     """
-    def valid(_calling, _ancestors, hom_variants, heterozygous):
-        # Only one core allele
-        # TODO needed?
-        for i in range(2):
-            cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1"))
-            if len(cores) > 1:
-                return False
+    def valid(_ancestors, hom_variants, heterozygous):
         # Hom must be present in both phases
         for hom in hom_variants:
             c = 0
@@ -552,17 +548,17 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
     het_variants = variants - hom_variants
+    # TODO is below valid/useful?
     # Remove suballeles of *1 as this doesn't affect the calling
-    # TODO test if valid?
     # Keep variants as these can be used for pruning solutions
-    if "CYP2D6*1" in suballeles: # Not for simplified data
-        for sub in suballeles["CYP2D6*1"]:
+    # if "CYP2D6*1" in suballeles: # Not for simplified data
+    #     for sub in suballeles["CYP2D6*1"]:
     #         variants -= allele_definitions[sub]
     #         hom_variants -= allele_definitions[sub]
     #         het_variants -= allele_definitions[sub]
-            homozygous_alleles -= {sub,}
-            alleles -= {sub,}
-            pass
+    #         homozygous_alleles -= {sub,}
+    #         alleles -= {sub,}
+    #         pass
     # Generate alternative callings
     patterns = [] # Cache to check redundancy
     queue = [[alleles, set()]] # BFS queue
@@ -570,21 +566,28 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     while len(queue) > 0:
         _calling = queue.pop(0)
         count += 1
-        # Compress containing alleles
+        # Compress containing alleles (e.g. 2.2 and 2 becomes 2.2)
         # Can arise from alleles being contained in multiple larger alleles (2.2 and 65 both contain 2)
         # TODO prevent at move and extend? (optimisation)
         for i in range(2):
             for c in set(_calling[i]):
                 if any((c in nx.ancestors(cont_graph, a) for a in _calling[i] if a != c)):
                     _calling[i].remove(c)
+        # Only try distribution of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
+        valid = True
+        for i in range(2):
+            cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1"))
+            if len(cores) > 2:
+                valid = False
         # Find all possible phasing possibilities for these alleles
+        # TODO make calling options with free suballeles of 1 and grouped suballeles of 4 ({2,10} -> 2/10; {2,10,1.1} -> 2/10,1.1 and 2,1.1/10) 
         # TODO prevent generating duplicates here (use combinations) (optimisation)
         # TODO do pattern filtering earlier? (optimisation; do after above)
-        for move in _calling[0]:
-            # Don't move individual variants as this won't affect the calling (are not present in the calling)
-            # if find_type(move) == Type.P_VAR or find_type(move) == Type.VAR:
-            #     continue
-            queue.append([_calling[0] - {move,}, _calling[1] | {move,}])
+        # for move in _calling[0]:
+        #     # Don't move individual variants as this won't affect the calling (are not present in the calling)
+        #     # if find_type(move) == Type.P_VAR or find_type(move) == Type.VAR:
+        #     #     continue
+        #     queue.append([_calling[0] - {move,}, _calling[1] | {move,}])
         # Find pattern of this calling
         _pattern = [set(), set()]
         for i in range(2):
@@ -632,6 +635,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 _new_calling = [_calling[0] - {extend,} | {h,}, _calling[1] | {extend,}] # Prevent infinite recursion
                 queue.append(_new_calling)
             # Don't extend if this can add no information
+            # TODO allow this
             # TODO fix for 10.004 --> 10.001?
             if len(underlying) <= 0:
                 continue
@@ -699,7 +703,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         # test_i = 0
         for sample, calling in callings.items():
             # DEBUG
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex case
@@ -708,7 +712,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00111": continue # Simple homozygous (eq)
             # if sample != "NA18861": continue # Homozygous
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
-            if sample != "HG01190": continue # High complexity
+            # if sample != "HG01190": continue # High complexity
             # test_i += 1
             # if test_i >= 5:
             #     exit()
