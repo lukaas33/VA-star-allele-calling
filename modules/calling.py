@@ -496,6 +496,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
     TODO handle homozygous alleles
+    TODO add stopping condition
     TODO make less complex by grouping suballeles (often multiple present for *4)
     TODO ordering
     TODO handle overlap?
@@ -530,14 +531,14 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         allele_definitions[node] = ancestors
     # Find contained alleles of sample
     if sample + "_all" in cont_graph.nodes():
-        alleles = set((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
+        alleles = list((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
     elif sample + "_all" in eq_graph.nodes(): 
         # Can occur for simple homozygous callings
-        alleles = set(eq_graph[sample + "_all"])
+        alleles = list(eq_graph[sample + "_all"])
     else:
         # No alleles found, empty calling 
         # only alternative will be {}/{} which is returned as *1/*1
-        alleles = set()
+        alleles = list()
     homozygous_alleles = set(homozygous_alleles) # Calling on homozygous variants
     # Find fundamental variants of sample
     variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph)
@@ -549,7 +550,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     het_variants = variants - hom_variants
     # Generate alternative callings
     patterns = [] # Cache to check redundancy
-    queue = [(alleles, set())] # BFS queue
+    queue = [(alleles, 0)] # BFS queue
     count = 0
     while len(queue) > 0:
         state, extended = queue.pop(0)
@@ -557,17 +558,17 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Find pattern of this calling
         # TODO use different representation? (optimisation)
         # Check if this distribution of variants has been seen before
-        # TODO prevent duplicated being generated?
-        pattern = set()
-        # for allele in state: pattern |= allele_definitions[allele]
-        pattern = set(state)
-        if pattern in patterns:
-            continue
-        patterns.append(pattern)
+        # TODO prevent duplicated being generated somehow?
+        # pattern = set()
+        # # for allele in state: pattern |= allele_definitions[allele]
+        # pattern = set(state)
+        # if pattern in patterns:
+        #     continue
+        # patterns.append(pattern)
         # print(count, state)
         # Only try distribution of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
         cores = list(set((find_core_string(a) for a in state if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1")))
-        if len(cores) <= 2:
+        if len(cores) <= 2: # Possibly valid calling
             # Find base calling, alleles of different cores must be in different phases
             _calling_base = [set(), set()]
             free = set()
@@ -586,31 +587,33 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         for allele in _calling[i]: 
                             _pattern[i] |= allele_definitions[allele]
                     if valid(_pattern, hom_variants, het_variants):
-                        # TODO use information
+                        # TODO use information in stopping condition
                         calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                         yield calling
         # Extend alleles with underlying alleles
         # TODO make use of homozygosity to avoid generating invalid states? (optimisation)
-        for r in range(1, len(state - extended) + 1):
-            for extend in combinations(state - extended, r=r):
-                # Find underlying alleles not contained in other alleles
-                # Compresses alleles that may arise due to duplicate containment (both 65 and 2.2 contain 2)
-                extend = set(extend)
-                removed = set()
-                underlying = set()
-                for e in extend:
-                    for u in cont_graph.predecessors(e):
-                        # Lose detail by ignoring variants
-                        if find_type(u) == Type.VAR or find_type(u) == Type.P_VAR:
-                            removed.add(u)
-                            continue
-                        # Check if u is contained in other alleles
-                        # Assume that the inverse does not happen TODO check
-                        if any((u in nx.ancestors(cont_graph, a) for a in state - extend)):
-                            continue
-                        underlying.add(u)
-                new_state = state - extend | underlying
-                queue.append((new_state, extended | extend))
+        # Find underlying alleles not contained in other alleles
+        # Compresses alleles that may arise due to duplicate containment (both 65 and 2.2 contain 2)
+        if extended >= len(state):
+            continue
+        extend = state[extended]
+        removed = set()
+        underlying = list()
+        for u in cont_graph.predecessors(extend):
+            # Lose detail by ignoring variants
+            if find_type(u) == Type.VAR or find_type(u) == Type.P_VAR:
+                removed.add(u)
+                continue
+            # Check if u is contained in other alleles
+            # Assume that the inverse does not happen TODO check
+            if any((u in nx.ancestors(cont_graph, a) for a in state[extended+1:])):
+                continue
+            underlying.append(u)
+        new_state = [s for s in state[extended+1:]] + underlying
+        queue.append((new_state, extended + 1 - 1))
+        print(state)
+        print("Extend", state[extended], "with", underlying, "removing", len(removed))
+        print(new_state)
     print(count)
     exit()
 
