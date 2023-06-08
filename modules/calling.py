@@ -500,7 +500,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     TODO make less complex by grouping suballeles (often multiple present for *4)
     TODO ordering
     TODO handle overlap?
-    TODO skip empty if n_alleles > 0?
+    TODO skip empty state if n_alleles > 0?
+    TODO fix duplicates (due to two different paths leading to the same allele)
     """
     def valid(_ancestors, hom_variants, heterozygous):
         # Hom must be present in both phases
@@ -554,26 +555,14 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     hom_variants = set(hom_variants)
     het_variants = variants - hom_variants
     # Generate alternative callings
-    patterns = [] # Cache to check redundancy
     queue = [(alleles, 0, True)] # BFS queue
     count = 0
     while len(queue) > 0:
         state, extended, call = queue.pop(0)
         if call:
             count += 1
-            # print(count, state)
-            # Find pattern of this calling
-            # TODO use different representation? (optimisation)
-            # Check if this distribution of variants has been seen before
-            # TODO prevent duplicated being generated somehow?
-            # pattern = set()
-            # # for allele in state: pattern |= allele_definitions[allele]
-            # pattern = set(state)
-            # if pattern in patterns:
-            #     continue
-            # patterns.append(pattern)
-            # print(count, state)
             # Only try distribution of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
+            # TODO fix this check (34,39,34)
             cores = list(set((find_core_string(a) for a in state if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1")))
             if len(cores) <= 2: # Possibly valid calling
                 # Find base calling, alleles of different cores must be in different phases
@@ -600,12 +589,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                             calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                             yield calling
         # Extend alleles with underlying alleles
-        # TODO make use of homozygosity to avoid generating invalid states? (optimisation)
-        # Find underlying alleles not contained in other alleles
-        # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
+        # TODO do not create new state but mutate (optimisation)
         if extended >= len(state):
             continue
         # TODO add stop conditions (do not extend if this adds no refinement to existing calling?)
+        # Find underlying alleles not contained in other alleles
+        # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
         extend = state[extended]
         removed = set()
         underlying = list()
@@ -621,26 +610,25 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if filter_default and find_core_string(u) == "CYP2D6*1":
                 continue
             underlying.append(u)
-        # 1) Allow recursion with self twice
-        # Only allow if not already present twice in state
-        # Only allow if the allele is homozygous or has a homozygous ancestor
-        # TODO also disallow if the homozygous can arise from other alleles
-        # TODO simplify condition
-        if state.count(extend) and \
-            (extend in homozygous_alleles or 
-            any((h in nx.ancestors(cont_graph, extend) for h in homozygous_alleles)) or
-            any((extend in nx.ancestors(cont_graph, h) for h in homozygous_alleles)) # TODO disallow as less specific? (optimisation)
-            ):
-            new_state = state + [extend]
-            queue.append((new_state, extended + 1, True))
-        # 2) Replace allele with underlying alleles
-        # TODO do not create new state but mutate (optimisation)
-        new_state = [state[i] for i in range(len(state)) if i != extended] + underlying
-        queue.append((new_state, extended + 1 - 1, True))
-        # 3) Also recurse without extending
+        # 1) Also recurse without extending
         # do not call on this as this is a duplicate TODO do this differently?
         new_state = list(state)
         queue.append((new_state, extended + 1, False))
+        # 2) Allow recursion with self twice
+        # Only allow if this allele contains homozygous variants
+        # Only allow if the homozygous variant is not contained in other alleles 
+        if state.count(extend) == 1: # TODO needed?
+            hom_anc = allele_definitions[extend] & hom_variants
+            for other in state:
+                if other == extend:
+                    continue
+                hom_anc -= allele_definitions[other]
+            if len(hom_anc) > 0:
+                new_state = state + [extend]
+                queue.append((new_state, extended + 1, True))
+        # 3) Replace allele with underlying alleles
+        new_state = [state[i] for i in range(len(state)) if i != extended] + underlying
+        queue.append((new_state, extended + 1 - 1, True))
     print(count)
     exit()
 
