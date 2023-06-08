@@ -254,15 +254,11 @@ def validate_alternative_calling(calling_filename, validate_filename):
             validate[sample] = calling
     to_find = set(validate.keys())
 
-    def end_sample(sample, prev, how, found, count, totals, to_find):
+    def end_sample(sample, prev, found, count, totals, to_find):
         if found != -1:
-            if how == '(hom)':
-                print(f"{sample} has the correct calling due to homozygous alleles")
-                totals['hom'] += 1
-            else:
-                print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
-                if found == 1: totals['preferred'] += 1
-                else: totals['not_preferred'] += 1
+            print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
+            if found == 1: totals['preferred'] += 1
+            else: totals['not_preferred'] += 1
         else:
             print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
             totals['incorrect'] += 1
@@ -270,14 +266,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
 
     # TODO make into single variable
     totals = {
-        'hom': 0,
         'preferred': 0,
         'not_preferred': 0,
         'incorrect': 0
     }
     with open(calling_filename, 'r', encoding="utf-16") as file:
         line = next(file).strip()
-        sample, how = line.split(' ')
+        sample = line
         prev = None
         found = -1
         count = 0
@@ -292,15 +287,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
                 if line.split('/') == validate[sample]:
                     found = count
             else:
-                end_sample(sample, prev, how, found, count, totals, to_find)
-                sample = line.split(' ')[0]
-                how = line.split(' ')[1]
+                end_sample(sample, prev, found, count, totals, to_find)
+                sample = line
                 found = -1
                 count = 0
                 prev = None
-        end_sample(sample, prev, how, found, count, totals, to_find)
+        end_sample(sample, prev, found, count, totals, to_find)
 
-    print(f"{totals['hom']} samples correct due to homozygous alleles")
     print(f"{totals['preferred']} samples correct as preferred allele")
     print(f"{totals['not_preferred']} samples not correct preferred allele")
     print(f"{totals['incorrect']} samples incorrect")

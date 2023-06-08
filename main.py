@@ -92,9 +92,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     relations_samples_simple |= set(find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal_si"))
 
     # Manually remove unparsable TODO fix the parsing of these and remove this
-    unparsable_samples = ("HG00373_all","HG01680_all","NA18526_all", "NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all")
+    unparsable_samples = ("HG00373_all","HG01680_all","NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all")
     for s in unparsable_samples:
-        supremal_samples[s] = None
+        if s in samples:
+            del samples[s]
+        if s in supremal_samples:
+            del supremal_samples[s]
     to_remove_ex = set()
     for s, t, r in relations_samples_extended:
         if s in unparsable_samples or t in unparsable_samples:
@@ -148,7 +151,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
     # TEST 7: validate alternative callings
-    # validate_alternative_calling(r"results\calling\calling_alt_new.txt", r"data\bastard.txt")
+    validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
 
     # TEST 8: validate alternative calling method on simulated data
     # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
