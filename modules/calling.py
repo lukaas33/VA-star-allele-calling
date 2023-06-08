@@ -561,10 +561,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     #         pass
     # Generate alternative callings
     patterns = [] # Cache to check redundancy
-    queue = [[alleles, set()]] # BFS queue
+    queue = [([alleles, set()], set())] # BFS queue
     count = 0
     while len(queue) > 0:
-        _calling = queue.pop(0)
+        _calling, extended = queue.pop(0)
         count += 1
         # Compress containing alleles (e.g. 2.2 and 2 becomes 2.2)
         # Can arise from alleles being contained in multiple larger alleles (2.2 and 65 both contain 2)
@@ -574,11 +574,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 if any((c in nx.ancestors(cont_graph, a) for a in _calling[i] if a != c)):
                     _calling[i].remove(c)
         # Only try distribution of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
-        valid = True
+        possibly_valid = True
         for i in range(2):
             cores = set((find_core_string(a) for a in _calling[i] if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1"))
             if len(cores) > 2:
-                valid = False
+                possibly_valid = False
         # Find all possible phasing possibilities for these alleles
         # TODO make calling options with free suballeles of 1 and grouped suballeles of 4 ({2,10} -> 2/10; {2,10,1.1} -> 2/10,1.1 and 2,1.1/10) 
         # TODO prevent generating duplicates here (use combinations) (optimisation)
@@ -599,11 +599,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Check if this distribution of variants has been seen before
         # TODO use different representation? (optimisation)
         if _pattern in patterns or _pattern[::-1] in patterns:
+            print(_calling, "redundant")
             continue
         patterns.append(_pattern)
+        print(count, _calling)
         # print(count, _calling) 
         # Test if valid
-        if valid(_calling, _pattern, hom_variants, het_variants):
+        if valid(_pattern, hom_variants, het_variants):
             # Return calling
             calling = {"AB"[i]: [_calling[i], {"CYP2D6*1",}] for i in range(2)}
             # repr = calling_to_repr(calling, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
@@ -615,32 +617,37 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # TODO prevent generating duplicates here (by using combinations?) (optimisation)
         # TODO make use of homozygosity to avoid generating invalid states? (optimisation)
         for extend in _calling[0]:
+            if extend in extended:
+                continue
             # Ignore suballeles of *1 as this doesn't affect the calling
             # TODO can Ignore variants as this doesn't affect the calling? (10 > 39)
-            _underlying = (
-                p for p in cont_graph.predecessors(extend) if 
-                find_type(p) != Type.VAR and 
-                find_type(p) != Type.P_VAR and 
-                (find_type(p) != Type.SUB or find_core_string(p) != "CYP2D6*1"))
             # Filter out underlying alleles contained in other alleles
-            underlying = set(_underlying)
+            removed = 0
+            underlying = set()
+            for u in cont_graph.predecessors(extend):
+                if find_type(u) == Type.VAR or find_type(u) == Type.P_VAR:
+                    removed += 1
+                    continue
+                underlying.add(u)
             # Allow extending together with homozygous allele
+            # TODO do this via emergence instead of adding information
             # TODO add homozygous alleles earlier to prevent extension (optimisation as these won't be found valid)
             # TODO fix ordering (39/65 quite high)?
-            for h in homozygous_alleles:
-                if not h in nx.ancestors(cont_graph, extend) and not h == extend:
-                    continue
-                if any((h in nx.ancestors(cont_graph, a) for a in _calling[0] if a != extend)): # Already present in other so will show up by itself
-                    continue
-                _new_calling = [_calling[0] - {extend,} | {h,}, _calling[1] | {extend,}] # Prevent infinite recursion
-                queue.append(_new_calling)
+            # for h in homozygous_alleles:
+            #     if not h in nx.ancestors(cont_graph, extend) and not h == extend:
+            #         continue
+            #     if any((h in nx.ancestors(cont_graph, a) for a in _calling[0] if a != extend)): # Already present in other so will show up by itself
+            #         continue
+            #     _new_calling = [_calling[0] - {extend,} | {h,}, _calling[1] | {extend,}] # Prevent infinite recursion
+            #     queue.append(_new_calling)
             # Don't extend if this can add no information
             # TODO allow this
             # TODO fix for 10.004 --> 10.001?
-            if len(underlying) <= 0:
-                continue
+            # if len(underlying) <= 0:
+            #     continue
+            print("extend", extend, "with", underlying, "removed", removed)
             _new_calling = [_calling[0] - {extend,} | underlying, _calling[1]]
-            queue.append(_new_calling)
+            queue.append((_new_calling, extended | {extend,}))
     print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
