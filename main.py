@@ -151,7 +151,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
     # TEST 7: validate alternative callings
-    validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
+    # validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
 
     # TEST 8: validate alternative calling method on simulated data
     # test_alternative_callings(supremal_extended, reference, relations_extended, functions)

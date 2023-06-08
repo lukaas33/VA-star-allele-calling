@@ -729,6 +729,10 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             if sample == "NA19143": continue # No answer TODO fix
             if sample == "NA19174": continue # No answer TODO fix
             # if sample != "HG00373": continue # Unparsable
+            if sample != "NA12006": continue # Wrong answer TODO fix
+            if sample != "NA18518": continue # Wrong answer TODO fix
+            if sample != "NA19109": continue # Wrong answer TODO fix
+            if sample != "NA19147": continue # Wrong answer TODO fix
 
             # test_i += 1
             # if test_i >= 5:
