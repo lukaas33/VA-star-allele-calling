@@ -586,12 +586,20 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 _calling_base = [set(), set()]
                 free = set()
                 for c in state:
-                    if find_core_string(c) == "CYP2D6*1":
-                        free.add(c)
-                        continue
+                    if find_core_string(c) == "CYP2D6*1": # Are free unless the only ones
+                        if len(cores) > 0:
+                            free.add(c)
+                            continue
+                        else:
+                            if c in _calling_base[0]: # Twice in state
+                                _calling_base[1].add(c)
+                                continue
+                            _calling_base[0].add(c)
+                            continue
                     if c in _calling_base[0]: # Twice in state
                         _calling_base[1].add(c)
-                    _calling_base[cores.index(find_core_string(c))].add(c)
+                    i = cores.index(find_core_string(c))
+                    _calling_base[i].add(c)
                 # Check possible distributions of free moving alleles
                 for r in range(0, len(free)+1):
                     for f in combinations(free, r):
@@ -728,12 +736,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
             # if sample != "HG00373": continue # Unparsable
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
-            # if sample != "NA19174": continue # No answer TODO fix
             # if sample != "NA12006": continue # Wrong answer TODO fix (41/4)
-            if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
+            # if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
             # if sample != "NA18518": continue # Wrong answer TODO fix (29/17)
             # if sample != "NA19109": continue # Wrong answer TODO fix (29/2)
             # if sample != "NA19147": continue # Wrong answer TODO fix (29/17)
+            # if sample != "HG01190": continue # High runtime TODO fix
 
             # test_i += 1
             # if test_i >= 5:
