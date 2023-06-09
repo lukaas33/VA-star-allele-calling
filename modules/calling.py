@@ -552,7 +552,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         variants -= set(cont_graph.predecessors(sample + "_all"))
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
-    het_variants = variants - hom_variants    
+    het_variants = variants - hom_variants 
+    # Only use homozygous variants that form a complete allele
+    # QUESTION is this valid?
+    hom_variants = set((a for a in hom_variants if any((a in allele_definitions[h] for h in homozygous_alleles))))
     # Add initial state
     queue = []
     queue.insert(0, (list(alleles), 0, True))
@@ -738,7 +741,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA18518": continue # Wrong answer TODO fix (29/17)
             # if sample != "NA19109": continue # Wrong answer TODO fix (29/2)
             # if sample != "NA19147": continue # Wrong answer TODO fix (29/17)
-            # if sample != "HG01190": continue # High runtime TODO fix
+            # if sample != "HG01190": continue # High runtime (~30s) TODO fix?
+            # if sample == "NA19174": continue # No solution TODO fix
 
             # test_i += 1
             # if test_i >= 5:

@@ -152,6 +152,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
 
     # TEST 7: validate alternative callings
     # tests.validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
+    # TODO also check suballele callings
 
     # TEST 8: validate alternative calling method on simulated data
     # tests.test_alternative_callings(supremal_extended, reference, relations_extended, functions)
