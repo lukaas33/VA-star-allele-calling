@@ -553,28 +553,26 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
     het_variants = variants - hom_variants    
+    # Add initial state
+    queue = []
+    queue.insert(0, (list(alleles), 0, True))
     # Add state with some initial alleles twice, 
     # this may be needed to arrive at lower homozygous alleles
     # When homozygous alleles are already present this is the only valid state
-    queue = []
-    initial = True
     for a in alleles:
         hom_anc = allele_definitions[a] & hom_variants
         for o in alleles:
             if o == a:
                 continue
+            if find_core_string(o) == find_core_string(a):
+                continue
             hom_anc -= allele_definitions[a]
         if len(hom_anc) > 0:
-            new_state = alleles + [a]
             if a in homozygous_alleles:
-                queue.append((new_state, 0, True)) # Can call on first
-                initial = False # Initial het not needed
+                queue[0][0].append(a)
             else:
+                new_state = alleles + [a]
                 queue.append((new_state, 1, False)) # Don't call on first (not a valid state)
-                # Initial het also possible
-    # Add initial state
-    if initial: 
-        queue.insert(0, (alleles, 0, True))
     count = 0
     while len(queue) > 0:
         state, extended, call = queue.pop(0)

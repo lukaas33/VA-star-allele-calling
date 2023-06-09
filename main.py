@@ -9,7 +9,7 @@ from modules.calling import star_allele_calling_all, find_type, Type
 from modules.other_sources import get_personal_ids, get_personal_impacts
 from modules.assets.generate_images import image_configs
 import algebra as va
-from modules.tests import *
+import modules.tests as tests
 
 def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
@@ -148,13 +148,13 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
 
     # Statistics
-    # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
+    # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
     # TEST 7: validate alternative callings
-    # validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
+    # tests.validate_alternative_calling(r"results\calling\calling_alt.txt", r"data\bastard.txt")
 
     # TEST 8: validate alternative calling method on simulated data
-    # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
+    # tests.test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
