@@ -736,13 +736,10 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
             # if sample != "HG00373": continue # Unparsable
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
+            # if sample != "NA18518": continue # Example of restricting the hom variants to entire alleles
             # if sample != "NA12006": continue # Wrong answer TODO fix (41/4)
-            # if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
-            # if sample != "NA18518": continue # Wrong answer TODO fix (29/17)
-            # if sample != "NA19109": continue # Wrong answer TODO fix (29/2)
-            # if sample != "NA19147": continue # Wrong answer TODO fix (29/17)
+            if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
             # if sample != "HG01190": continue # High runtime (~30s) TODO fix?
-            # if sample == "NA19174": continue # No solution TODO fix
 
             # test_i += 1
             # if test_i >= 5:
