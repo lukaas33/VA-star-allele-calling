@@ -566,13 +566,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 continue
             if find_core_string(o) == find_core_string(a):
                 continue
-            hom_anc -= allele_definitions[a]
+            hom_anc -= allele_definitions[o]
         if len(hom_anc) > 0:
             if a in homozygous_alleles:
                 queue[0][0].append(a)
             else:
                 new_state = alleles + [a]
-                queue.append((new_state, 1, False)) # Don't call on first (not a valid state)
+                queue.append((new_state, 0, False)) # Don't call on first (not a valid state)
     count = 0
     while len(queue) > 0:
         state, extended, call = queue.pop(0)
@@ -726,13 +726,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00111": continue # Simple homozygous (eq)
             # if sample != "NA18861": continue # Homozygous
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
-            if sample == "NA19143": continue # No answer TODO fix
-            if sample == "NA19174": continue # No answer TODO fix
             # if sample != "HG00373": continue # Unparsable
-            # if sample != "NA12006": continue # Wrong answer TODO fix
-            # if sample != "NA18518": continue # Wrong answer TODO fix
-            # if sample != "NA19109": continue # Wrong answer TODO fix
-            # if sample != "NA19147": continue # Wrong answer TODO fix
+            # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
+            # if sample != "NA19174": continue # No answer TODO fix
+            # if sample != "NA12006": continue # Wrong answer TODO fix (41/4)
+            if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
+            # if sample != "NA18518": continue # Wrong answer TODO fix (29/17)
+            # if sample != "NA19109": continue # Wrong answer TODO fix (29/2)
+            # if sample != "NA19147": continue # Wrong answer TODO fix (29/17)
 
             # test_i += 1
             # if test_i >= 5:
@@ -747,7 +748,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=False)
             print(sample)
             preferred = None
             unique_repr = set()
