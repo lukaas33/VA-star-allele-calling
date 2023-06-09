@@ -509,7 +509,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if hom in _ancestors[0]: c += 1
             if hom in _ancestors[1]: c += 1
             if c == 1: # Cannot be present in single phase but can be absent due to extending
-                print("hom", hom)
                 return False
         # Het must be present in only one phase
         for het in heterozygous:
@@ -517,7 +516,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if het in _ancestors[0]: c += 1
             if het in _ancestors[1]: c += 1
             if c > 1: # Cannot be present in both phases but can be absent due to extending
-                print("het", het)
                 return False
         return True
     # Find star allele definitions
@@ -543,11 +541,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # only alternative will be {}/{} which is returned as *1/*1
         alleles = list()
     homozygous_alleles = list(homozygous_alleles) # Calling on homozygous variants
-    # Create valid state with homozygous twice
-    # TODO also do for alleles that contain homozygous ones?
-    for h in homozygous_alleles:
-        if h in alleles:
-            alleles.append(h)
     # Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
         alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
@@ -559,20 +552,37 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         variants -= set(cont_graph.predecessors(sample + "_all"))
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
-    het_variants = variants - hom_variants
-    # Generate alternative callings
-    queue = [(alleles, 0, True)] # BFS queue
+    het_variants = variants - hom_variants    
+    # Add state with some initial alleles twice, 
+    # this may be needed to arrive at lower homozygous alleles
+    # When homozygous alleles are already present this is the only valid state
+    queue = []
+    initial = True
+    for a in alleles:
+        hom_anc = allele_definitions[a] & hom_variants
+        for o in alleles:
+            if o == a:
+                continue
+            hom_anc -= allele_definitions[a]
+        if len(hom_anc) > 0:
+            new_state = alleles + [a]
+            if a in homozygous_alleles:
+                queue.append((new_state, 0, True)) # Can call on first
+                initial = False # Initial het not needed
+            else:
+                queue.append((new_state, 1, False)) # Don't call on first (not a valid state)
+                # Initial het also possible
+    # Add initial state
+    if initial: 
+        queue.insert(0, (alleles, 0, True))
     count = 0
     while len(queue) > 0:
         state, extended, call = queue.pop(0)
-        print(state)
         any_valid = False
         if call:
             count += 1
-            # print(">", count, state)
             # Only try generating a calling of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
             cores = list(set((find_core_string(a) for a in state if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1")))
-            print(cores)
             if len(cores) <= 2 and not (len(cores) == 2 and any((state.count(a) > 1 for a in state))): 
                 # Find base calling, alleles of different cores must be in different phases
                 _calling_base = [set(), set()]
@@ -590,7 +600,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         f = set(f)
                         _calling = [_calling_base[0] | f, _calling_base[1] | free - f]
                         _pattern = [set(), set()]
-                        print(_calling)
+                        # print(_calling)
                         for i in range(2):
                             for allele in _calling[i]: 
                                 _pattern[i] |= allele_definitions[allele]
@@ -598,7 +608,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                             calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                             yield calling
                             any_valid = True
-        exit()
         # Stop as can extend no further
         if extended >= len(state):
             continue
@@ -645,21 +654,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # do not call on this as this is a duplicate TODO do this differently?
         new_state = list(state)
         queue.append((new_state, extended + 1, False))
-        # 2) Allow recursion with self twice
-        # Only allow if this allele contains homozygous variants
-        # Only allow if the homozygous variant is not contained in other alleles 
-        if state.count(extend) == 1: # TODO needed?
-            hom_anc = allele_definitions[extend] & hom_variants
-            for other in state:
-                if other == extend:
-                    continue
-                hom_anc -= allele_definitions[other]
-            if len(hom_anc) > 0:
-                new_state = state[:extended] + [extend] + state[extended:]
-                queue.append((new_state, extended + 1, True))
-        # 3) Replace allele with underlying alleles
+        # 2) Replace allele with underlying alleles
         new_state = [state[i] for i in range(len(state)) if i != extended] + underlying
-        # print("> extend", extend, "with", underlying, "to", new_state)
         queue.append((new_state, extended + 1 - 1, True))
     # print(count)
 
@@ -736,7 +732,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             if sample == "NA19174": continue # No answer TODO fix
             # if sample != "HG00373": continue # Unparsable
             # if sample != "NA12006": continue # Wrong answer TODO fix
-            if sample != "NA18518": continue # Wrong answer TODO fix
+            # if sample != "NA18518": continue # Wrong answer TODO fix
             # if sample != "NA19109": continue # Wrong answer TODO fix
             # if sample != "NA19147": continue # Wrong answer TODO fix
 
