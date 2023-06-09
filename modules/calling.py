@@ -587,15 +587,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 free = set()
                 for c in state:
                     if find_core_string(c) == "CYP2D6*1": # Are free unless the only ones
-                        if len(cores) > 0:
+                        if state.count(c) == 1:
                             free.add(c)
-                            continue
                         else:
-                            if c in _calling_base[0]: # Twice in state
-                                _calling_base[1].add(c)
-                                continue
+                            _calling_base[1].add(c)
                             _calling_base[0].add(c)
-                            continue
+                        continue
                     if c in _calling_base[0]: # Twice in state
                         _calling_base[1].add(c)
                     i = cores.index(find_core_string(c))
