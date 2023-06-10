@@ -580,10 +580,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         alleles = list()
     # Contained alleles consisting of homozygous variants
     homozygous_alleles = list(homozygous_alleles) 
-    # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
-    if filter_default:
-        alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
-        homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]
     # Find fundamental variants of sample
     variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph)
     if sample + "_all" in cont_graph.nodes(): 
@@ -595,7 +591,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Only use homozygous variants that form a complete allele
     # QUESTION is this valid?
     hom_variants = set((a for a in hom_variants if any((a in allele_definitions[h] for h in homozygous_alleles))))
-    # Add initial state
+    # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
+    if filter_default:
+        alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
+        homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]    # Add initial state
+        hom_variants = set((a for a in hom_variants if not any((a in allele_definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
     queue.append((list(alleles), 0, True, 0))
     # Add some initial alleles twice
