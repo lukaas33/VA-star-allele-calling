@@ -558,7 +558,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     yield _calling, _pattern
     # Find star allele definitions TODO move
     allele_definitions = {}
-    suballeles = {}
+    suballeles = {"CYP2D6*1": set()}
     for node in cont_graph.nodes():
         if find_type(node) != Type.CORE and find_type(node) != Type.SUB:
             continue
@@ -597,22 +597,27 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]    # Add initial state
         hom_variants = set((a for a in hom_variants if not any((a in allele_definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
-    queue.append((list(alleles), 0, True, 0))
+    queue.append((list(alleles), 0, True))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # TODO limit? (optimisation)
     # as these may be needed to arrive at a valid state
     # TODO can merge with above?
     # TODO simplify
-    # for a in alleles:
-    #     hom_anc = allele_definitions[a] & hom_variants
+    for a in alleles:
+        hom_anc = allele_definitions[a] & hom_variants
         # for o in alleles:
         #     if o == a:
         #         continue
         #     if find_core_string(o) == find_core_string(a):
         #         continue
         #     hom_anc -= allele_definitions[o]
-        # if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
+        if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
+            new_state = list(alleles)
+            new_state.remove(a)
+            new_state.insert(0, a)
+            new_state.insert(0, a)
+            queue.append((new_state, 1, False)) # Don't call on first (not a valid state)
         #     if len(queue) == 1:
         #         new_state = list(alleles)
         #         new_state.insert(new_state.index(a), a)
@@ -627,11 +632,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     count = 0
     # print(*queue, sep="\n")
     while len(queue) > 0:
-        state, extended, call, parent = queue.pop(0)
+        state, extended, call = queue.pop(0)
         any_valid = False
+        # print(count, state)
         if call:
             count += 1
-            # print(count, state)
             # Only try generating a calling of a valid number of cores
             # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
             for _calling, _pattern in generate_callings(state):
@@ -643,13 +648,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         if extended >= len(state):
             continue
         # Stop as all further will be less specific
-        # TODO fix
         # TODO refine ...
         if any_valid:
             continue
         # 1) Do not extend this one but continue
         # Ensures that all possible callings are generated
-        queue.append((list(state), extended + 1, False, count))
+        queue.append((list(state), extended + 1, False))
         # Extend alleles with underlying alleles
         # Find underlying alleles not contained in other alleles
         # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
@@ -698,7 +702,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # print(" ", state)
         # print(" ", "extend", extend, "at", extended, 'with', underlying)
         # print(" ", new_state)
-        queue.append((new_state, extended + 1 - 1, True, count))
+        queue.append((new_state, extended + 1 - 1, True))
     # print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
@@ -776,6 +780,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA12006": continue # Previously wrong answer 
             # if sample != "HG01190": continue # Most complex td TODO fix runtime?
             # if sample != "NA19122": continue # Example of multiple homozygous contained
+            # if sample != "NA18973": continue # correct answer preferable?
 
             # test_i += 1
             # if test_i >= 5:
