@@ -495,14 +495,14 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     If so, test if the distribution of variants is valid by homozygosity.
     If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
-    TODO fix stopping condition (disallow clearly illegal calls (removing homozygous from calling))
+    TODO stopping condition
     TODO fix runtime with suballeles
     TODO ordering
     TODO handle overlap?
-    TODO skip empty state if n_alleles > 0?
-    TODO fix duplicates (due to two different paths leading to the same allele)
+    TODO do not create new state but mutate (optimisation)
     """
     def valid(_ancestors, hom_variants, heterozygous):
+        """ Check if the distribution of variants is valid by homozygosity """
         # TODO do not allow absent homs (with new definition of homs not needed)
         # Hom must be present in both phases
         for hom in hom_variants:
@@ -519,7 +519,44 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if c > 1: # Cannot be present in both phases but can be absent due to extending
                 return False
         return True
-    # Find star allele definitions
+    def generate_callings(state):
+        """ Generate all possible callings for a given state """
+        cores = list(set((find_core_string(a) for a in state if 
+                            find_type(a) != Type.VAR and 
+                            find_type(a) != Type.P_VAR and 
+                            find_core_string(a) != "CYP2D6*1")))
+        # Can only result in valid state when it consists of 2 cores or less (multiplied by count)
+        # Here, the suballeles of the same core are grouped and suballeles of 1 are allowed
+        if len(cores) <= 2 and not \
+            (len(cores) == 2 and 
+                any((state.count(a) > 1 for a in state if find_core_string(a) in cores))): 
+            # Find base calling, alleles of different cores must be in different phases
+            _calling_base = [set(), set()]
+            free = set()
+            for c in state:
+                if find_core_string(c) == "CYP2D6*1": # Are free unless homozygous
+                    if state.count(c) == 1:
+                        free.add(c)
+                    else:
+                        _calling_base[1].add(c)
+                        _calling_base[0].add(c)
+                    continue
+                # Distribute alleles over phases (group cores together)
+                if c in _calling_base[0]: # Twice in state
+                    _calling_base[1].add(c)
+                i = cores.index(find_core_string(c))
+                _calling_base[i].add(c)
+            # Check possible distributions of free moving alleles
+            for r in range(0, len(free)+1):
+                for f in combinations(free, r):
+                    f = set(f)
+                    _calling = [_calling_base[0] | f, _calling_base[1] | free - f]
+                    _pattern = [set(), set()]
+                    for i in range(2):
+                        for allele in _calling[i]: 
+                            _pattern[i] |= allele_definitions[allele]
+                    yield _calling, _pattern
+    # Find star allele definitions TODO move
     allele_definitions = {}
     suballeles = {}
     for node in cont_graph.nodes():
@@ -541,8 +578,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # No alleles found, empty calling 
         # only alternative will be {}/{} which is returned as *1/*1
         alleles = list()
-    homozygous_alleles = list(homozygous_alleles) # Calling on homozygous variants
-    # Ignore suballeles of default allele as these will be filtered out later (optimisation)
+    # Contained alleles consisting of homozygous variants
+    homozygous_alleles = list(homozygous_alleles) 
+    # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
         alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]
@@ -559,83 +597,67 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     hom_variants = set((a for a in hom_variants if any((a in allele_definitions[h] for h in homozygous_alleles))))
     # Add initial state
     queue = []
-    queue.insert(0, (list(alleles), 0, True))
-    # Add state with some initial alleles twice, 
-    # these must contain a homozygous allele to be valid
-    # this may be needed to arrive at lower homozygous alleles
-    for a in alleles:
-        hom_anc = allele_definitions[a] & hom_variants
-        for o in alleles:
-            if o == a:
-                continue
-            if find_core_string(o) == find_core_string(a):
-                continue
-            hom_anc -= allele_definitions[o]
-        if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains homozygous but isn't itself
-            new_state = list(alleles)
-            new_state.insert(new_state.index(a), a)
-            queue.append((new_state, 0, False)) # Don't call on first (not a valid state)
+    queue.append((list(alleles), 0, True, 0))
+    # Add some initial alleles twice
+    # when these contain a homozygous variant that is not present in another allele 
+    # TODO limit? (optimisation)
+    # as these may be needed to arrive at a valid state
+    # TODO can merge with above?
+    # TODO simplify
+    # for a in alleles:
+    #     hom_anc = allele_definitions[a] & hom_variants
+        # for o in alleles:
+        #     if o == a:
+        #         continue
+        #     if find_core_string(o) == find_core_string(a):
+        #         continue
+        #     hom_anc -= allele_definitions[o]
+        # if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
+        #     if len(queue) == 1:
+        #         new_state = list(alleles)
+        #         new_state.insert(new_state.index(a), a)
+        #         queue.insert(0, (new_state, 0, False)) # Don't call on first (not a valid state)
+        #     else:
+        #         queue[0][0].insert(queue[1][0].index(a), a)
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
             for q in queue:
                 q[0].insert(q[0].index(a), a)
     count = 0
+    # print(*queue, sep="\n")
     while len(queue) > 0:
-        state, extended, call = queue.pop(0)
+        state, extended, call, parent = queue.pop(0)
         any_valid = False
         if call:
             count += 1
-            # Only try generating a calling of a valid number of cores (65.1,2.2,10.1 will never form a valid calling of two real alleles)
-            cores = list(set((find_core_string(a) for a in state if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR and find_core_string(a) != "CYP2D6*1")))
-            if len(cores) <= 2 and not \
-                (len(cores) == 2 and 
-                 any((state.count(a) > 1 for a in state if find_core_string(a) in cores))): 
-                # Find base calling, alleles of different cores must be in different phases
-                _calling_base = [set(), set()]
-                free = set()
-                for c in state:
-                    if find_core_string(c) == "CYP2D6*1": # Are free unless the only ones
-                        if state.count(c) == 1:
-                            free.add(c)
-                        else:
-                            _calling_base[1].add(c)
-                            _calling_base[0].add(c)
-                        continue
-                    if c in _calling_base[0]: # Twice in state
-                        _calling_base[1].add(c)
-                    i = cores.index(find_core_string(c))
-                    _calling_base[i].add(c)
-                # Check possible distributions of free moving alleles
-                for r in range(0, len(free)+1):
-                    for f in combinations(free, r):
-                        f = set(f)
-                        _calling = [_calling_base[0] | f, _calling_base[1] | free - f]
-                        _pattern = [set(), set()]
-                        # print(_calling)
-                        for i in range(2):
-                            for allele in _calling[i]: 
-                                _pattern[i] |= allele_definitions[allele]
-                        if valid(_pattern, hom_variants, het_variants):
-                            calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
-                            yield calling
-                            any_valid = True
+            # print(count, state)
+            # Only try generating a calling of a valid number of cores
+            # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
+            for _calling, _pattern in generate_callings(state):
+                if valid(_pattern, hom_variants, het_variants):
+                    calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
+                    yield calling
+                    any_valid = True
         # Stop as can extend no further
         if extended >= len(state):
             continue
-        extend = state[extended]
-        # TODO define working stop condition
         # Stop as all further will be less specific
-        # if any_valid:
-        #     continue
-        # TODO do not create new state but mutate (optimisation)
+        # TODO fix
+        # TODO refine ...
+        if any_valid:
+            continue
+        # 1) Do not extend this one but continue
+        # Ensures that all possible callings are generated
+        queue.append((list(state), extended + 1, False, count))
         # Extend alleles with underlying alleles
         # Find underlying alleles not contained in other alleles
         # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
+        extend = state[extended]
         removed = set()
         underlying = list()
         _underlying = set()
-        # TODO use ancestors limited to depth 1?
+        # TODO use ancestors function limited to depth 1?
         if extend in cont_graph.nodes():
             for c in cont_graph.predecessors(extend): 
                 _underlying.add(c)
@@ -658,21 +680,25 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if filter_default and find_core_string(u) == "CYP2D6*1":
                 continue
             underlying.append(u)
-        # 1) Also recurse without extending to find all combinations of extending
-        # do not call on this as this is a duplicate
-        new_state = list(state)
-        queue.append((new_state, extended + 1, False))
-        # Don't extend if this does not remove any information
+            # Present in state twice
+            # if u in homozygous_alleles: 
+            #     underlying.append(u)
+        # TODO Don't extend if this does not remove any information (optimisation)
         # Prevents different paths finding the same conclusion (e.g. 2.2,10.4>2,10 and 65>2,10)
-        if len(underlying) == len(removed) == 0:
-            continue
+        # if len(underlying) == len(removed) == 0:
+        #     continue
         # Do not extend homozygous alleles as this will never result in a more specific valid calling 
         # QUESTION is this valid / needed
-        if extend in homozygous_alleles:
-            continue
+        # if extend in homozygous_alleles:
+        #     continue
         # 2) Replace allele with underlying alleles
-        new_state = [state[i] for i in range(len(state)) if i != extended] + underlying
-        queue.append((new_state, extended + 1 - 1, True))
+        new_state = [state[i] for i in range(len(state)) if i != extended]
+        for u in underlying:
+            new_state.insert(extended, u)
+        # print(" ", state)
+        # print(" ", "extend", extend, "at", extended, 'with', underlying)
+        # print(" ", new_state)
+        queue.append((new_state, extended + 1 - 1, True, count))
     # print(count)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
@@ -738,7 +764,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
-            # if sample != "NA19143": continue # Most complex case
+            # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
             # if sample != "NA12815": continue # Calling contains allele with contained allele
             # if sample != "HG00111": continue # Simple homozygous (eq)
@@ -747,10 +773,9 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00373": continue # Unparsable
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
             # if sample != "NA18518": continue # Example of restricting the hom variants to entire alleles
-            # if sample != "NA12006": continue # Wrong answer TODO fix (41/4)
-            # if sample != "NA12815": continue # Wrong answer TODO fix (41/2)
-            # if sample != "HG01190": continue # High runtime (~30s) TODO fix?
-            if sample != "NA19122": continue # No answer
+            # if sample != "NA12006": continue # Previously wrong answer 
+            # if sample != "HG01190": continue # Most complex td TODO fix runtime?
+            # if sample != "NA19122": continue # Example of multiple homozygous contained
 
             # test_i += 1
             # if test_i >= 5:
@@ -765,7 +790,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=False)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
             print(sample)
             preferred = None
             unique_repr = set()
