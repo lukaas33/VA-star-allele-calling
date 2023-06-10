@@ -201,34 +201,51 @@ def separate_callings(unphased_calling, cont_graph, functions):
     return phased_calling
 
 temp_cache = {}
-def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph):
-    """Find all variants that are ancestors of allele."""
+def find_ancestor_variants(allele, eq_graph, cont_graph, ov_graph, lim_depth=None, search=(Type.VAR,)):
+    """Find all variants that are ancestors of an allele."""
     # TODO use ov_graph to find overlapping?
     global temp_cache
-    if allele in temp_cache:
-        return temp_cache[allele]
+    if (allele, lim_depth) in temp_cache:
+        return temp_cache[(allele, lim_depth)]
     ancestors = set()
-    queue = {allele,}
+    queue = [(allele, 0)]
     while len(queue) > 0:
-        a = queue.pop()
+        a, d = queue.pop(0)
+        if lim_depth is not None and d > lim_depth:
+            continue
         # Check if variant 
-        if find_type(a) == Type.VAR:
+        if find_type(a) in search:
             ancestors.add(a)
             continue # Don't find variants in variant
         # check contained
         if a in cont_graph.nodes():
             for cont in cont_graph.predecessors(a):
-                queue.add(cont)
+                queue.append((cont, d+1))
         # check equivalents
         if a in eq_graph.nodes():
             for eq in list(nx.shortest_path(eq_graph, a))[1:]: # not self but eq
-                if find_type(eq) == Type.VAR:
+                if find_type(eq) in search:
                     ancestors.add(eq)
                 elif eq in cont_graph.nodes(): # Look at contained in eq (needed when variant exactly equals star allele)
                     for cont in cont_graph.predecessors(eq):
-                        queue.add(cont)
-    temp_cache[allele] = ancestors
+                        queue.append((cont, d+1))
+    temp_cache[(allele, lim_depth)] = ancestors
     return ancestors
+
+def allele_definitions(eq_graph, cont_graph, ov_graph):
+    # Find star allele definitions TODO move
+    definitions = {}
+    suballeles = {"CYP2D6*1": set()}
+    for node in cont_graph.nodes():
+        if find_type(node) != Type.CORE and find_type(node) != Type.SUB:
+            continue
+        if find_type(node) == Type.SUB:
+            core = find_core_string(node)
+            if core not in suballeles: suballeles[core] = set()
+            suballeles[core].add(node)
+        ancestors = find_ancestor_variants(node, eq_graph, cont_graph, ov_graph)
+        definitions[node] = ancestors
+    return definitions, suballeles
 
 def valid_calling(sample, calling, homozygous, cont_graph, eq_graph, ov_graph, most_specific, CNV_possible=False):
     """Check if a calling is valid based on homozygous contained alleles.
@@ -495,7 +512,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     If so, test if the distribution of variants is valid by homozygosity.
     If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
-    TODO stopping condition
     TODO fix runtime with suballeles
     TODO ordering
     TODO handle overlap?
@@ -503,7 +519,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     """
     def valid(_ancestors, hom_variants, heterozygous):
         """ Check if the distribution of variants is valid by homozygosity """
-        # TODO do not allow absent homs (with new definition of homs not needed)
+        # TODO do not allow absent homs (with new definition of homs not needed?) Is handled by stopping condition and extension pattern now
         # Hom must be present in both phases
         for hom in hom_variants:
             c = 0
@@ -554,21 +570,22 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     _pattern = [set(), set()]
                     for i in range(2):
                         for allele in _calling[i]: 
-                            _pattern[i] |= allele_definitions[allele]
+                            _pattern[i] |= definitions[allele]
                     yield _calling, _pattern
-    # Find star allele definitions TODO move
-    allele_definitions = {}
-    suballeles = {"CYP2D6*1": set()}
-    for node in cont_graph.nodes():
-        if find_type(node) != Type.CORE and find_type(node) != Type.SUB:
-            continue
-        if find_type(node) == Type.SUB:
-            core = find_core_string(node)
-            if core not in suballeles: suballeles[core] = set()
-            suballeles[core].add(node)
-        ancestors = find_ancestor_variants(node, eq_graph, cont_graph, ov_graph)
-        allele_definitions[node] = ancestors
-    # Find contained alleles of sample
+    def find_underlying(allele, cont_graph, eq_graph, ov_graph):
+        """ Find the underlying alleles and variants (direct connections) of an allele """	
+        if allele in cont_graph.nodes():
+            for c in cont_graph.predecessors(allele): 
+                yield c
+        if allele in eq_graph.nodes():
+            for c in eq_graph[allele]: 
+                if find_type(c) != Type.VAR:
+                    continue # TODO handle eq suballeles?
+                yield c
+
+    # Find star allele definitions
+    definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
+    # Find directly related alleles of sample
     if sample + "_all" in cont_graph.nodes():
         alleles = list((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
     elif sample + "_all" in eq_graph.nodes(): 
@@ -578,62 +595,43 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # No alleles found, empty calling 
         # only alternative will be {}/{} which is returned as *1/*1
         alleles = list()
-    # Contained alleles consisting of homozygous variants
+    # Alleles consisting of homozygous variants
     homozygous_alleles = list(homozygous_alleles) 
     # Find fundamental variants of sample
-    variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph)
-    if sample + "_all" in cont_graph.nodes(): 
-        # Filter out 'extra variants'
-        variants -= set(cont_graph.predecessors(sample + "_all"))
+    variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph) 
+    variants -= find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph, lim_depth=1)
     # Check which variants are heterozygous (homozygous known from phasing)
     hom_variants = set(hom_variants)
     het_variants = variants - hom_variants 
     # Only use homozygous variants that form a complete allele
     # QUESTION is this valid?
-    hom_variants = set((a for a in hom_variants if any((a in allele_definitions[h] for h in homozygous_alleles))))
+    hom_variants = set((a for a in hom_variants if any((a in definitions[h] for h in homozygous_alleles))))
     # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
         alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]    # Add initial state
-        hom_variants = set((a for a in hom_variants if not any((a in allele_definitions[s] for s in suballeles["CYP2D6*1"]))))
+        hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
     queue.append((list(alleles), 0, True, False))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
-    # TODO limit? (optimisation)
     # as these may be needed to arrive at a valid state
-    # TODO can merge with above?
-    # TODO simplify
     for a in alleles:
-        hom_anc = allele_definitions[a] & hom_variants
-        # for o in alleles:
-        #     if o == a:
-        #         continue
-        #     if find_core_string(o) == find_core_string(a):
-        #         continue
-        #     hom_anc -= allele_definitions[o]
+        hom_anc = definitions[a] & hom_variants
         if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
             new_state = list(alleles)
             new_state.remove(a)
             new_state.insert(0, a)
             new_state.insert(0, a)
             queue.append((new_state, 1, False, False)) # Don't call on first (not a valid state)
-        #     if len(queue) == 1:
-        #         new_state = list(alleles)
-        #         new_state.insert(new_state.index(a), a)
-        #         queue.insert(0, (new_state, 0, False)) # Don't call on first (not a valid state)
-        #     else:
-        #         queue[0][0].insert(queue[1][0].index(a), a)
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
             for q in queue:
                 q[0].insert(q[0].index(a), a)
     count = 0
-    # print(*queue, sep="\n")
     while len(queue) > 0:
         state, extended, call, any_valid = queue.pop(0)
-        # print(count, state)
         if call:
             count += 1
             # Only try generating a calling of a valid number of cores
@@ -652,19 +650,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         extend = state[extended]
         removed = set()
         underlying = list()
-        _underlying = set()
-        # TODO use ancestors function limited to depth 1?
-        if extend in cont_graph.nodes():
-            for c in cont_graph.predecessors(extend): 
-                _underlying.add(c)
-        if extend in eq_graph.nodes():
-            for c in eq_graph[extend]: 
-                if find_type(c) != Type.VAR:
-                    continue # TODO handle eq suballeles
-                _underlying.add(c)
-        for u in _underlying:
+        for u in find_underlying(extend, cont_graph, eq_graph, ov_graph):
             # Lose detail by ignoring variants
-            if find_type(u) == Type.VAR or find_type(u) == Type.P_VAR:
+            if find_type(u) == Type.VAR:
                 removed.add(u)
                 continue
             # Check if u is contained in or equal to other alleles (ignore extended)
@@ -677,15 +665,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 continue
             underlying.append(u)
         # Stop as all further will be less specific
-        # TODO refine ...
         if any_valid and any((functions[v] != None for v in removed)):
             continue
         # TODO Don't extend if this does not remove any information (optimisation)
-        # Prevents different paths finding the same conclusion (e.g. 2.2,10.4>2,10 and 65>2,10)
         # if len(underlying) == len(removed) == 0:
         #     continue
-        # Do not extend homozygous alleles as this will never result in a more specific valid calling 
-        # QUESTION is this valid / needed
+        # TODO Do not extend homozygous alleles as this will never result in a more specific valid calling (optimisation)
         # if extend in homozygous_alleles:
         #     continue
         # 1) Do not extend this one but continue
@@ -693,13 +678,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         queue.append((list(state), extended + 1, False, any_valid))
         # 2) Replace allele with underlying alleles
         new_state = [state[i] for i in range(len(state)) if i != extended]
-        for u in underlying:
-            new_state.insert(extended, u)
-        # print(" ", state)
-        # print(" ", "extend", extend, "at", extended, 'with', underlying)
-        # print(" ", new_state)
-        queue.append((new_state, extended + 1 - 1, True, any_valid))
-    # print(count)
+        for u in underlying: new_state.insert(extended, u) # Maintain order
+        queue.append((new_state, extended + 1 - 1, True, any_valid)) # Position has shifted
+        # print(state)
+        # print(extend, underlying)
+        # print(new_state)
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
