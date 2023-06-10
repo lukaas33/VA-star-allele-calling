@@ -288,13 +288,13 @@ def validate_alternative_calling(calling_filename, validate_filename):
     """Validate if alternative calling matches with the M&J method"""
     # TODO integrate differently (not using file)
     validate = {}
-    with open(validate_filename, 'r') as file:
+    with open(validate_filename, 'r', encoding="utf-16") as file:
         for line in file:
             # convert to format of classifications
-            sample, calling = line.rstrip().split(' ')
+            sample, calling = line.rstrip().split(': ')
             calling = calling.split('/')
-            calling.sort(key=lambda x: int(x.split('*')[1]))
-            calling = ["CYP2D6" + c for c in calling]
+            # calling.sort(key=lambda x: int(x.split('*')[1]))
+            # calling = ["CYP2D6" + c for c in calling]
             validate[sample] = calling
     to_find = set(validate.keys())
 

@@ -780,7 +780,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA12006": continue # Previously wrong answer 
             # if sample != "HG01190": continue # Most complex td TODO fix runtime?
             # if sample != "NA19122": continue # Example of multiple homozygous contained
-            # if sample != "NA18973": continue # correct answer preferable?
+            # if sample != "NA18973": continue # correct answer not preferable?
+            # if sample != "NA10865": continue # Heterozygous with default
 
             # test_i += 1
             # if test_i >= 5:
