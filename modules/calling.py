@@ -598,8 +598,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # No alleles found, empty calling 
         # only alternative will be {}/{} which is returned as *1/*1
         alleles = list()
+    alleles.sort(key=star_num)
     # Alleles consisting of homozygous variants
-    homozygous_alleles = list(homozygous_alleles) 
+    homozygous_alleles = set(homozygous_alleles) 
     # Find fundamental variants of sample
     variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph) 
     variants -= find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph, lim_depth=1)
@@ -754,7 +755,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
-            if sample != "NA19143": continue # Most complex bu
+            # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
             # if sample != "NA12815": continue # Calling contains allele with contained allele
             # if sample != "HG00111": continue # Simple homozygous (eq)
@@ -782,14 +783,14 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
+            print(sample)
             alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
             # Sort TODO fix generation order for multiple contained
             alternatives = list(alternatives)
             alternatives.sort(key=lambda c: c[0])
-            print(sample)
             preferred = None
             unique_repr = set()
-            for specificity, alternative in alternatives:
+            for _, alternative in alternatives:
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
                 representation = f"{','.join(representation['A'])}/{','.join(representation['B'])}"
                 # filter out non-unique representations (arise due to detail level mismatch)   
@@ -798,7 +799,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(specificity, representation)
+                print(representation)
             # Select the most relevant alternative
             if not preferred:
                 # TODO handle differently?
@@ -834,6 +835,12 @@ def find_core_traversal(match, cont_graph):
                 cores.extend(find_core_traversal(node, cont_graph))
     return cores
 
+def star_num(match):
+    num = match.split('*')[1]
+    if num =='?':
+        return 0
+    return float(num)
+    
 def detail_from_level(level):
     """Return a dictionary of options for a specific detail level
     
@@ -875,11 +882,6 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
     # TODO add alternative descriptions
     # TODO hide unparsable?
     """
-    def star_num(match):
-        num = match.split('*')[1]
-        if num =='?':
-            return 0
-        return float(num)
     def remove_contained(matches, cont_graph):
         """Filter out cores that are contained in other cores"""
         # TODO do this by not adding some cores in the first place?
