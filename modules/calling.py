@@ -585,6 +585,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
 
     # Find star allele definitions
     definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
+    # Find shortest path distance to determine specificity
+    # lengths = dict(nx.all_pairs_shortest_path_length(cont_graph))
+    # lengths = {n: lengths[n][sample + '_all'] for n in lengths.keys() if sample + '_all' in lengths[n]}
     # Find directly related alleles of sample
     if sample + "_all" in cont_graph.nodes():
         alleles = list((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
@@ -613,7 +616,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]    # Add initial state
         hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
-    queue.append((list(alleles), 0, True, False))
+    queue.append((list(alleles), 0, True, False, 0))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -625,15 +628,16 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             new_state.remove(a)
             new_state.insert(0, a)
             new_state.insert(0, a)
-            queue.append((new_state, 1, False, False)) # Don't call on first (not a valid state)
+            queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
             for q in queue:
                 q[0].insert(q[0].index(a), a)
     count = 0
+    # print(*queue, sep="\n")
     while len(queue) > 0:
-        state, extended, call, any_valid = queue.pop(0)
+        state, extended, call, any_valid, specificity = queue.pop(0)
         if call:
             count += 1
             # Only try generating a calling of a valid number of cores
@@ -641,7 +645,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             for _calling, _pattern in generate_callings(state):
                 if valid(_pattern, hom_variants, het_variants):
                     calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
-                    yield calling
+                    # depth = max((lengths[a] for a in _calling[0] | _calling[1]))
+                    yield specificity, calling
                     any_valid = True
         # Stop as can extend no further
         if extended >= len(state):
@@ -680,14 +685,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         #     continue
         # 1) Do not extend this one but continue
         # Ensures that all possible callings are generated
-        queue.append((list(state), extended + 1, False, any_valid))
+        queue.append((list(state), extended + 1, False, any_valid, specificity))
         # 2) Replace allele with underlying alleles
         new_state = [state[i] for i in range(len(state)) if i != extended]
         for u in underlying: new_state.insert(extended, u) # Maintain order
-        queue.append((new_state, extended + 1 - 1, True, any_valid)) # Position has shifted
-        # print(state)
-        # print(extend, underlying)
-        # print(new_state)
+        queue.append((new_state, extended + 1 - 1, True, any_valid, specificity+1)) # Position has shifted
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -752,7 +754,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
-            # if sample != "NA19143": continue # Most complex bu
+            if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
             # if sample != "NA12815": continue # Calling contains allele with contained allele
             # if sample != "HG00111": continue # Simple homozygous (eq)
@@ -762,7 +764,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
             # if sample != "NA18518": continue # Example of restricting the hom variants to entire alleles
             # if sample != "NA12006": continue # Previously wrong answer 
-            # if sample != "HG01190": continue # Most complex td TODO fix runtime?
+            # if sample != "HG01190": continue # Most complex td 
             # if sample != "NA19122": continue # Example of multiple homozygous contained
             # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
@@ -781,10 +783,13 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
+            # Sort TODO fix generation order for multiple contained
+            alternatives = list(alternatives)
+            alternatives.sort(key=lambda c: c[0])
             print(sample)
             preferred = None
             unique_repr = set()
-            for alternative in alternatives:
+            for specificity, alternative in alternatives:
                 representation = calling_to_repr(alternative, cont_graph, functions, **detail_from_level(detail_level), reorder=True)
                 representation = f"{','.join(representation['A'])}/{','.join(representation['B'])}"
                 # filter out non-unique representations (arise due to detail level mismatch)   
@@ -793,7 +798,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(representation)
+                print(specificity, representation)
             # Select the most relevant alternative
             if not preferred:
                 # TODO handle differently?
