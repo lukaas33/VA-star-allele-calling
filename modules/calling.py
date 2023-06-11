@@ -605,6 +605,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     het_variants = variants - hom_variants 
     # Only use homozygous variants that form a complete allele
     # QUESTION is this valid?
+    hom_variants_all = set(hom_variants)
     hom_variants = set((a for a in hom_variants if any((a in definitions[h] for h in homozygous_alleles))))
     # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
@@ -616,6 +617,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
+    # TODO reduce number of initial states (NA12815 and HG00421)
     for a in alleles:
         hom_anc = definitions[a] & hom_variants
         if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
@@ -664,8 +666,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if filter_default and find_core_string(u) == "CYP2D6*1":
                 continue
             underlying.append(u)
-        # Stop as all further will be less specific
-        if any_valid and any((functions[v] != None for v in removed)):
+        # Stop as all further will be less specific than a previous valid calling
+        # QUESTION is the third clause correct as we use a different definition of valid?
+        if any_valid and \
+            (any((functions[v] != None for v in removed)) or # Do no remove non-neutral variants
+             any((v in hom_variants_all for v in removed))): # Do not remove homozygous variants
             continue
         # TODO Don't extend if this does not remove any information (optimisation)
         # if len(underlying) == len(removed) == 0:
@@ -775,7 +780,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # All homozygous alleles for the current sample
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=False)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
             print(sample)
             preferred = None
             unique_repr = set()
