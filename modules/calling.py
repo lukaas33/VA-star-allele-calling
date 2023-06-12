@@ -503,12 +503,13 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, filter_default=False):
+def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, filter_default=False, n_cores=2):
     """ 
     Checks which alleles the sample contains and sees if a valid calling (*x/*y) n_cores = 2 is possible.
     If so, test if the distribution of variants is valid by homozygosity.
     If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
+    TODO test for n_cores > 2
     TODO fix runtime with suballeles
     TODO ordering
     TODO handle overlap?
@@ -545,41 +546,41 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         return True
     def generate_callings(state):
         """ Generate all possible callings for a given state """
-        cores = list(set((find_core_string(a) for a in state if 
-                            find_type(a) != Type.VAR and 
-                            find_type(a) != Type.P_VAR and 
-                            find_core_string(a) != "CYP2D6*1")))
         # Can only result in valid state when it consists of 2 cores or less (multiplied by count)
         # Here, the suballeles of the same core are grouped and suballeles of 1 are allowed
-        if len(cores) <= 2 and not \
-            (len(cores) == 2 and 
-                any((state.count(a) > 1 for a in state if find_core_string(a) in cores))): 
+        cores = {}
+        for a in state:
+            core = find_core_string(a)
+            if core == "CYP2D6*1":
+                continue
+            if core not in cores:
+                cores[core] = 0
+            cores[core] = max(cores[core], 1 * state.count(a))
+        count_cores = sum(cores.values())
+        if count_cores <= n_cores:
             # Find base calling, alleles of different cores must be in different phases
-            _calling_base = [set(), set()]
+            _calling_base = [set()] * n_cores
             free = set()
-            for c in state:
-                if find_core_string(c) == "CYP2D6*1": # Are free unless homozygous
-                    if state.count(c) == 1:
-                        free.add(c)
-                    else:
-                        _calling_base[1].add(c)
-                        _calling_base[0].add(c)
-                    continue
-                # Distribute alleles over phases (group cores together)
-                if c in _calling_base[0]: # Twice in state
-                    _calling_base[1].add(c)
-                i = cores.index(find_core_string(c))
-                _calling_base[i].add(c)
+            for a in set(state):
+                if state.count(a) == n_cores:
+                    for i in range(n_cores):
+                        _calling_base[i].add(a)
+                else:
+                    free.add(a)
             # Check possible distributions of free moving alleles
-            for r in range(0, len(free)+1):
-                for f in combinations(free, r):
+            mid = len(free) // 2 # Used to avoid duplicates
+            for r in range(0 if len(free) < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
+                for k, f in enumerate(combinations(free, r)): # Move r alleles to phase 1
                     f = set(f)
                     _calling = [_calling_base[0] | f, _calling_base[1] | free - f]
                     _pattern = [set(), set()]
                     for i in range(2):
-                        for allele in _calling[i]: 
-                            _pattern[i] |= definitions[allele]
+                        for a in _calling[i]:
+                            _pattern[i] |= definitions[a]
                     yield _calling, _pattern
+                    if r == mid and k == mid-1:
+                        break
+
     def find_underlying(allele, cont_graph, eq_graph, ov_graph):
         """ Find the underlying alleles and variants (direct connections) of an allele """	
         if allele in cont_graph.nodes():
@@ -617,42 +618,40 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]
         # hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
+    # Initial state represents the directly related alleles of the sample
     queue.append((list(alleles), 0, True, False, 0))
+    # Add some initial alleles twice
+    # when these contain a homozygous variant that is not present in another allele 
+    # as these may be needed to arrive at a valid state
+    for a in alleles:
+        hom_anc = set()
+        for h in homozygous_alleles:
+            if h in nx.ancestors(cont_graph, a):
+                hom_anc |= definitions[h]
+        if len(hom_anc) > 0: # Contains hom but isn't hom itself
+            new_state = list(alleles)
+            new_state.remove(a)
+            new_state.insert(0, a)
+            new_state.insert(0, a)
+            # queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
             for q in queue:
                 q[0].insert(q[0].index(a), a)
-    # Add some initial alleles twice
-    # when these contain a homozygous variant that is not present in another allele 
-    # as these may be needed to arrive at a valid state
-    # TODO reduce number of initial states (NA12815 and HG00421)
-    for a in alleles:
-        hom_anc = definitions[a] & hom_variants
-        # This clause only works when there are no loose homozygous variants
-        for o in alleles:
-            if a == o: 
-                continue
-            if o not in homozygous_alleles: 
-                continue
-            # Will already be present twice
-            hom_anc -= definitions[o]
-        if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
-            new_state = list(alleles)
-            new_state.remove(a)
-            new_state.insert(0, a)
-            new_state.insert(0, a)
-            queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
     count = 0
     print(*queue, sep="\n")
     while len(queue) > 0:
         state, extended, call, any_valid, specificity = queue.pop(0)
         if call:
             count += 1
+            print(count, state)
             # Only try generating a calling of a valid number of cores
             # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
             for _calling, _pattern in generate_callings(state):
+                print(_calling)
                 if valid(_pattern, hom_variants, het_variants, definitions):
+                    print("VALID")
                     calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                     # depth = max((lengths[a] for a in _calling[0] | _calling[1]))
                     yield specificity, calling
@@ -766,7 +765,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
@@ -779,7 +778,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
             # if sample != "NA18518": continue # Example of restricting the hom variants to entire alleles
             # if sample != "NA12006": continue # Previously wrong answer 
-            if sample != "HG01190": continue # Most complex td 
+            # if sample != "HG01190": continue # Most complex td 
             # if sample != "NA19122": continue # Example of multiple homozygous contained
             # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
