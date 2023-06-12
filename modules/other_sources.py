@@ -173,31 +173,31 @@ def severity_GO(consequences):
     for consequence in consequences:
         severity = 0
         if consequence == "coding_sequence_variant": # Change in exon 
-            severity = 1
+            continue
         elif consequence == "missense_variant": # Change in protein
-            severity = 2
-        elif consequence == "stop_gained": # Early stop mutation
-            severity = 3
-        elif consequence == "frameshift_variant": # Frameshift 
-            severity = 3
-        elif consequence == "inframe_deletion": # Deletes amino acids 
-            severity = 2
-        elif consequence == "inframe_insertion": # Inserts amino acids 
-            severity = 2
-        elif consequence == "splice_acceptor_variant": # Splice defect
-            severity = 3
-        elif consequence == "splice_donor_variant": # Splice defect
-            severity = 3
+            severity = 1
         elif consequence == "synonymous_variant": # No impact on protein
-            severity = 1
+            severity = 2
         elif consequence == "intron_variant": # Not in exon
-            severity = 1
+            severity = 2
         elif "upstream" in consequence: # Outside ORF 
-            severity = 1
+            severity = 2
         elif "downstream" in consequence: # Outside ORF 
-            severity = 1
+            severity = 2
         elif "UTR_variant" in consequence: # In UTR 
-            severity = 1
+            severity = 2
+        elif consequence == "inframe_deletion": # Deletes amino acids 
+            severity = 3
+        elif consequence == "inframe_insertion": # Inserts amino acids 
+            severity = 3
+        elif consequence == "stop_gained": # Early stop mutation
+            severity = 4
+        elif consequence == "frameshift_variant": # Frameshift 
+            severity = 4
+        elif consequence == "splice_acceptor_variant": # Splice defect
+            severity = 4
+        elif consequence == "splice_donor_variant": # Splice defect
+            severity = 4
         else:
             # TODO handle other possible consequences    
             raise Exception(f"Unknown consequence {consequence}")
@@ -218,19 +218,19 @@ def severity_pharmvar(impact):
     TODO use enums
     """
     if impact is None:
-        # TODO should this be unknown?
-        return 1
-    if impact == "":
-        return 0 
-        # TODO should this be likely benign?
-    if impact == "splice defect": # Splice defect
-        return 3
-    if re.match(r"[A-Z][0-9]*fs", impact): # Frameshift
-       return 3
-    if re.match(r"[A-Z][0-9]*X", impact): # Early stop
-       return 3 
-    if re.match(r"[A-Z][0-9]*([A-Z]|del|ins)", impact) or re.match(r"[0-9]*_[0-9]*[del|ins][A-Z]*", impact): # Missense
         return 2
+    elif impact == "": # unknown
+        return 0 
+    elif re.match(r"[A-Z][0-9]*([A-Z])", impact): # Missense
+        return 1
+    elif re.match(r"[A-Z][0-9]*(del|ins|dup)", impact) or re.match(r"[0-9]*_[0-9]*[del|ins|dup][A-Z]*", impact): # Ins/del/dup
+        return 3
+    elif impact == "splice defect": # Splice defect
+        return 4
+    elif re.match(r"[A-Z][0-9]*fs", impact): # Frameshift
+       return 4
+    elif re.match(r"[A-Z][0-9]*X", impact): # Early stop
+       return 4 
     raise Exception(f"Unknown impact {impact}")
 
 def get_personal_ids(personal_variants, reference, cache_name=None):
