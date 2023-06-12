@@ -614,7 +614,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
         alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
-        homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]    # Add initial state
+        homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]
         hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
     queue.append((list(alleles), 0, True, False, 0))
@@ -784,7 +784,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             print(sample)
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=False)
             # Sort TODO fix generation order for multiple contained
             alternatives = list(alternatives)
             alternatives.sort(key=lambda c: c[0])
@@ -894,6 +894,11 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
                     continue
                 if match2 not in cont_graph.nodes():
                     continue
+                if find_type(match1) == Type.SUB and \
+                    find_core_string(match1) != find_core_string(match2) and \
+                    find_core_string(match1) in nx.ancestors(cont_graph, match2): # Core of match1 is contained in match2 (10.1 > 10 in 99)
+                    matches.remove(match1)
+                    break
                 if match1 in nx.ancestors(cont_graph, match2): # match1 is contained in match2
                     matches.remove(match1)
                     break
