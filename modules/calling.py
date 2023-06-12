@@ -686,15 +686,15 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             (any((functions[v] != None for v in removed)) or # Do no remove non-neutral variants
              any((v in hom_variants_all for v in removed))): # Do not remove homozygous variants
             continue
-        # TODO Don't extend if this does not remove any information (optimisation)
-        # if len(underlying) == len(removed) == 0:
-        #     continue
-        # TODO Do not extend homozygous alleles as this will never result in a more specific valid calling (optimisation)
-        # if extend in homozygous_alleles:
-        #     continue
         # 1) Do not extend this one but continue
         # Ensures that all possible callings are generated
         queue.append((list(state), extended + 1, False, any_valid, specificity))
+        # TODO Do not extend homozygous alleles as this will never result in a more specific valid calling (optimisation)
+        # if extend in homozygous_alleles:
+        #     continue
+        # TODO Don't extend if this does not remove any information (optimisation)
+        # if len(underlying) == len(removed) == 0:
+        #     continue
         # 2) Replace allele with underlying alleles
         new_state = [state[i] for i in range(len(state)) if i != extended]
         for u in underlying: new_state.insert(extended, u) # Maintain order
@@ -760,7 +760,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
