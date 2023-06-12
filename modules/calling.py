@@ -13,9 +13,6 @@ all_functions = ("function not assigned", 'unknown function', 'uncertain functio
 
 def sort_function(f):
     """Sort function annotation based on severity."""
-    raise DeprecationWarning("This function is redundant now")
-    # TODO use enums
-    # QUESTION: what is the difference between uncertain and unknown?
     if f not in all_functions:
         raise Exception("Unknown function: " + f)
     functions = all_functions[3:]
@@ -517,23 +514,34 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     TODO handle overlap?
     TODO do not create new state but mutate (optimisation)
     """
-    def valid(_ancestors, hom_variants, heterozygous):
+    def valid(_ancestors, hom_variants, het_variants, definitions):
         """ Check if the distribution of variants is valid by homozygosity """
-        # TODO do not allow absent homs (with new definition of homs not needed?) Is handled by stopping condition and extension pattern now
+        # Het must be present in only one phase
+        for het in het_variants:
+            c = 0
+            if het in _ancestors[0]: 
+                c += 1
+            if het in _ancestors[1]: 
+                c += 1
+            # Cannot be present in both phases but can be absent due to extending
+            if c > 1: 
+                return False
         # Hom must be present in both phases
         for hom in hom_variants:
             c = 0
-            if hom in _ancestors[0]: c += 1
-            if hom in _ancestors[1]: c += 1
-            if c == 1: # Cannot be present in single phase but can be absent due to extending
-                return False
-        # Het must be present in only one phase
-        for het in heterozygous:
-            c = 0
-            if het in _ancestors[0]: c += 1
-            if het in _ancestors[1]: c += 1
-            if c > 1: # Cannot be present in both phases but can be absent due to extending
-                return False
+            if hom in _ancestors[0]: 
+                c += 1
+                none = 1
+            if hom in _ancestors[1]: 
+                c += 1
+                none = 0
+            # Can be absent due to extending
+            # Can be present in one phase because it is loose if this would not result in another star allele
+            # For instance: 17+A/29 is valid but 10/39+A not if A is homozygous as this would be 10/2
+            if c == 1:  
+                # Loose but not part of a larger star allele definition 
+                if _ancestors[none] | {hom} in definitions.values(): 
+                    return False
         return True
     def generate_callings(state):
         """ Generate all possible callings for a given state """
@@ -577,17 +585,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         if allele in cont_graph.nodes():
             for c in cont_graph.predecessors(allele): 
                 yield c
-        if allele in eq_graph.nodes():
-            for c in eq_graph[allele]: 
-                if find_type(c) != Type.VAR:
-                    continue # TODO handle eq suballeles?
-                yield c
+        # Ignore equivalent as we do not want to replace these with nothing (already leaves)
 
     # Find star allele definitions
     definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
     # Find shortest path distance to determine specificity
-    # lengths = dict(nx.all_pairs_shortest_path_length(cont_graph))
-    # lengths = {n: lengths[n][sample + '_all'] for n in lengths.keys() if sample + '_all' in lengths[n]}
+    lengths = dict(nx.all_pairs_shortest_path_length(cont_graph))
+    lengths = {n: lengths[n][sample + '_all'] for n in lengths.keys() if sample + '_all' in lengths[n]}
     # Find directly related alleles of sample
     if sample + "_all" in cont_graph.nodes():
         alleles = list((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
@@ -599,23 +603,19 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # only alternative will be {}/{} which is returned as *1/*1
         alleles = list()
     alleles.sort(key=star_num)
-    # Alleles consisting of homozygous variants
+    # Alleles consisting only of homozygous variants
     homozygous_alleles = set(homozygous_alleles) 
     # Find fundamental variants of sample
     variants = find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph) 
     variants -= find_ancestor_variants(sample + "_all", eq_graph, cont_graph, ov_graph, lim_depth=1)
-    # Check which variants are heterozygous (homozygous known from phasing)
-    hom_variants = set(hom_variants)
+    # Check which variants are heterozygous (homozygous known from data)
+    hom_variants = hom_variants & variants # Exclude directly connected variants
     het_variants = variants - hom_variants 
-    # Only use homozygous variants that form a complete allele
-    # QUESTION is this valid?
-    hom_variants_all = set(hom_variants)
-    hom_variants = set((a for a in hom_variants if any((a in definitions[h] for h in homozygous_alleles))))
     # [Optional] Ignore suballeles of default allele as these will be filtered out later (optimisation)
     if filter_default:
         alleles = [a for a in alleles if find_core_string(a) != "CYP2D6*1"]
         homozygous_alleles = [a for a in homozygous_alleles if find_core_string(a) != "CYP2D6*1"]
-        hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
+        # hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
     queue.append((list(alleles), 0, True, False, 0))
     # If homozygous alleles are already present a valid state must include these
@@ -644,7 +644,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             new_state.insert(0, a)
             queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
     count = 0
-    # print(*queue, sep="\n")
+    print(*queue, sep="\n")
     while len(queue) > 0:
         state, extended, call, any_valid, specificity = queue.pop(0)
         if call:
@@ -652,7 +652,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             # Only try generating a calling of a valid number of cores
             # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
             for _calling, _pattern in generate_callings(state):
-                if valid(_pattern, hom_variants, het_variants):
+                if valid(_pattern, hom_variants, het_variants, definitions):
                     calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                     # depth = max((lengths[a] for a in _calling[0] | _calling[1]))
                     yield specificity, calling
@@ -680,22 +680,28 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if filter_default and find_core_string(u) == "CYP2D6*1":
                 continue
             underlying.append(u)
-        # Stop as all further will be less specific than a previous valid calling
-        # QUESTION is the third clause correct as we use a different definition of valid?
-        if any_valid and \
-            (any((functions[v] != None for v in removed)) or # Do no remove non-neutral variants
-             any((v in hom_variants_all for v in removed))): # Do not remove homozygous variants
-            continue
         # 1) Do not extend this one but continue
         # Ensures that all possible callings are generated
         queue.append((list(state), extended + 1, False, any_valid, specificity))
-        # TODO Do not extend homozygous alleles as this will never result in a more specific valid calling (optimisation)
-        # if extend in homozygous_alleles:
-        #     continue
-        # TODO Don't extend if this does not remove any information (optimisation)
-        # if len(underlying) == len(removed) == 0:
-        #     continue
         # 2) Replace allele with underlying alleles
+        # Stop condition as all further will be less precise than some valid calling
+        # Do not extend if all removed variants are homozygous as this removed detail unnecessarily
+        if any_valid and \
+             all((v in hom_variants for v in removed)): 
+            # print(f"Do not extend {extend} as all removed variants are homozygous")
+            continue
+        # Do not extend if this results in a functionally better allele
+        if any_valid and \
+             all(sort_function(functions[extend]) < sort_function(functions[u]) for u in underlying): 
+            # print(f"Do not extend {extend} as all underlying alleles are functionally worse")
+            continue
+        # Do not extend if there is nothing under this
+        # Extension can occur without removal of variants (e.g. 65>10,2)
+        # Empty extension can occur due to merging of contained alleles in which case removed is not empty
+        if len(underlying) == len(removed) == 0:
+            # print(f"Do not extend {extend} as there is nothing under this")
+            continue
+        # Extend otherwise
         new_state = [state[i] for i in range(len(state)) if i != extended]
         for u in underlying: new_state.insert(extended, u) # Maintain order
         queue.append((new_state, extended + 1 - 1, True, any_valid, specificity+1)) # Position has shifted
@@ -760,7 +766,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            if sample != "HG00421": continue # Common basic difficult pattern
+            # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
@@ -773,10 +779,11 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19143": continue # Example of multiple homozygous needed in start state
             # if sample != "NA18518": continue # Example of restricting the hom variants to entire alleles
             # if sample != "NA12006": continue # Previously wrong answer 
-            # if sample != "HG01190": continue # Most complex td 
+            if sample != "HG01190": continue # Most complex td 
             # if sample != "NA19122": continue # Example of multiple homozygous contained
             # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
+            # if sample != "NA19147": continue # Example of loose homozygous variants existing
 
             # test_i += 1
             # if test_i >= 5:
