@@ -618,6 +618,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         hom_variants = set((a for a in hom_variants if not any((a in definitions[s] for s in suballeles["CYP2D6*1"]))))
     queue = []
     queue.append((list(alleles), 0, True, False, 0))
+    # If homozygous alleles are already present a valid state must include these
+    for a in alleles:
+        if a in homozygous_alleles:
+            for q in queue:
+                q[0].insert(q[0].index(a), a)
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -630,13 +635,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             new_state.insert(0, a)
             new_state.insert(0, a)
             queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
-    # If homozygous alleles are already present a valid state must include these
-    for a in alleles:
-        if a in homozygous_alleles:
-            for q in queue:
-                q[0].insert(q[0].index(a), a)
     count = 0
-    # print(*queue, sep="\n")
+    print(*queue, sep="\n")
     while len(queue) > 0:
         state, extended, call, any_valid, specificity = queue.pop(0)
         if call:
@@ -757,7 +757,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
-            # if sample != "NA12815": continue # Calling contains allele with contained allele
+            if sample != "NA12815": continue # Calling contains allele with contained allele
             # if sample != "HG00111": continue # Simple homozygous (eq)
             # if sample != "NA18861": continue # Homozygous
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
