@@ -628,6 +628,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     for a in alleles:
         if any(h in nx.ancestors(cont_graph, a) for h in homozygous_alleles): # homozygous can occur with larger in other phase 
             queue.append(([a], list(alleles), 0, False, False, 0)) # Don't call on first (not a valid state)
+            pass
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
@@ -690,10 +691,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Do not extend if there is nothing under this
         # Extension can occur without removal of variants (e.g. 65>10,2)
         # Empty extension can occur due to merging of contained alleles in which case removed is not empty
-        if len(underlying) == len(removed) == 0:
+        # Can replace with empty to arrive at valid value TODO fix stopping condition
+        if any_valid and len(underlying) == len(removed) == 0:
             # Do allow to extending to empty if this allele is heterozygous and in the base calling
-            if not any((extend in nx.ancestors(cont_graph, a) for a in base_calling)) and not extend in homozygous_alleles:
-                continue
+            # if not any((extend in nx.ancestors(cont_graph, a) for a in base_calling)) and not extend in homozygous_alleles:
+            continue
         # Extend otherwise
         new_state = [state[i] for i in range(len(state)) if i != extended]
         for u in underlying: new_state.insert(extended, u) # Maintain order
@@ -777,6 +779,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
+            # if sample != "NA07056": continue # Need for replacing with nothing
 
             # test_i += 1
             # if test_i >= 5:
