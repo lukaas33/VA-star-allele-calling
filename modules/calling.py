@@ -862,8 +862,6 @@ def detail_from_level(level):
     4: Print all direct matches including the default allele
     TODO implement more levels?
     """
-    if level == 0:
-        warnings.warn("Detail level 0 may lose some useful information")
     kwargs = {}
     kwargs["find_cores"] = level <= 1
     kwargs["prioritize_function"] = level == 0 or level == 2
