@@ -173,7 +173,7 @@ function_colours = (
     ('no function', '#F44336'), # Red 500
     ('decreased function', '#ffc107'), # Orange 500
     ('normal function', '#4CAF50'), # Green 500
-    ('function not assigned', '#E0E0E0'), # Gray 300
+    ('function not assigned', '#bdbdbd'), # Gray 400
     ('unknown function', '#9e9e9e'), # Gray 500
     ('uncertain function', '#757575'), # Gray 600
 )

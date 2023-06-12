@@ -190,7 +190,7 @@ image_configs["impact-1"] = {
 }
 
 image_configs["impact-0"] = {
-    "selection": ("42132027delinsCT",),
+    "selection": ("42132049dup",),
     "edges": set([]),
     "color": True
 }
