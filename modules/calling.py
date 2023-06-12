@@ -629,6 +629,14 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # TODO reduce number of initial states (NA12815 and HG00421)
     for a in alleles:
         hom_anc = definitions[a] & hom_variants
+        # This clause only works when there are no loose homozygous variants
+        for o in alleles:
+            if a == o: 
+                continue
+            if o not in homozygous_alleles: 
+                continue
+            # Will already be present twice
+            hom_anc -= definitions[o]
         if len(hom_anc) > 0 and a not in homozygous_alleles: # Contains hom but isn't hom itself
             new_state = list(alleles)
             new_state.remove(a)
@@ -636,7 +644,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             new_state.insert(0, a)
             queue.append((new_state, 1, False, False, 0)) # Don't call on first (not a valid state)
     count = 0
-    print(*queue, sep="\n")
+    # print(*queue, sep="\n")
     while len(queue) > 0:
         state, extended, call, any_valid, specificity = queue.pop(0)
         if call:
@@ -757,7 +765,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
-            if sample != "NA12815": continue # Calling contains allele with contained allele
+            # if sample != "NA12815": continue # Calling contains allele with contained allele
             # if sample != "HG00111": continue # Simple homozygous (eq)
             # if sample != "NA18861": continue # Homozygous
             # if sample != "HG00276": continue # Fully homozygous with multiple direct subs
@@ -784,7 +792,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             print(sample)
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=False)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
             # Sort TODO fix generation order for multiple contained
             alternatives = list(alternatives)
             alternatives.sort(key=lambda c: c[0])
