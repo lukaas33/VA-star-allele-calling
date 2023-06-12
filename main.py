@@ -9,7 +9,7 @@ from modules.calling import star_allele_calling_all, find_type, Type
 from modules.other_sources import get_personal_ids, get_personal_impacts
 from modules.assets.generate_images import image_configs
 import algebra as va
-from modules.tests import *
+import modules.tests as tests
 
 def main(text, visual, example, select, interactive, phased, unphased, detail, download):
     # Get the reference sequence relevant for the (current) gene of interest
@@ -92,9 +92,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     relations_samples_simple |= set(find_relations_all(reference_sequence, personal_variants, cache_name="relations_personal_si"))
 
     # Manually remove unparsable TODO fix the parsing of these and remove this
-    unparsable_samples = ("HG00373_all","HG01680_all","NA18526_all", "NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all")
+    unparsable_samples = ("HG00373_all","HG01680_all","NA18526_all" ,"NA18632_all","NA19095_all","NA19908_all","NA20289_all","NA20296_all")
     for s in unparsable_samples:
-        supremal_samples[s] = None
+        if s in samples:
+            del samples[s]
+        if s in supremal_samples:
+            del supremal_samples[s]
     to_remove_ex = set()
     for s, t, r in relations_samples_extended:
         if s in unparsable_samples or t in unparsable_samples:
@@ -145,13 +148,15 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
 
     # Statistics
-    # statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
+    # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
     # TEST 7: validate alternative callings
-    # validate_alternative_calling(r"results\calling\calling_alt_new.txt", r"data\bastard.txt")
+    # tests.validate_alternative_calling(r"results\calling\calling_alt.txt", r"results/calling/calling_phased.txt")
+    # also check suballele callings
+    # tests.validate_alternative_calling(r"results\calling\calling_alt_subs_old.txt", r"results/calling/calling_phased_sub.txt")
 
     # TEST 8: validate alternative calling method on simulated data
-    # test_alternative_callings(supremal_extended, reference, relations_extended, functions)
+    # tests.test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
     if text and visual or text and interactive or visual and interactive:
@@ -198,6 +203,8 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
         sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
         homozygous_alleles = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
+        homozygous_alleles = find_context(homozygous_alleles, pruned_samples_extended[1], directional=True, overlap=False, extend=True, extended=set())[0]
+        homozygous_alleles = set((a for a in homozygous_alleles if find_type(a) in (Type.SUB, Type.CORE)))
         # TODO taxi edges?
         display_graph(nodes, edges, data, functions, default_layout="dagre", auto_download=select if download else None, relevance=None, marked_calling=marked_calling, group_variants=group, sample=select, homozygous=homozygous[sample] | homozygous_alleles)
         

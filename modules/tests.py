@@ -1,4 +1,4 @@
-from modules.utils import validate_relations, validate_calling, make_samples_unphased, validate_alternative_calling, count_relations, count_arity, change_ref, normalise
+from modules.utils import count_relations, count_arity
 from modules.data import cache_get, cache_set, api_get
 import warnings
 from modules.calling import star_allele_calling_all, find_type, Type
@@ -284,3 +284,167 @@ def statistics(corealleles, suballeles, relations, pruned_relations, callings):
     print(calling_count)
 
   
+def validate_alternative_calling(calling_filename, validate_filename):
+    """Validate if alternative calling matches with the M&J method"""
+    # TODO integrate differently (not using file)
+    validate = {}
+    with open(validate_filename, 'r', encoding="utf-16") as file:
+        for line in file:
+            # convert to format of classifications
+            sample, calling = line.rstrip().split(': ')
+            calling = calling.split('/')
+            # calling.sort(key=lambda x: int(x.split('*')[1]))
+            # calling = ["CYP2D6" + c for c in calling]
+            validate[sample] = calling
+    to_find = set(validate.keys())
+
+    def end_sample(sample, prev, found, count, totals, to_find):
+        if found != -1:
+            print(f"{sample} has the correct calling as the {found}th allele out of {count} alternatives ({'preferred' if found == 1 else 'not preferred'})")
+            if found == 1: totals['preferred'] += 1
+            else: totals['not_preferred'] += 1
+        else:
+            if "CYP2D6*?" in prev:
+                print(f"{sample} has an unparsable calling.")
+                totals['unparsable'] += 1
+            else:
+                print(f"{sample} has an incorrect calling. Last was {prev} (out of {count}). Calling should be {validate[sample]}")
+                totals['incorrect'] += 1
+        to_find.remove(sample)
+
+    # TODO make into single variable
+    totals = {
+        'preferred': 0,
+        'not_preferred': 0,
+        'incorrect': 0,
+        "unparsable": 0
+    }
+    with open(calling_filename, 'r', encoding="utf-16") as file:
+        line = next(file).strip()
+        sample = line
+        prev = None
+        found = -1
+        count = 0
+        for line in file:
+            line = line.strip()
+            if not line: 
+                continue
+            if line.startswith('CYP2D6'):
+                line = line.split(' ')[0] # Handle annotations
+                prev = line
+                count += 1
+                if line.split('/') == validate[sample]:
+                    found = count
+            else:
+                end_sample(sample, prev, found, count, totals, to_find)
+                sample = line
+                found = -1
+                count = 0
+                prev = None
+        end_sample(sample, prev, found, count, totals, to_find)
+
+    print(f"{totals['preferred']} samples correct as preferred allele")
+    print(f"{totals['not_preferred']} samples not correct preferred allele")
+    print(f"{totals['incorrect']} samples incorrect")
+    print(f"{totals['unparsable']} samples unparsable")
+    if len(to_find) > 0:
+        print(f"{len(to_find)} not in alternative callings:")
+        for sample in to_find:
+            print(f"\t{sample} should be {validate[sample]}")
+    print(f"{sum(totals.values()) + len(to_find)} total")
+
+
+def validate_relations(data, variants, filename):
+    """Validate if relations match with the M&J method"""
+    # TODO move
+    data = set([
+        (left, right, rel) 
+            for left, right, rel in data 
+            if rel != va.Relation.DISJOINT \
+                and left != right]
+    )
+    variants = {v["variantId"]: v["hgvs"] for v in variants.values()}
+    ref = set()
+    wrong_ref = set()
+    not_in_ref = set(data)
+    not_in_data = set()
+    with open(filename) as file:
+        for line in file:
+            # Convert to same edge notation as data
+            edge = line.rstrip().split(' ')
+            edge[2] = va.Relation[edge[2].upper()] 
+            for i in range(2):
+                # Convert variant_id notation to HGVS
+                if 'variant_' in edge[i]: 
+                    id = edge[i].split('variant_')[1]
+                    if id not in variants.keys():
+                        warnings.warn(f"Variant {id} not found in variants")
+                        wrong_ref.add(tuple(edge))
+                        break
+                    edge[i] = variants[id]
+            else: # No break, can continue
+                # Find reversed edge
+                reversed = [edge[1], edge[0], edge[2]] # Reverse
+                if edge[2] == va.Relation.CONTAINS: reversed[2] = va.Relation.IS_CONTAINED
+                elif edge[2] == va.Relation.IS_CONTAINED: reversed[2] = va.Relation.CONTAINS
+                # Check for orientation that is in data
+                edge = tuple(edge)
+                reversed = tuple(reversed)
+                if edge in data and reversed in data: # Both in data
+                    ref.add(edge)
+                    ref.add(reversed)
+                elif edge in data: # Specific orientation in data
+                    ref.add(edge)
+                elif reversed in data: # Specific orientation in data
+                    ref.add(reversed)
+                else:
+                    not_in_data.add(edge) # In ref but not in data
+                # Remove from data to see what is left at the end
+                if edge in not_in_ref:
+                    not_in_ref.remove(edge) 
+                if reversed in not_in_ref: 
+                    not_in_ref.remove(reversed)
+    # Relations test
+    if len(not_in_data) > 0:
+        print("These relations are in the reference but not in the data")
+        for n in not_in_data:
+            print('\t', n)
+    if len(not_in_ref) > 0:
+        print("These relations are in the data but not in the reference")
+        for n in not_in_ref:
+            print('\t', n)
+    if len(wrong_ref) > 0:
+        print("Reference contains these alleles that are wrong")
+        for w in wrong_ref:
+            print('\t', w)
+    # Count test
+    count_ref = count_relations(ref)
+    count_data = count_relations(data)
+    for pair in zip(count_ref.items(), count_data.items()):
+        if pair[0][1] != pair[1][1]:
+            print(f"Difference in relation count for {pair[0][0]}: {pair[0][1]} in ref vs {pair[1][1]} in data")
+    
+    print("No (further) differences found between the reference and the data relations")
+
+def validate_calling(callings, validate_filename, soft=False):
+    """Validate if classifications match with the M&J method"""
+    # TODO move
+    n_errors = 0
+    with open(validate_filename, 'r') as validate:
+        for line in validate:
+            # convert to format of classifications
+            sample, reference = line.strip().split(' ')
+            reference = ["CYP2D6" + c for c in reference.split('/')]
+            calling = [] # Get priority answer (assumes filtering has occurred already with representation method)  
+            for c in callings[sample].values():
+                calling.extend(c)
+            if soft: # Soft check, check if prediction contains correct answers
+                if all([r in calling for r in reference]):
+                    continue
+            else: # Hard check, exactly equal
+                if reference == calling or reference[::-1] == calling:
+                    continue
+            print(f"Sample {sample} was predicted as {calling} but should be {reference}")
+            n_errors += 1
+    if n_errors > 0:
+        print(f"{n_errors} errors found in the classifications")
