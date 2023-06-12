@@ -279,7 +279,7 @@ def display_graph(nodes, edges, data, functions, positions=None, default_layout=
                 category = "core"
             elif find_type(node) == Type.SUB: # Suballele
                 category = "sub"
-                label = label.split('.')[0] + '.' + label.split('.')[1].replace('0', '')
+                label = label.split('.')[0] + '.' + label.split('.')[1].lstrip('0')
             if marked_calling and node in marked_calling:
                 category += " called"
         elif find_type(node) in (Type.VAR, Type.P_VAR): # Variant
