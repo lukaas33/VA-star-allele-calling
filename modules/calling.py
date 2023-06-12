@@ -855,19 +855,19 @@ def detail_from_level(level):
     The output corresponds to the options of calling_to_repr.
 
     Different detail levels are available.
-    0: Only print best core match(es)
+    0: Only print best core match
     1: Print all direct core matches
-    2: Print all direct sub allele matches
-    3: Print all direct matches without core allele lookup
+    2: Only print best suballele match
+    3: Print all suballele matches
     4: Print all direct matches including the default allele
     TODO implement more levels?
     """
     if level == 0:
         warnings.warn("Detail level 0 may lose some useful information")
     kwargs = {}
-    kwargs["find_cores"] = level <= 2
-    kwargs["prioritize_function"] = level <= 0
-    kwargs["prioritize_strength"] = level <= 0
+    kwargs["find_cores"] = level <= 1
+    kwargs["prioritize_function"] = level == 0 or level == 2
+    kwargs["prioritize_strength"] = level == 0 or level == 2
     kwargs["suballeles"] = level >= 2
     kwargs["default"] = level == 4
     return kwargs
@@ -902,11 +902,11 @@ def calling_to_repr(calling, cont_graph, functions, find_cores, suballeles, defa
                     continue
                 if match2 not in cont_graph.nodes():
                     continue
-                if find_type(match1) == Type.SUB and \
-                    find_core_string(match1) != find_core_string(match2) and \
-                    find_core_string(match1) in nx.ancestors(cont_graph, match2): # Core of match1 is contained in match2 (10.1 > 10 in 99)
-                    matches.remove(match1)
-                    break
+                # if find_type(match1) == Type.SUB and \
+                #     find_core_string(match1) != find_core_string(match2) and \
+                #     find_core_string(match1) in nx.ancestors(cont_graph, match2): # Core of match1 is contained in match2 (10.1 > 10 in 99)
+                #     matches.remove(match1)
+                #     break
                 if match1 in nx.ancestors(cont_graph, match2): # match1 is contained in match2
                     matches.remove(match1)
                     break
