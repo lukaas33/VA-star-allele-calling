@@ -8,9 +8,9 @@ from itertools import combinations, combinations_with_replacement
 import math
 from enum import IntEnum
 import functools
-from queue import PriorityQueue
+from queue import PriorityQueue, Queue
 from dataclasses import dataclass, field
-from multiset import Multiset
+from multiset import Multiset, FrozenMultiset
 
 all_functions = ("function not assigned", 'unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function')
 
@@ -635,14 +635,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     for a in list(alleles):
         if a in homozygous_alleles:
             alleles.append(a)
-    # Priority queue
-    @dataclass(order=True)
-    class Item:
-        priority: int
-        item: object = field()
-    queue = PriorityQueue()
+    queue = Queue()
     # Initial state represents the directly related alleles of the sample
-    queue.put(Item((1, 0), (Multiset(), Multiset(alleles), False, True)))
+    queue.put((1, 0, Multiset(), Multiset(alleles), False, True))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -652,17 +647,17 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     for a in alleles:
         if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
             continue
-        queue.put(Item((1, 0), (Multiset([a]), Multiset(alleles), False, True))) # Don't call on first (not a valid state)
+        queue.put((1, 0, Multiset([a]), Multiset(alleles), False, True)) # Don't call on first (not a valid state)
     count = 0
-    prev = []
+    prev = set()
     while not queue.empty():
         item = queue.get()
-        depth, n_removed = item.priority
-        base_calling, state, any_valid, call = item.item
+        depth, n_removed, base_calling, state, any_valid, call = item
         # avoid duplicate states
-        if (base_calling, state) in prev:
+        check = (frozenset(base_calling), FrozenMultiset(state))
+        if check in prev:
             continue
-        prev.append((base_calling, state))
+        prev.add(check)
         # print(depth, n_removed, base_calling, state)
         count += 1
         if call:
@@ -725,7 +720,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      max((sort_function(functions[e]) for e in extend)) < max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first  
-                queue.put(Item((max((lengths[a] for a in state)), n_removed + len(removed)), (base_calling, new_state, any_valid, call and _call)))
+                queue.put((max((lengths[a] for a in state)), n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -787,7 +782,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
@@ -808,7 +803,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
             # if sample != "HG03703": continue # Importance of order and merging 
-            if sample == "NA19174": continue # TODO fix runtime
+            # if sample != "NA19174": continue # TODO fix runtime
 
             # test_i += 1
             # if test_i >= 5:
