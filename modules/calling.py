@@ -663,7 +663,11 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             for _calling, _pattern in generate_callings(base_calling, state):
                 if valid(_pattern, hom_variants, het_variants, definitions):
                     calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
-                    depth = max([lengths[a] for a in _calling[0] | _calling[1]] + [0]) # Deepest point in calling tree TODO track
+                    l = [lengths[a] for a in _calling[0] | _calling[1]]
+                    if len(l) == 0:
+                        depth = float("inf")
+                    else:
+                        depth = max(l) # Deepest point in calling tree TODO track
                     yield (depth, n_removed), calling
                     any_valid = True
         # Stop as can extend no further
@@ -781,7 +785,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
@@ -801,6 +805,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
             # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
+            # if sample != "HG03703": continue # Importance of order and merging TODO fix stopping here 
 
             # test_i += 1
             # if test_i >= 5:
