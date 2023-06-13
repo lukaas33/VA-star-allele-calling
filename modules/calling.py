@@ -562,19 +562,26 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         if count_cores <= n_cores:
             # Find base calling, alleles of different cores must be in different phases
             _calling_hom = [set()] * n_cores
-            free = set()
+            het = set()
             for a in set(state):
                 if state.count(a) == n_cores:
                     for i in range(n_cores):
                         _calling_hom[i].add(a)
                 else:
-                    free.add(a)
-            # Check possible distributions of free moving alleles
-            mid = len(free) // 2 # Used to avoid duplicates
-            for r in range(0 if len(free) < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
-                for k, f in enumerate(combinations(free, r)): # Move r alleles to phase 1
+                    het.add(a)
+            # Check possible distributions of het moving alleles
+            mid = len(het) // 2 # Used to avoid duplicates
+            for r in range(0 if len(het) < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
+                for k, f in enumerate(combinations(het, r)): # Move r alleles to phase 1
                     f = set(f)
-                    _calling = [_calling_hom[0] | f, _calling_hom[1] | free - f]
+                    _calling = [_calling_hom[0] | f, _calling_hom[1] | het - f]
+                    # Only have one core per phase TODO do by generation 
+                    # TODO fix for CNV
+                    if len(set((find_core_string(a) for a in _calling[0] if find_core_string(a) != "CYP2D6*1"))) > 1:
+                        continue
+                    if len(set((find_core_string(a) for a in _calling[0] if find_core_string(a) != "CYP2D6*1"))) > 1:
+                        continue
+                    # Skip distributions of pattern 1/x+y
                     _pattern = [set(), set()]
                     for i in range(2):
                         for a in _calling[i]:
@@ -627,6 +634,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
+    # TODO reduce when present in more?
     # TODO support for more than 2 cores?
     # TODO does this support suballeles of 1?
     for a in alleles:
@@ -639,7 +647,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             add = True
         if add:
             queue.append(([a], list(alleles), 0, False, False, 0)) # Don't call on first (not a valid state)
-            pass
+        pass
     # If homozygous alleles are already present a valid state must include these
     for a in alleles:
         if a in homozygous_alleles:
@@ -792,6 +800,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA10865": continue # Heterozygous with default
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
             # if sample != "NA07056": continue # Need for replacing with nothing
+            # if sample != "NA07348": continue # Has suballele of 1
 
             # test_i += 1
             # if test_i >= 5:
