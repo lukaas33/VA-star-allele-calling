@@ -187,7 +187,7 @@ def interactive_graph(app, original_elements, edges, auto_download):
             return default_stylesheet
         # show both incoming and outgoing containment (different from subgraph neighbourhood)
         # TODO use same neighbourhood definition?
-        context, _ = find_context(set([node["id"] for node in nodes]), edges)
+        context, _ = find_context(set([node["id"] for node in nodes]), edges, directional=True)
         return selection_stylesheet(context, layout["name"])
     
     # Download image

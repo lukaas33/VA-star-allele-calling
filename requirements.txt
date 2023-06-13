@@ -8,3 +8,4 @@ networkx
 PyVCF 
 easy-entrez
 biopython
+multiset
