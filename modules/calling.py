@@ -627,10 +627,17 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
-    # TODO can limit when hom contained in 2 or more?
     # TODO support for more than 2 cores?
+    # TODO does this support suballeles of 1?
     for a in alleles:
-        if any(h in nx.ancestors(cont_graph, a) for h in homozygous_alleles): # homozygous can occur with larger in other phase 
+        add = False
+        for h in homozygous_alleles:
+            if h not in nx.ancestors(cont_graph, a):
+                continue
+            if any((h in nx.ancestors(cont_graph, o) for o in alleles if o != a)):
+                continue
+            add = True
+        if add:
             queue.append(([a], list(alleles), 0, False, False, 0)) # Don't call on first (not a valid state)
             pass
     # If homozygous alleles are already present a valid state must include these
@@ -695,7 +702,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Do not extend if there is nothing under this
         # Extension can occur without removal of variants (e.g. 65>10,2)
         # Empty extension can occur due to merging of contained alleles in which case removed is not empty
-        # Can replace with empty to arrive at valid value TODO fix stopping condition
+        # Can replace with empty to arrive at valid value
+        # TODO fix stopping condition for non-empty base calling
         if any_valid and len(underlying) == len(removed) == 0:
             # Do allow to extending to empty if this allele is heterozygous and in the base calling
             # if not any((extend in nx.ancestors(cont_graph, a) for a in base_calling)) and not extend in homozygous_alleles:
@@ -760,7 +768,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
     if not phased: # Unphased calling should be separated
         representations = {}
         # TODO make this into function
-        # TODO allow for keeping of multiple alternative representations?
+        # TODO allow for keeping of multiple alternative representations instead of printing?
         # test_i = 0
         for sample, calling in callings.items():
             # DEBUG
