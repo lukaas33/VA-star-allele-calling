@@ -642,7 +642,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         item: object = field()
     queue = PriorityQueue()
     # Initial state represents the directly related alleles of the sample
-    queue.put(Item((1, 0), (Multiset(), Multiset(alleles), False)))
+    queue.put(Item((1, 0), (Multiset(), Multiset(alleles), False, True)))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -650,36 +650,29 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # TODO support for more than 2 cores?
     # TODO does this support suballeles of 1?
     for a in alleles:
-        # add = False
-        # for h in homozygous_alleles:
-        #     if h not in nx.ancestors(cont_graph, a):
-        #         continue
-        #     if any((h in nx.ancestors(cont_graph, o) for o in alleles if o != a)):
-        #         continue
-        #     add = True
-        # if add:
         if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
             continue
-        queue.put(Item((1, 0), (Multiset([a]), Multiset(alleles), False))) # Don't call on first (not a valid state)
+        queue.put(Item((1, 0), (Multiset([a]), Multiset(alleles), False, True))) # Don't call on first (not a valid state)
     count = 0
     prev = []
     while not queue.empty():
         item = queue.get()
         depth, n_removed = item.priority
-        base_calling, state, any_valid = item.item
+        base_calling, state, any_valid, call = item.item
         # avoid duplicate states
         if (base_calling, state) in prev:
             continue
         prev.append((base_calling, state))
-        # print(depth, n_removed, state)
+        # print(depth, n_removed, base_calling, state)
         count += 1
-        # Only try generating a calling of a valid number of cores
-        # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
-        for _calling, _pattern in generate_callings(base_calling, state):
-            if valid(_pattern, hom_variants, het_variants, definitions):
-                calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
-                yield (depth, n_removed), calling
-                any_valid = True
+        if call:
+            # Only try generating a calling of a valid number of cores
+            # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
+            for _calling, _pattern in generate_callings(base_calling, state):
+                if valid(_pattern, hom_variants, het_variants, definitions):
+                    calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
+                    yield (depth, n_removed), calling
+                    any_valid = True
         # Extend alleles with underlying alleles
         # Find underlying alleles not contained in other alleles
         # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
@@ -698,9 +691,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     if filter_default and find_core_string(u) == "CYP2D6*1":
                         continue
                     # Limit extension when having a base calling (optimisation)
-                    if base_calling:
-                        if not any((h in nx.ancestors(cont_graph, u) for h in homozygous_alleles)):
-                            continue
+                    if base_calling and \
+                        (not any((h in nx.ancestors(cont_graph, u) for h in homozygous_alleles)) and not 
+                         u in homozygous_alleles):
+                        continue    
                     underlying.add(u)
                 # Extend alleles with underlying alleles
                 # Merge some alleles
@@ -717,20 +711,21 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         continue
                     new_state.add(a)
                 # Stop condition as all further will be less precise than some valid calling
+                # Do not allow extending from leaf to empty state
+                if len(underlying) == len(removed) == len(new_state) == 0:
+                    continue
                 # Do not extend if all removed variants are homozygous as this removed detail unnecessarily
-                # TODO disallow extension with nothing?
+                _call = True
                 if any_valid and \
                      all((v in hom_variants for v in removed)): 
-                    prev.append((base_calling, new_state)) # Prevent extending in other branches
-                    continue
+                    _call = False # Prevent extended being called in other branches
                 # Do not extend if this results in a functionally better allele
                 if any_valid and \
                      len(underlying) > 0 and \
                      max((sort_function(functions[e]) for e in extend)) < max((sort_function(functions[u]) for u in underlying)):
-                    prev.append((base_calling, new_state)) # Prevent extending in other branches
-                    continue              
+                    _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first  
-                queue.put(Item((max((lengths[a] for a in state)), n_removed + len(removed)), (base_calling, new_state, any_valid)))
+                queue.put(Item((max((lengths[a] for a in state)), n_removed + len(removed)), (base_calling, new_state, any_valid, call and _call)))
 
 def order_callings(calling, functions, no_default=True, shortest=True, no_uncertain=True):
     """Order alternative callings by clinical relevance.
@@ -812,7 +807,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
             # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
-            # if sample != "HG03703": continue # Importance of order and merging TODO fix stopping here 
+            # if sample != "HG03703": continue # Importance of order and merging 
+            if sample == "NA19174": continue # TODO fix runtime
 
             # test_i += 1
             # if test_i >= 5:
