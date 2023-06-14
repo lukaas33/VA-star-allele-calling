@@ -11,6 +11,8 @@ import functools
 from queue import PriorityQueue, Queue
 from dataclasses import dataclass, field
 from multiset import Multiset, FrozenMultiset
+from Bio.Seq import Seq
+from Bio.Align import PairwiseAligner
 
 all_functions = ("function not assigned", 'unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function')
 
@@ -506,7 +508,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, filter_default=False, n_cores=2):
+def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, supremals, filter_default=False, n_cores=2):
     """ 
     Checks which alleles the sample contains and sees if a valid calling (*x/*y) n_cores = 2 is possible.
     If so, test if the distribution of variants is valid by homozygosity.
@@ -591,7 +593,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     yield _calling, _pattern
                     if r == mid and k == mid-1:
                         break
-
     def find_underlying(alleles, cont_graph, eq_graph, ov_graph):
         """ Find the underlying alleles and variants (direct connections) of an allele """
         for allele in alleles:
@@ -599,6 +600,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 for c in cont_graph.predecessors(allele): 
                     yield c
         # Ignore equivalent as we do not want to replace these with nothing (already leaves)
+    def distance(a, b):
+        """ Align and find distance between two sequences """
+        a = Seq(a)
+        b = Seq(b)
+        align = PairwiseAligner()
+        return align.align(a, b).score
 
     # Find star allele definitions
     definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
@@ -607,6 +614,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     lengths = {n: l[n][sample + '_all'] for n in l if sample + '_all' in l[n]}
     l = dict(nx.all_pairs_shortest_path_length(eq_graph))
     lengths |= {n: l[n][sample + '_all'] for n in l if sample + '_all' in l[n]}
+    # Find alignment distance with observed allele to determine specificity
+    # dist = {s: distance(supremals[s].sequence, supremals[sample + "_all"].sequence) for s in definitions}
     # Find directly related alleles of sample
     if sample + "_all" in cont_graph.nodes():
         alleles = list((a for a in cont_graph.predecessors(sample + "_all") if find_type(a) != Type.VAR and find_type(a) != Type.P_VAR))
@@ -819,7 +828,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             print(sample)
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, filter_default=True)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, filter_default=True)
             # Sort 
             # alternatives = list(alternatives)
             # alternatives.sort(key=lambda c: c[0])
@@ -834,7 +843,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(representation)
+                print(specificity, representation)
             # Select the most relevant alternative
             if not preferred:
                 preferred = {"A": [{"CYP2D6*1",}], "B": [{"CYP2D6*1",}]}

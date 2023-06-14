@@ -9,3 +9,4 @@ PyVCF
 easy-entrez
 biopython
 multiset
+python-Levenshtein
