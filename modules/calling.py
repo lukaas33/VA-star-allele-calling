@@ -791,7 +791,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            if sample != "HG00421": continue # Common basic difficult pattern
+            # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
@@ -830,8 +830,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             print(sample)
             alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, filter_default=True)
             # Sort 
-            # alternatives = list(alternatives)
-            # alternatives.sort(key=lambda c: c[0])
+            alternatives = list(alternatives)
+            alternatives.sort(key=lambda c: c[0])
             preferred = None
             unique_repr = set()
             for specificity, alternative in alternatives:
@@ -843,7 +843,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(specificity, representation)
+                print(representation)
             # Select the most relevant alternative
             if not preferred:
                 preferred = {"A": [{"CYP2D6*1",}], "B": [{"CYP2D6*1",}]}
