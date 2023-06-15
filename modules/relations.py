@@ -275,11 +275,14 @@ def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None
     return None
 
 def find_all_distances(relations_samples_extended, supremal_samples, supremal_extended, samples, reference_sequence, cache_name=None):
+    # TODO use edit from va (see main)
     def patch(sup1, sup2):
         if sup2 is None: # CYP2D6*1
             sup2 = va.Variant(sup1.start, sup1.end, reference_sequence[sup1.start:sup1.end])
         # Patch changes in area size of sup1
         # Needed for consistency of scores, we want to compare the score for the same observed allele
+        # TODO valid to use this interval
+        # TODO needed to align?
         interval = (sup1.start, sup1.end)
         seq = reference_sequence[interval[0]:interval[1]]
         seq1 = seq[:sup1.start-interval[0]] + sup1.sequence + seq[sup1.end-interval[1]+1:]
@@ -301,6 +304,8 @@ def find_all_distances(relations_samples_extended, supremal_samples, supremal_ex
             if find_type(right) not in (Type.CORE, Type.SUB):
                 continue
             if rel != va.Relation.CONTAINS and rel != va.Relation.EQUIVALENT:
+                continue
+            if supremal_extended[right] is None:
                 continue
             # Pairwise alignment and scoring
             distances[sample][right] = distance(*patch(supremal_samples[sample], supremal_extended[right]))
