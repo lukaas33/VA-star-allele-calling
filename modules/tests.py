@@ -12,14 +12,15 @@ def test_naming(corealleles, suballeles):
     """Naming test, useful for checking if the data is complete."""
     numbers = []
     for coreallele_name in corealleles.keys():
-        for suballele in suballeles[coreallele_name]:
-            if coreallele_name not in suballele["alleleName"]:
-                warnings.warn(f"{coreallele_name}: naming of {suballele['alleleName']} inconsistent.")
+        for suballele_name in suballeles[coreallele_name].keys():
+            if coreallele_name not in suballele_name:
+                warnings.warn(f"{coreallele_name}: naming of {suballele_name} inconsistent.")
         number = int(coreallele_name.split("*")[1])
         numbers.append(number)
     if len(numbers) != len(set(numbers)):
         warnings.warn("There are double core alleles in the data")
     all_numbers = set(range(1, max(numbers)+1))
+    print(len(all_numbers), len(numbers))
     if all_numbers != set(numbers):
         # QUESTION why are some numbers skipped?
         # TODO detect proper skips
