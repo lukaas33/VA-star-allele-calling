@@ -642,21 +642,27 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
+    # Limit state to others in which it is present
     # TODO reduce when present in more?
     # TODO support for more than 2 cores?
     # TODO does this work for suballeles of 1?
     for a in alleles:
-        if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
-            continue
-        # if a != "CYP2D6*10.004": # TODO remove
-        #     continue
-        queue.append((0, Multiset([a]), Multiset(alleles), False, True))
+        hom_anc = set()
+        for h in homozygous_alleles:
+            if h in nx.ancestors(cont_graph, a):
+                hom_anc.add(h)
+        if hom_anc:
+            possible = set()
+            for o in alleles:
+                if o != a and any((h in nx.ancestors(cont_graph, o) for h in hom_anc)):
+                    possible.add(o)
+            queue.append((0, Multiset([a]), Multiset(possible), False, True))
     count = 0
     prev = set()
     to_remove = set()
     alternatives = []
     while len(queue) > 0:
-        n_removed, base_calling, state, any_valid, call = queue.pop(0)
+        n_removed, base_calling, state, any_valid, call = queue.pop()
         # avoid extending duplicate states normally
         # do not avoid when the underlying states need to be removed later
         if call:
@@ -670,7 +676,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if check in to_remove:
                 continue
             to_remove.add(check)
-        print(base_calling, state)
+        # print(base_calling, state)
         count += 1
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
@@ -851,7 +857,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
             # if sample != "HG03703": continue # Importance of order and merging 
-            if sample != "NA19174": continue # TODO fix runtime
+            # if sample != "NA19174": continue # TODO fix runtime
 
             # test_i += 1
             # if test_i >= 5:
@@ -880,7 +886,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(specificity, representation)
+                print(representation)
             # Select the most relevant alternative
             if not preferred:
                 preferred = {"A": [{"CYP2D6*1",}], "B": [{"CYP2D6*1",}]}
