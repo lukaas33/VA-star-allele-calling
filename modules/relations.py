@@ -301,15 +301,20 @@ def find_all_distances(relations_samples_extended, supremal_samples, supremal_ex
     #     return align.align(a, b).score
     def distance(a, b):
         interval = [float('inf'), -float('inf')]
+        # TODO is this reduction legal?
         for v in a + b:
+            if v is None:
+                continue
             if v.start < interval[0]:
                 interval[0] = v.start
             if v.end > interval[1]:
                 interval[1] = v.end
+        if interval[0] == float('inf') or interval[1] == -float('inf'): # for 1/1 callings
+            return 0
         ref = reference_sequence[interval[0]:interval[1]]
-        a = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in a]
+        a = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in a if v is not None]
         oa = va.variants.patch(ref, a)
-        b = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in b]
+        b = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in b if v is not None]
         ob = va.variants.patch(ref, b)
         d, _ = va.lcs.edit(oa, ob)
         return d
@@ -329,8 +334,6 @@ def find_all_distances(relations_samples_extended, supremal_samples, supremal_ex
             if find_type(right) not in (Type.CORE, Type.SUB):
                 continue
             if rel != va.Relation.CONTAINS and rel != va.Relation.EQUIVALENT:
-                continue
-            if supremal_extended[right] is None: # Unparsable
                 continue
             # Pairwise alignment and scoring
             distances[sample][right] = distance([supremal_samples[sample]], [supremal_extended[right]])
