@@ -3,7 +3,7 @@ import argparse
 from modules.data import reference_get, pharmvar_get
 from modules.graph import display_graph
 from modules.compare import find_relations_all
-from modules.relations import prune_relations, find_context, redundant_reflexive
+from modules.relations import prune_relations, find_context, find_all_distances
 from modules.parse import extract_variants, to_supremal, parse_samples, samples_to_supremal
 from modules.calling import star_allele_calling_all, find_type, Type
 from modules.other_sources import get_personal_ids, get_personal_impacts
@@ -115,6 +115,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
+    # Find distances
+    distances = find_all_distances(relations_samples_extended, supremal_samples, supremal_extended, samples, reference_sequence, cache_name="distances_samples_extended")
+
     # Simplify sample relations
     print("Simplify sample relations...")
     pruned_samples_extended = prune_relations(relations_samples_extended | relations_extended, cache_name="relations_pruned_samples_extended")
@@ -129,7 +132,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if phased:
         print("Calling phased...")
         # TODO change used by detail?
-        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=detail, reorder=text is not None)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -145,7 +148,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased:
         # TODO change by detail?
         print("Calling unphased...")
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
 
     # Statistics
     # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)

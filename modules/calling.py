@@ -47,7 +47,16 @@ def find_type(v):
         if ':' in v:
             return Type.VAR # Variant
         return Type.P_VAR # Personal variant
-    
+
+def distance(a, b):
+    """ Align and find distance between two sequences """
+    a = Seq(a)
+    b = Seq(b)
+    if len(a) == 0 or len(b) == 0: # TODO can happen for single deletions 
+        return 0 # TODO correct?
+    align = PairwiseAligner()
+    return align.align(a, b).score
+
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
     raise DeprecationWarning("This function is not used any more")
@@ -508,7 +517,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, supremals, filter_default=False, n_cores=2):
+def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, supremals, distances, filter_default=False, n_cores=2):
     """ 
     Checks which alleles the sample contains and sees if a valid calling (*x/*y) n_cores = 2 is possible.
     If so, test if the distribution of variants is valid by homozygosity.
@@ -600,12 +609,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 for c in cont_graph.predecessors(allele): 
                     yield c
         # Ignore equivalent as we do not want to replace these with nothing (already leaves)
-    def distance(a, b):
-        """ Align and find distance between two sequences """
-        a = Seq(a)
-        b = Seq(b)
-        align = PairwiseAligner()
-        return align.align(a, b).score
 
     # Find star allele definitions
     definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
@@ -646,7 +649,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             alleles.append(a)
     queue = Queue()
     # Initial state represents the directly related alleles of the sample
-    queue.put((1, 0, Multiset(), Multiset(alleles), False, True))
+    d = lambda alls: sum((distances[sample + "_all"][a] for a in alls)) / len(alls)
+    queue.put(((1, 0, d(alleles)), Multiset(), Multiset(alleles), False, True))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -656,14 +660,14 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     for a in alleles:
         if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
             continue
-        queue.put((1, 0, Multiset([a]), Multiset(alleles), False, True)) # Don't call on first (not a valid state)
+        queue.put(((1, 0, d(alleles)), Multiset([a]), Multiset(alleles), False, True))
     count = 0
     prev = set()
     to_remove = []
     alternatives = []
     while not queue.empty():
         item = queue.get()
-        depth, n_removed, base_calling, state, any_valid, call = item
+        (depth, n_removed, distance), base_calling, state, any_valid, call = item
 
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
@@ -672,7 +676,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
                 any_valid = True
                 if call:
-                    alternatives.append(((depth, n_removed), calling))
+                    alternatives.append(((depth, n_removed, distance), calling))
                 else:
                     to_remove.append(tuple(calling.values()))
         # avoid duplicate states
@@ -732,13 +736,18 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      len(underlying) > 0 and \
                      max((sort_function(functions[e]) for e in extend)) < max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
-                # Extend lower depth and fewer removed first  
-                queue.put((max((lengths[a] for a in state)), n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
+                # Extend lower depth and fewer removed first
+                specificity = (max((lengths[a] for a in state)), n_removed + len(removed), d(new_state | base_calling))
+                queue.put((specificity, base_calling, new_state, any_valid, call and _call))
 
     # Filter and sort afterwards based on specificity
     # Instead of using priority queue as this is faster
     # Less specific valid that should not be called were found and stored
-    print(*to_remove, sep="\n")
+    # print(*to_remove, sep="\n")
+    print(distances[sample + "_all"]["CYP2D6*1"])
+    print(distances[sample + "_all"]["CYP2D6*39"])
+    print(distances[sample + "_all"]["CYP2D6*2"])
+    print(distances[sample + "_all"]["CYP2D6*10"])
     alternatives = [(s, a) for s, a in alternatives if 
                     (a["A"], a["B"]) not in to_remove and 
                     (a["B"], a["A"]) not in to_remove]
@@ -781,7 +790,7 @@ def order_callings(calling, functions, no_default=True, shortest=True, no_uncert
     return score
                     
 
-def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, homozygous=None, phased=True, detail_level=1, reorder=True):
+def star_allele_calling_all(samples, nodes, edges, functions, supremals, reference, distances, homozygous=None, phased=True, detail_level=1, reorder=True):
     """Iterate over samples and call star alleles for each."""
     eq_graph = nx.Graph([(left, right) for left, right, relation in edges if relation == va.Relation.EQUIVALENT])
     cont_graph = nx.DiGraph([(left, right) for left, right, relation in edges if relation == va.Relation.IS_CONTAINED])
@@ -842,7 +851,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             print(sample)
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, filter_default=True)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, distances, filter_default=True)
             # Sort             
             preferred = None
             unique_repr = set()
@@ -855,7 +864,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
                 unique_repr.add(representation) 
                 if preferred is None:
                     preferred = alternative
-                print(representation)
+                print(specificity, representation)
             # Select the most relevant alternative
             if not preferred:
                 preferred = {"A": [{"CYP2D6*1",}], "B": [{"CYP2D6*1",}]}
