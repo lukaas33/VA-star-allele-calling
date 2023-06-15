@@ -11,8 +11,6 @@ import functools
 from queue import PriorityQueue, Queue
 from dataclasses import dataclass, field
 from multiset import Multiset, FrozenMultiset
-from Bio.Seq import Seq
-from Bio.Align import PairwiseAligner
 
 all_functions = ("function not assigned", 'unknown function', 'uncertain function', 'normal function', 'decreased function', 'no function')
 
@@ -47,15 +45,6 @@ def find_type(v):
         if ':' in v:
             return Type.VAR # Variant
         return Type.P_VAR # Personal variant
-
-def distance(a, b):
-    """ Align and find distance between two sequences """
-    a = Seq(a)
-    b = Seq(b)
-    if len(a) == 0 or len(b) == 0: # TODO can happen for single deletions 
-        return 0 # TODO correct?
-    align = PairwiseAligner()
-    return align.align(a, b).score
 
 def find_contained_variants(start, cont_graph, eq_graph, matches, visited, find, stop=None):
     """Recursively find the contained (and equivalent) variants from a given start node."""
