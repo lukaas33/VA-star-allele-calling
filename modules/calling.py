@@ -638,13 +638,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             alleles.append(a)
     queue = Queue()
     # Initial state represents the directly related alleles of the sample
-    queue.put((0, Multiset(), Multiset(alleles), False, True))
+    # queue.put((0, Multiset(), Multiset(alleles), False, True))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
     # TODO reduce when present in more?
     # TODO support for more than 2 cores?
-    # TODO does this support suballeles of 1?
+    # TODO does this work for suballeles of 1?
     for a in alleles:
         if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
             continue
@@ -656,13 +656,22 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     while not queue.empty():
         item = queue.get()
         n_removed, base_calling, state, any_valid, call = item
-
+        # avoid extending duplicate states normally
+        # do not avoid when the underlying states need to be removed later
+        if call:
+            # TODO refine for skipping states when in to_remove
+            check = (frozenset(base_calling), FrozenMultiset(state))
+            if check in prev:
+                continue
+            prev.add(check)
+            count += 1
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
         for _calling, _pattern in generate_callings(base_calling, state):
             if valid(_pattern, hom_variants, het_variants, definitions):
-                calling = {"A": [], "B": []}
                 any_valid = True
+                calling = {"A": [], "B": []}
+                # Valid calling, return and calculate specificity
                 depth = -1
                 sum_dist, n_dist = 0, 0
                 for i, p in enumerate("AB"):
@@ -677,15 +686,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         n_dist += 1
                 distance = sum_dist / n_dist
                 if call:
+                    # print("valid", calling)
                     alternatives.append(((depth, n_removed, distance), calling))
                 else:
+                    # less specific than some other calling, remove later
+                    # print("less specific", calling)
                     to_remove.append(tuple(calling.values()))
-        # avoid duplicate states
-        check = (frozenset(base_calling), FrozenMultiset(state))
-        if check in prev:
-            continue
-        prev.add(check)
-        count += 1
         # Extend alleles with underlying alleles
         # Find underlying alleles not contained in other alleles
         # Compresses combinations that may arise due to duplicate containment (both 65 and 2.2 contain 2)
@@ -730,13 +736,16 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 # Do not extend if all removed variants are homozygous as this removed detail unnecessarily
                 _call = True
                 if any_valid and \
-                     all((v in hom_variants for v in removed)): 
+                     len(removed) > 0 and \
+                     all((v in hom_variants for v in removed)):
                     _call = False # Prevent extended being called in other branches
+                    # print("do not extend to", new_state, removed)
                 # Do not extend if this results in a functionally better allele
                 if any_valid and \
                      len(underlying) > 0 and \
                      max((sort_function(functions[e]) for e in extend)) < max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
+                    # print("do not extend to", new_state, [functions[e] for e in extend], [functions[u] for u in underlying])
                 # Extend lower depth and fewer removed first
                 queue.put((n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
 
@@ -810,7 +819,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            # if sample != "HG00421": continue # Common basic difficult pattern
+            if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
