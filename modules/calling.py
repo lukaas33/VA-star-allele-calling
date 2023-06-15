@@ -638,8 +638,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             alleles.append(a)
     queue = Queue()
     # Initial state represents the directly related alleles of the sample
-    d = lambda alls: sum((distances[sample + "_all"][a] for a in alls)) / len(alls)
-    queue.put(((1, 0, d(alleles)), Multiset(), Multiset(alleles), False, True))
+    queue.put((0, Multiset(), Multiset(alleles), False, True))
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -649,21 +648,34 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     for a in alleles:
         if not any((h in nx.ancestors(cont_graph, a) for h in homozygous_alleles)):
             continue
-        queue.put(((1, 0, d(alleles)), Multiset([a]), Multiset(alleles), False, True))
+        queue.put((0, Multiset([a]), Multiset(alleles), False, True))
     count = 0
     prev = set()
     to_remove = []
     alternatives = []
     while not queue.empty():
         item = queue.get()
-        (depth, n_removed, distance), base_calling, state, any_valid, call = item
+        n_removed, base_calling, state, any_valid, call = item
 
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
         for _calling, _pattern in generate_callings(base_calling, state):
             if valid(_pattern, hom_variants, het_variants, definitions):
-                calling = {"A": [_calling[0], {"CYP2D6*1",}], "B": [_calling[1], {"CYP2D6*1",}]}
+                calling = {"A": [], "B": []}
                 any_valid = True
+                depth = -1
+                sum_dist, n_dist = 0, 0
+                for i, p in enumerate("AB"):
+                    if len(_calling[i]) > 0: 
+                        calling[p].append(_calling[i])
+                        depth = max(depth, max((lengths[a] for a in _calling[i])))
+                        sum_dist += sum((distances[sample + "_all"][a] for a in _calling[i]))
+                        n_dist += len(_calling[i])
+                    else:
+                        calling[p].append({"CYP2D6*1",})
+                        sum_dist += distances[sample + "_all"]["CYP2D6*1"]
+                        n_dist += 1
+                distance = sum_dist / n_dist
                 if call:
                     alternatives.append(((depth, n_removed, distance), calling))
                 else:
@@ -726,17 +738,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      max((sort_function(functions[e]) for e in extend)) < max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first
-                specificity = (max((lengths[a] for a in state)), n_removed + len(removed), d(new_state | base_calling))
-                queue.put((specificity, base_calling, new_state, any_valid, call and _call))
+                queue.put((n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
 
     # Filter and sort afterwards based on specificity
     # Instead of using priority queue as this is faster
     # Less specific valid that should not be called were found and stored
     # print(*to_remove, sep="\n")
-    print(distances[sample + "_all"]["CYP2D6*1"])
-    print(distances[sample + "_all"]["CYP2D6*39"])
-    print(distances[sample + "_all"]["CYP2D6*2"])
-    print(distances[sample + "_all"]["CYP2D6*10"])
     alternatives = [(s, a) for s, a in alternatives if 
                     (a["A"], a["B"]) not in to_remove and 
                     (a["B"], a["A"]) not in to_remove]
@@ -803,7 +810,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
         for sample, calling in callings.items():
             # DEBUG
             # if sample != "NA10859": continue # Small tree
-            if sample != "HG00421": continue # Common basic difficult pattern
+            # if sample != "HG00421": continue # Common basic difficult pattern
             # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
