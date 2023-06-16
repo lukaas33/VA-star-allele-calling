@@ -516,6 +516,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     TODO allow for suballeles of 1
     TODO handle overlap?
     TODO do not create new state but mutate (optimisation)
+
+    TODO fix case of 10.001/39
     """
     def valid(_ancestors, hom_variants, het_variants, definitions):
         """ Check if the distribution of variants is valid by homozygosity """
@@ -698,8 +700,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         n_dist += 1
                 distance = sum_dist / n_dist
                 if call:
-                    print(state)
-                    print(calling)
+                    # print(calling)
                     alternatives.append(((depth, n_removed, distance), calling))
                     
         # Extend alleles with underlying alleles
@@ -728,15 +729,15 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 # Extend alleles with underlying alleles
                 # Merge some alleles
                 new_state = Multiset()
-                # TODO stop when homozygocity is violated
+                # TODO stop when homozygocity is violated?
                 for a in base | underlying:
                     # Only allow het alleles once and hom alleles twice
-                    if a not in homozygous_alleles:
-                        if new_state[a] == 1:
-                            continue
-                    else:
-                        if new_state[a] == 2:
-                            continue
+                    # if a not in homozygous_alleles:
+                    #     if new_state[a] == 1:
+                    #         continue
+                    # else:
+                    #     if new_state[a] == 2:
+                    #         continue
                     # Only homozygous alleles can be present together with their underlying alleles
                     if a not in homozygous_alleles and \
                          any((a in nx.ancestors(cont_graph, o) for o in base | underlying)):
@@ -744,13 +745,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     new_state.add(a)
                 # Stop condition as all further will be less precise than some valid calling
                 _call = True
-                # Do not allow extending from leaf to empty phase
+                # Do not allow extending from leaf to empty phase (e.g. from 2/22 to 1/2)
                 # TODO refine, do not allow 10.xxx/39?
-                if len(underlying) == len(removed) == 0:
-                    if len(new_state) < 2:
-                        continue
-                #     elif any_valid: # TODO test
-                #         _call = False
+                if any_valid and len(new_state) < min(len(state), n_cores): # TODO test
+                    _call = False
                 # Do not extend if all removed variants are homozygous as this removes detail unnecessarily
                 if any_valid and \
                      len(removed) > 0 and \
@@ -764,7 +762,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first
-                print("extend", state, "to", new_state)
+                # print("extend", state, "to", new_state)
                 queue.append((n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
     # Filter and sort afterwards based on specificity
     # Instead of using priority queue as this is faster
@@ -839,7 +837,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # DEBUG
             # if sample != "NA10859": continue # Small tree
             # if sample != "HG00421": continue # Common basic difficult pattern
-            if sample != "HG00337": continue # Simple straightforward solution
+            # if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
