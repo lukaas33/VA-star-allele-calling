@@ -132,7 +132,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if phased:
         print("Calling phased...")
         # TODO change used by detail?
-        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=detail, reorder=not visual)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -148,7 +148,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased:
         # TODO change by detail?
         print("Calling unphased...")
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, homozygous=homozygous, phased=False, detail_level=detail, reorder=not visual)
 
     # Statistics
     # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
