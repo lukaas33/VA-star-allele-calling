@@ -167,7 +167,7 @@ image_configs["function-uncertain"] = {
     "color": True
 }
 image_configs["function-na"] = {
-    "selection": ("CYP2D6*162",),
+    "selection": ("CYP2D6*150",),
     "edges": set([]),
     "color": True
 }

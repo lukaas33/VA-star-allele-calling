@@ -187,8 +187,8 @@ for function, colour in function_colours:
 
 # Style for impact
 impact_colours = (
-    (0, '#E0E0E0'), # Gray 300
-    (1, '#9E9E9E'), # Gray 500
+    (0, '#9E9E9E'), # Gray 500
+    (1, '#616161'), # Gray 700
     (2, '#4CAF50'), # Green 500
     (3, '#ffc107'), # Orange 500
     (4, '#F44336'), # Red 500
