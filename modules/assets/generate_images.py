@@ -171,26 +171,32 @@ image_configs["function-na"] = {
     "edges": set([]),
     "color": True
 }
-image_configs["impact-3"] = {
+image_configs["impact-4"] = {
     "selection": ("NC_000022.11:g.42128945C>T",),
     "edges": set([]),
     "color": True
 }
 
-image_configs["impact-2"] = {
+image_configs["impact-3"] = {
     "selection": ("NC_000022.11:g.42128176_42128178del",),
     "edges": set([]),
     "color": True
 }
 
-image_configs["impact-1"] = {
+image_configs["impact-2"] = {
     "selection": ("NC_000022.11:g.42131469C>T",),
     "edges": set([]),
     "color": True
 }
 
-image_configs["impact-0"] = {
+image_configs["impact-1"] = {
     "selection": ("NC_000022.11:g.42130692G>A",),
+    "edges": set([]),
+    "color": True
+}
+
+image_configs["impact-0"] = {
+    "selection": ("42135294G>A",),
     "edges": set([]),
     "color": True
 }
