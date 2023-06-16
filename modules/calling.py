@@ -698,7 +698,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         n_dist += 1
                 distance = sum_dist / n_dist
                 if call:
-                    # print(calling)
+                    print(state)
+                    print(calling)
                     alternatives.append(((depth, n_removed, distance), calling))
                     
         # Extend alleles with underlying alleles
@@ -743,10 +744,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     new_state.add(a)
                 # Stop condition as all further will be less precise than some valid calling
                 _call = True
-                # Do not allow extending from leaf to empty state
-                if len(underlying) == len(removed):
-                    if len(new_state) == 0:
-                # TODO refine, do not allow 10/39?
+                # Do not allow extending from leaf to empty phase
+                # TODO refine, do not allow 10.xxx/39?
+                if len(underlying) == len(removed) == 0:
+                    if len(new_state) < 2:
                         continue
                 #     elif any_valid: # TODO test
                 #         _call = False
@@ -763,6 +764,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      max((sort_function(functions[u]) for u in underlying)):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first
+                print("extend", state, "to", new_state)
                 queue.append((n_removed + len(removed), base_calling, new_state, any_valid, call and _call))
     # Filter and sort afterwards based on specificity
     # Instead of using priority queue as this is faster
@@ -837,7 +839,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # DEBUG
             # if sample != "NA10859": continue # Small tree
             # if sample != "HG00421": continue # Common basic difficult pattern
-            # if sample != "HG00337": continue # Simple straightforward solution
+            if sample != "HG00337": continue # Simple straightforward solution
             # if sample != "HG00423": continue # nearly fully homozygous
             # if sample != "NA19143": continue # Most complex bu
             # if sample != "HG00589": continue # Need for allowing individual variants
