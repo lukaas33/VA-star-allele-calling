@@ -506,7 +506,7 @@ def generate_alternative_callings_bottom_up(sample, homozygous, cont_graph, eq_g
             if r == 1 and len(het_variants) == 2: # only one combination possible
                 break
 
-def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, supremals, distances, filter_default=False, n_cores=2):
+def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont_graph, eq_graph, ov_graph, functions, supremals, distances, detail_level, filter_default=False, n_cores=2):
     """ 
     Checks which alleles the sample contains and sees if a valid calling (*x/*y) n_cores = 2 is possible.
     If so, test if the distribution of variants is valid by homozygosity.
@@ -601,7 +601,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if allele in cont_graph.nodes():
                 for c in cont_graph.predecessors(allele): 
                     yield c
-        # Ignore equivalent as we do not want to replace these with nothing (already leaves)
+            if allele in eq_graph.nodes():
+                for c in eq_graph[allele]: 
+                    if find_type(c) != Type.VAR and find_type(c) != Type.P_VAR:
+                        continue
+                    yield c
+        
 
     # Find star allele definitions
     definitions, suballeles = allele_definitions(eq_graph, cont_graph, ov_graph)
@@ -699,6 +704,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         sum_dist += distances[sample + "_all"]["CYP2D6*1"]
                         n_dist += 1
                 distance = sum_dist / n_dist
+                if depth == -1: depth = float('inf')
                 if call:
                     # print(calling)
                     alternatives.append(((depth, n_removed, distance), calling))
@@ -712,20 +718,26 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 base = Multiset((a for a in state if a not in extend))
                 removed = set()
                 underlying = set()
-                for u in find_underlying(extend, cont_graph, eq_graph, ov_graph):
-                    # Lose detail by ignoring variants
-                    if find_type(u) == Type.VAR:
-                        removed.add(u)
-                        continue
-                    # (optional) filter default
-                    if filter_default and find_core_string(u) == "CYP2D6*1":
-                        continue
-                    # Limit extension when having a base calling (optimisation)
-                    if base_calling and \
-                        u not in homozygous_alleles and \
-                        (not any((h in nx.ancestors(cont_graph, u) for h in homozygous_alleles))):
-                        continue    
-                    underlying.add(u)
+                removed_leaves = set()
+                for e in extend:
+                    any_underlying = False
+                    for u in find_underlying([e], cont_graph, eq_graph, ov_graph):
+                        # Lose detail by ignoring variants
+                        if find_type(u) == Type.VAR:
+                            removed.add(u)
+                            continue
+                        any_underlying = True
+                        # (optional) filter default
+                        if filter_default and find_core_string(u) == "CYP2D6*1":
+                            continue
+                        # Limit extension when having a base calling (optimisation)
+                        if base_calling and \
+                            u not in homozygous_alleles and \
+                            (not any((h in nx.ancestors(cont_graph, u) for h in homozygous_alleles))):
+                            continue    
+                        underlying.add(u)
+                    if not any_underlying:
+                        removed_leaves.add(e)
                 # Extend alleles with underlying alleles
                 # Merge some alleles
                 new_state = Multiset()
@@ -743,13 +755,16 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                          any((a in nx.ancestors(cont_graph, o) for o in base | underlying)):
                         continue
                     new_state.add(a)
-                # Stop condition as all further will be less precise than some valid calling
+                # Stop condition as all further will be less precise than some valid calling (e.g. 34/39 > 1/39)
                 _call = True
-                # Do not allow extending from leaf to empty phase (e.g. from 2/22 to 1/2)
-                # TODO refine, do not allow 10.xxx/39?
-                if any_valid and len(new_state) < min(len(state), n_cores): # TODO test
+                # Do not allow leaf extending if this results in an empty phase
+                # TODO Do not allow extending leaf to nothing if it forms a larger allele with something else (e.g 34 with 10 forms 2) 
+                # def_leave = set()
+                # for a in new_state: def_leave |= definitions[a] # TODO use alleles instead of all variants?
+                # for a in removed_leaves: def_leave |= definitions[a]
+                if len(removed_leaves) > 0 and len(new_state | base_calling) < n_cores:
                     _call = False
-                # Do not extend if all removed variants are homozygous as this removes detail unnecessarily
+                # Do not extend if all removed variants are homozygous as this removes certain details unnecessarily
                 if any_valid and \
                      len(removed) > 0 and \
                      all((v in hom_variants for v in removed)):
@@ -876,7 +891,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             homozygous_alleles = set([allele for alleles in calling['hom'] for allele in alleles if allele != "CYP2D6*1"])
             # Generate unique valid alternative callings
             print(sample)
-            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, distances, filter_default=True)
+            alternatives = generate_alternative_callings(sample, homozygous_alleles, homozygous[sample], cont_graph, eq_graph, ov_graph, functions, supremals, distances, detail_level, filter_default=True)
             # Sort             
             preferred = None
             unique_repr = set()
