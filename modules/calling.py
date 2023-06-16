@@ -775,11 +775,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                      all((v in hom_variants for v in removed)):
                     _call = False # Prevent extended being called in other branches
                 # Do not extend if this results in a functionally better allele
+                # Allow moving from uncertain to certain alleles
                 if any_valid and \
                      len(extend) > 0 and \
                      len(underlying) > 0 and \
-                     max((sort_function(functions[e]) for e in extend)) < \
-                     max((sort_function(functions[u]) for u in underlying)):
+                     max(1, max((sort_function(functions[e]) for e in extend))) < \
+                     max(1, max((sort_function(functions[u]) for u in underlying))):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first
                 # print("extend", state, "to", new_state)
@@ -880,13 +881,12 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
-            # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
             # if sample != "HG03703": continue # Importance of order and merging 
             # if sample != "NA19174": continue # Largest example
             # if sample != "NA19109": continue # Unintuitive solution, invalid functionally?
             # if sample != "NA06991": continue # Multiple suballeles of 4
-            # if sample != "NA07056": continue # Multiple suballeles of 4 and other allele
+            if sample != "NA07056": continue # Multiple suballeles of 4 and other allele, need for removing leaves
 
             # test_i += 1
             # if test_i >= 5:
