@@ -178,7 +178,7 @@ image_configs["impact-3"] = {
 }
 
 image_configs["impact-2"] = {
-    "selection": ("NC_000022.11:g.42130692G>A",),
+    "selection": ("NC_000022.11:g.42128176_42128178del",),
     "edges": set([]),
     "color": True
 }
@@ -190,7 +190,7 @@ image_configs["impact-1"] = {
 }
 
 image_configs["impact-0"] = {
-    "selection": ("42132049dup",),
+    "selection": ("NC_000022.11:g.42130692G>A",),
     "edges": set([]),
     "color": True
 }
