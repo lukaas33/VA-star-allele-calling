@@ -638,7 +638,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             alleles.append(a)
     queue = []
     # Initial state represents the directly related alleles of the sample
-    queue.append((0, Multiset(), Multiset(alleles), False, True)) # TODO uncomment
+    queue.append((0, Multiset(), Multiset(alleles), False, True)) 
     # Add some initial alleles twice
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
@@ -649,11 +649,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if h in nx.ancestors(cont_graph, a):
                 hom_anc.add(h)
         if hom_anc:
+            # TODO remove this optimisation?
             possible = set()
             for o in alleles:
                 if any((h in nx.ancestors(cont_graph, o) for h in hom_anc)):
                     possible.add(o)
             queue.append((0, Multiset([a]), Multiset(possible), False, True))
+    # print(*queue)
     count = 0
     prev = set()
     to_remove = set()
@@ -742,12 +744,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 # Stop condition as all further will be less precise than some valid calling
                 _call = True
                 # Do not allow extending from leaf to empty state
-                # TODO simplify the below?
                 if len(underlying) == len(removed):
                     if len(new_state) == 0:
+                # TODO refine, do not allow 10/39?
                         continue
-                    elif any_valid: # TODO test
-                        _call = False
+                #     elif any_valid: # TODO test
+                #         _call = False
                 # Do not extend if all removed variants are homozygous as this removes detail unnecessarily
                 if any_valid and \
                      len(removed) > 0 and \
@@ -858,6 +860,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19174": continue # Largest example
             # if sample != "NA19109": continue # Unintuitive solution, invalid functionally?
             # if sample != "NA06991": continue # Multiple suballeles of 4
+            # if sample != "NA07056": continue # Multiple suballeles of 4 and other allele
 
             # test_i += 1
             # if test_i >= 5:
