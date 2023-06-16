@@ -512,9 +512,8 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     If so, test if the distribution of variants is valid by homozygosity.
     If not remove detail by extending the alleles with their ancestors until a valid calling is found.
 
-    TODO refine ordering
     TODO extend for n_cores > 2
-    TODO fix runtime with suballeles
+    TODO allow for suballeles of 1
     TODO handle overlap?
     TODO do not create new state but mutate (optimisation)
     """
@@ -552,7 +551,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         # Can only result in valid state when it consists of 2 cores or less (multiplied by count)
         # Here, the suballeles of the same core are grouped and suballeles of 1 are allowed
         # When there is a base, all alleles in the state must by homozygous
-        if not base_calling or all((a in homozygous_alleles for a in state)):
+        if len(base_calling) == 0 or all((a in homozygous_alleles for a in state)):
             state = state | base_calling
             cores = {}
             for a in state:
@@ -561,8 +560,9 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     continue
                 if core not in cores:
                     cores[core] = 0
-                cores[core] = max(cores[core], 1 * state[a])
+                cores[core] = max(cores[core], state[a])
             count_cores = sum(cores.values())
+            # print(state, count_cores, cores)
             if count_cores <= n_cores:
                 # Find base calling, alleles of different cores must be in different phases
                 _calling_hom = [set()] * n_cores
@@ -575,7 +575,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         het.add(a)
                 # Check possible distributions of het moving alleles
                 mid = len(het) // 2 # Used to avoid duplicates
-                for r in range(0 if len(het) < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
+                for r in range(0 if count_cores < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
                     for k, f in enumerate(combinations(het, r)): # Move r alleles to phase 1
                         f = set(f)
                         _calling = [_calling_hom[0] | f, _calling_hom[1] | het - f]
@@ -643,9 +643,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
     # when these contain a homozygous variant that is not present in another allele 
     # as these may be needed to arrive at a valid state
     # Limit state to others in which it is present
-    # TODO reduce when present in more?
-    # TODO support for more than 2 cores?
-    # TODO does this work for suballeles of 1?
     for a in alleles:
         hom_anc = set()
         for h in homozygous_alleles:
@@ -731,12 +728,12 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 # TODO stop when homozygocity is violated
                 for a in base | underlying:
                     # Only allow het alleles once and hom alleles twice
-                    # if a not in homozygous_alleles:
-                    #     if new_state[a] == 1:
-                    #         continue
-                    # else:
-                    #     if new_state[a] == 2:
-                    #         continue
+                    if a not in homozygous_alleles:
+                        if new_state[a] == 1:
+                            continue
+                    else:
+                        if new_state[a] == 2:
+                            continue
                     # Only homozygous alleles can be present together with their underlying alleles
                     if a not in homozygous_alleles and \
                          any((a in nx.ancestors(cont_graph, o) for o in base | underlying)):
@@ -860,6 +857,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "HG03703": continue # Importance of order and merging 
             # if sample != "NA19174": continue # Largest example
             # if sample != "NA19109": continue # Unintuitive solution, invalid functionally?
+            # if sample != "NA06991": continue # Multiple suballeles of 4
 
             # test_i += 1
             # if test_i >= 5:
