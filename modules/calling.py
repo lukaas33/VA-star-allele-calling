@@ -562,7 +562,6 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                     cores[core] = 0
                 cores[core] = max(cores[core], state[a])
             count_cores = sum(cores.values())
-            # print(state, count_cores, cores)
             if count_cores <= n_cores:
                 # Find base calling, alleles of different cores must be in different phases
                 _calling_hom = [set()] * n_cores
@@ -573,9 +572,10 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                             _calling_hom[i].add(a)
                     else:
                         het.add(a)
+                het_cores = len(set((find_core_string(a) for a in het if find_core_string(a) != "CYP2D6*1")))
                 # Check possible distributions of het moving alleles
                 mid = len(het) // 2 # Used to avoid duplicates
-                for r in range(0 if count_cores < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
+                for r in range(0 if het_cores < 2 else 1, mid+1): # Start at 0 if only 1 or 0 cores
                     for k, f in enumerate(combinations(het, r)): # Move r alleles to phase 1
                         f = set(f)
                         _calling = [_calling_hom[0] | f, _calling_hom[1] | het - f]
