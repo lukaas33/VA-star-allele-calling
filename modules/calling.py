@@ -676,7 +676,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if check in to_remove:
                 continue
             to_remove.add(check)
-        print(base_calling, state)
+        # print(base_calling, state)
         count += 1
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
