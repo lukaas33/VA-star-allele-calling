@@ -654,19 +654,19 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
         if hom_anc:
             possible = set()
             for o in alleles:
-                if o != a and any((h in nx.ancestors(cont_graph, o) for h in hom_anc)):
+                if any((h in nx.ancestors(cont_graph, o) for h in hom_anc)):
                     possible.add(o)
             queue.append((0, Multiset([a]), Multiset(possible), False, True))
     count = 0
     prev = set()
     to_remove = set()
     alternatives = []
+    # print(*queue, sep="\n")
     while len(queue) > 0:
         n_removed, base_calling, state, any_valid, call = queue.pop()
         # avoid extending duplicate states normally
         # do not avoid when the underlying states need to be removed later
         if call:
-            # TODO refine for skipping states when in to_remove
             check = (FrozenMultiset(base_calling), FrozenMultiset(state))
             if check in prev:
                 continue
@@ -676,7 +676,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
             if check in to_remove:
                 continue
             to_remove.add(check)
-        # print(base_calling, state)
+        print(base_calling, state)
         count += 1
         # Only try generating a calling of a valid number of cores
         # (65.1,2.2,10.1 will never form a valid calling of two real alleles)
@@ -699,6 +699,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                         n_dist += 1
                 distance = sum_dist / n_dist
                 if call:
+                    # print(calling)
                     alternatives.append(((depth, n_removed, distance), calling))
                     
         # Extend alleles with underlying alleles
@@ -857,7 +858,8 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA07056": continue # Need for replacing with nothing
             # if sample != "NA07348": continue # Has suballele of 1
             # if sample != "HG03703": continue # Importance of order and merging 
-            # if sample != "NA19174": continue # TODO fix runtime
+            # if sample != "NA19174": continue # Largest example
+            # if sample != "NA19109": continue # Unintuitive solution, invalid functionally?
 
             # test_i += 1
             # if test_i >= 5:
