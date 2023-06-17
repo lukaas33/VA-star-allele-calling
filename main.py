@@ -214,7 +214,14 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         print("Interactive map...")
-        edges = set(pruned_extended[1])
+        if detail > 1:
+            edges = set(pruned_extended[1])
+        else:
+            edges = set(pruned_simple[1])
+        if detail < 5:
+            for l, r, rel in set(edges):
+                if find_type(l) in (Type.VAR, Type.P_VAR) or find_type(r) in (Type.VAR, Type.P_VAR):
+                    edges.remove((l, r, rel))
         if type(select) == list:
             edges |= find_context(set(select), pruned_samples_extended[1])[1]
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])
