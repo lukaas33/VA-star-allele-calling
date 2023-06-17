@@ -133,6 +133,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         print("Calling phased...")
         # TODO change used by detail?
         calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=detail, reorder=not visual)
+
+    # TEST 7: Find activity scores
+    # tests.AS(calling, functions)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -153,12 +156,12 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # Statistics
     # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
-    # TEST 7: validate alternative callings
+    # TEST 8: validate alternative callings
     # tests.validate_alternative_calling(r"results\calling\calling_alt.txt", r"results/calling/calling_phased.txt")
     # also check suballele callings
     # tests.validate_alternative_calling(r"results\calling\calling_alt_sub.txt", r"results/calling/calling_phased_sub.txt")
 
-    # TEST 8: validate alternative calling method on simulated data
+    # TEST 9: validate alternative calling method on simulated data
     # tests.test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
@@ -171,7 +174,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 continue
             print(f"{sample}: {','.join(line['A'])}/{','.join(line['B'])}")
 
-        # TEST 8: validate calling
+        # TEST 10: validate calling
         # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context

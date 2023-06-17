@@ -886,7 +886,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA19174": continue # Largest example
             # if sample != "NA19109": continue # Unintuitive solution, invalid functionally?
             # if sample != "NA06991": continue # Multiple suballeles of 4
-            if sample != "NA07056": continue # Multiple suballeles of 4 and other allele, need for removing leaves
+            # if sample != "NA07056": continue # Multiple suballeles of 4 and other allele, need for removing leaves
 
             # test_i += 1
             # if test_i >= 5:
