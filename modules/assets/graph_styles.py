@@ -62,8 +62,8 @@ default_stylesheet.append({
     "selector": ".variant",
     "style": {
         "font-size": "10px",
-        "width": "95px", 
-        "text-max-width": "90px",
+        "width": "115px", 
+        "text-max-width": "110px",
         "height": "20px",
         "shape": "rectangle",
         "text-wrap": "ellipsis",
@@ -173,9 +173,9 @@ function_colours = (
     ('no function', '#F44336'), # Red 500
     ('decreased function', '#ffc107'), # Orange 500
     ('normal function', '#4CAF50'), # Green 500
-    ('function not assigned', '#bdbdbd'), # Gray 400
-    ('unknown function', '#9e9e9e'), # Gray 500
-    ('uncertain function', '#757575'), # Gray 600
+    ('function not assigned', '#E0E0E0'), # Gray 300
+    ('unknown function', '#9E9E9E'), # Gray 500
+    ('uncertain function', '#616161'), # Gray 700
 )
 for function, colour in function_colours:
     default_stylesheet.append({
@@ -187,8 +187,8 @@ for function, colour in function_colours:
 
 # Style for impact
 impact_colours = (
-    (0, '#E0E0E0'), # Gray 300
-    (1, '#9e9e9e'), # Gray 500
+    (0, '#9E9E9E'), # Gray 500
+    (1, '#616161'), # Gray 700
     (2, '#4CAF50'), # Green 500
     (3, '#ffc107'), # Orange 500
     (4, '#F44336'), # Red 500

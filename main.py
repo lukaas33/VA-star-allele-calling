@@ -3,7 +3,7 @@ import argparse
 from modules.data import reference_get, pharmvar_get
 from modules.graph import display_graph
 from modules.compare import find_relations_all
-from modules.relations import prune_relations, find_context, redundant_reflexive
+from modules.relations import prune_relations, find_context, find_all_distances
 from modules.parse import extract_variants, to_supremal, parse_samples, samples_to_supremal
 from modules.calling import star_allele_calling_all, find_type, Type
 from modules.other_sources import get_personal_ids, get_personal_impacts
@@ -38,7 +38,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     functions |= {a: d["impact"] for a, d in data.items() if "impact" in d}
 
     # TEST 1: test if naming is consistent
-    # test_naming(corealleles, suballeles)
+    # tests.test_naming(corealleles, suballeles)
 
     # Find the relation between all corealleles, suballeles and the contained variants
     print("Find relations...")
@@ -115,6 +115,9 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # test_central_personal_variants(personal_variants.keys(), find_relations_all(reference_sequence, samples, personal_variants, cache_name="relations_samples_personal"))
     # test_central_personal_variants(personal_variants.keys(), relations_samples)
 
+    # Find distances
+    distances = find_all_distances(relations_samples_extended, supremal_samples, supremal_extended, samples, reference_sequence, cache_name="distances_samples_extended")
+
     # Simplify sample relations
     print("Simplify sample relations...")
     pruned_samples_extended = prune_relations(relations_samples_extended | relations_extended, cache_name="relations_pruned_samples_extended")
@@ -129,7 +132,10 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if phased:
         print("Calling phased...")
         # TODO change used by detail?
-        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_phased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=detail, reorder=not visual)
+
+    # TEST 7: Find activity scores
+    # tests.AS(calling, functions)
     
     # EXPERIMENT 2: Determine star allele calling for unphased samples
     # EXPERIMENT 2.1: use all variants in single allele
@@ -145,17 +151,17 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     if unphased:
         # TODO change by detail?
         print("Calling unphased...")
-        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, homozygous=homozygous, phased=False, detail_level=detail, reorder=text is not None)
+        calling = star_allele_calling_all(samples_unphased, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, homozygous=homozygous, phased=False, detail_level=detail, reorder=not visual)
 
     # Statistics
     # tests.statistics(corealleles, suballeles, relations_extended, pruned_extended[1], calling)
 
-    # TEST 7: validate alternative callings
+    # TEST 8: validate alternative callings
     # tests.validate_alternative_calling(r"results\calling\calling_alt.txt", r"results/calling/calling_phased.txt")
     # also check suballele callings
-    # tests.validate_alternative_calling(r"results\calling\calling_alt_subs.txt", r"results/calling/calling_phased_sub.txt")
+    # tests.validate_alternative_calling(r"results\calling\calling_alt_sub.txt", r"results/calling/calling_phased_sub.txt")
 
-    # TEST 8: validate alternative calling method on simulated data
+    # TEST 9: validate alternative calling method on simulated data
     # tests.test_alternative_callings(supremal_extended, reference, relations_extended, functions)
 
     # Output as text
@@ -168,7 +174,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
                 continue
             print(f"{sample}: {','.join(line['A'])}/{','.join(line['B'])}")
 
-        # TEST 8: validate calling
+        # TEST 10: validate calling
         # validate_calling(calling, r"data\bastard.txt") # compare to M&J method
 
     # VISUALISATION 1: Visualise a specific calling and its context
@@ -201,7 +207,7 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
         nodes, edges = find_context({select,}, pruned_samples_extended[1], extend=True, extended=set(), directional=True, overlap=False)
         # Find homozygous
         sel_samples = [sample for sample in samples_unphased.keys() if sample.split('_')[1] == 'hom'] 
-        sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, detail_level=4)
+        sel_calling = star_allele_calling_all(sel_samples, *pruned_samples_extended, functions, supremal_extended | supremal_samples, reference, distances, detail_level=4)
         homozygous_alleles = set([allele for allele in sel_calling[sample]['hom'] if allele != "CYP2D6*1"])
         homozygous_alleles = find_context(homozygous_alleles, pruned_samples_extended[1], directional=True, overlap=False, extend=True, extended=set())[0]
         homozygous_alleles = set((a for a in homozygous_alleles if find_type(a) in (Type.SUB, Type.CORE)))
@@ -211,7 +217,14 @@ def main(text, visual, example, select, interactive, phased, unphased, detail, d
     # VISUALISATION 2: Show all relations of PharmVar
     if interactive:
         print("Interactive map...")
-        edges = set(pruned_extended[1])
+        if detail > 1:
+            edges = set(pruned_extended[1])
+        else:
+            edges = set(pruned_simple[1])
+        if detail < 5:
+            for l, r, rel in set(edges):
+                if find_type(l) in (Type.VAR, Type.P_VAR) or find_type(r) in (Type.VAR, Type.P_VAR):
+                    edges.remove((l, r, rel))
         if type(select) == list:
             edges |= find_context(set(select), pruned_samples_extended[1])[1]
         nodes = set([edge[0] for edge in edges] + [edge[1] for edge in edges])

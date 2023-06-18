@@ -12,14 +12,15 @@ def test_naming(corealleles, suballeles):
     """Naming test, useful for checking if the data is complete."""
     numbers = []
     for coreallele_name in corealleles.keys():
-        for suballele in suballeles[coreallele_name]:
-            if coreallele_name not in suballele["alleleName"]:
-                warnings.warn(f"{coreallele_name}: naming of {suballele['alleleName']} inconsistent.")
+        for suballele_name in suballeles[coreallele_name].keys():
+            if coreallele_name not in suballele_name:
+                warnings.warn(f"{coreallele_name}: naming of {suballele_name} inconsistent.")
         number = int(coreallele_name.split("*")[1])
         numbers.append(number)
     if len(numbers) != len(set(numbers)):
         warnings.warn("There are double core alleles in the data")
     all_numbers = set(range(1, max(numbers)+1))
+    print(len(all_numbers), len(numbers))
     if all_numbers != set(numbers):
         # QUESTION why are some numbers skipped?
         # TODO detect proper skips
@@ -448,3 +449,28 @@ def validate_calling(callings, validate_filename, soft=False):
             n_errors += 1
     if n_errors > 0:
         print(f"{n_errors} errors found in the classifications")
+
+
+def AS(callings, functions):
+    table = {
+        "normal function": 1,
+        "decreased function": 0.5,
+        "no function": 0,
+    }
+    counts = {f: 0 for f in table.keys()} | {None: 0}
+    for sample, calling in callings.items():
+        if sample == "NA18526": # Unparsable, TODO remove
+            continue
+        activity_score = 0
+        for _, call in calling.items():
+            a = "".join(call)
+            if a not in functions:
+                continue
+            f = functions[a]
+            if f not in table:
+                counts[None] += 1
+                continue
+            activity_score += table[f]
+            counts[f] += 1
+        print(sample, f"{','.join(calling['A'])}/{','.join(calling['B'])}", activity_score)
+    print(*counts.items(), sep='\n')

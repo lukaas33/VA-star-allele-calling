@@ -4,6 +4,9 @@ from .data import cache_get, cache_set
 from .calling import find_type, Type
 import warnings
 from itertools import combinations
+from Bio.Seq import Seq
+from Bio.Align import PairwiseAligner
+
 
 # TODO use consistent datastructure with OOP
 
@@ -273,3 +276,68 @@ def find_path(s, t, cont_graph, eq_graph, overlap_graph, path=None, visited=None
                     return result
                 path.pop()
     return None
+
+def find_all_distances(relations_samples_extended, supremal_samples, supremal_extended, samples, reference_sequence, cache_name=None):
+    """ Find all edit distances between observed alleles and star alleles """
+    # def patch(sup1, sup2):
+    #     if sup2 is None: # CYP2D6*1
+    #         sup2 = va.Variant(sup1.start, sup1.end, reference_sequence[sup1.start:sup1.end])
+    #     # Patch changes in area size of sup1
+    #     # Needed for consistency of scores, we want to compare the score for the same observed allele
+    #     # TODO valid to use this interval
+    #     # TODO needed to align?
+    #     interval = (sup1.start, sup1.end)
+    #     seq = reference_sequence[interval[0]:interval[1]]
+    #     seq1 = seq[:sup1.start-interval[0]] + sup1.sequence + seq[sup1.end-interval[1]+1:]
+    #     seq2 = seq[:sup2.start-interval[0]] + sup2.sequence + seq[sup2.end-interval[1]+1:]
+    #     return seq1, seq2
+    # def distance(a, b):
+    #     """ Align and find distance between two sequences """
+    #     a = Seq(a)
+    #     b = Seq(b)
+    #     if len(a) == 0 or len(b) == 0: # TODO can happen for single deletions 
+    #         return 0 # TODO correct?
+    #     align = PairwiseAligner()
+    #     return align.align(a, b).score
+    def distance(a, b):
+        interval = [float('inf'), -float('inf')]
+        # TODO is this reduction legal?
+        for v in a + b:
+            if v is None:
+                continue
+            if v.start < interval[0]:
+                interval[0] = v.start
+            if v.end > interval[1]:
+                interval[1] = v.end
+        if interval[0] == float('inf') or interval[1] == -float('inf'): # for 1/1 callings
+            return 0
+        ref = reference_sequence[interval[0]:interval[1]]
+        a = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in a if v is not None]
+        oa = va.variants.patch(ref, a)
+        b = [va.Variant(v.start-interval[0], v.end-interval[0], v.sequence) for v in b if v is not None]
+        ob = va.variants.patch(ref, b)
+        d, _ = va.lcs.edit(oa, ob)
+        return d
+    try:
+        if cache_name: return cache_get(cache_name)
+    except:
+        pass
+    distances = {}
+    for sample in samples:
+        if sample.split('_')[1] != "all":
+            continue
+        distances[sample] = {}
+        # For all contained and equivalent alleles to observed allele
+        for left, right, rel in relations_samples_extended:
+            if left != sample:
+                continue
+            if find_type(right) not in (Type.CORE, Type.SUB):
+                continue
+            if rel != va.Relation.CONTAINS and rel != va.Relation.EQUIVALENT:
+                continue
+            # Pairwise alignment and scoring
+            distances[sample][right] = distance([supremal_samples[sample]], [supremal_extended[right]])
+            print(left, right, distances[sample][right])
+        distances[sample]["CYP2D6*1"] = distance([supremal_samples[sample]], [])
+    if cache_name: cache_set(distances, cache_name)
+    return distances
