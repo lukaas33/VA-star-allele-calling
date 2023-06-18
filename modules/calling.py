@@ -764,6 +764,7 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 _call = True
                 # Do not allow leaf extending if this results in an empty phase
                 # TODO Do not allow extending leaf to nothing if it forms a larger allele with something else (e.g 34 with 10 forms 2) 
+                # TODO do not extend leaves of valid alleles in general?
                 # def_leave = set()
                 # for a in new_state: def_leave |= definitions[a] # TODO use alleles instead of all variants?
                 # for a in removed_leaves: def_leave |= definitions[a]
@@ -880,7 +881,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA12006": continue # Previously wrong answer 
             # if sample != "HG01190": continue # Most complex td 
             # if sample != "NA19122": continue # Example of multiple homozygous contained
-            if sample != "NA18973": continue # correct answer not preferable?
+            # if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
             # if sample != "NA07348": continue # Has suballele of 1
