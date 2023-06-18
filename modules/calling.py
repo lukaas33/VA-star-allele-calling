@@ -779,11 +779,13 @@ def generate_alternative_callings(sample, homozygous_alleles, hom_variants, cont
                 if any_valid and \
                      len(extend) > 0 and \
                      len(underlying) > 0 and \
-                     max(1, max((sort_function(functions[e]) for e in extend))) < \
+                     max(1, max((sort_function(functions[e]) for e in extend))) > \
                      max(1, max((sort_function(functions[u]) for u in underlying))):
                     _call = False # Prevent extended being called in other branches
                 # Extend lower depth and fewer removed first
                 # print("extend", state, "to", new_state)
+                # print(extend, max((sort_function(functions[e]) for e in extend)))
+                # print(underlying, max((sort_function(functions[u]) for u in underlying)))
                 ms = representation if representation is not None else ms
                 queue.append((n_removed + len(removed), base_calling, new_state, any_valid, call and _call, ms))
     # Filter and sort afterwards based on specificity
@@ -878,7 +880,7 @@ def star_allele_calling_all(samples, nodes, edges, functions, supremals, referen
             # if sample != "NA12006": continue # Previously wrong answer 
             # if sample != "HG01190": continue # Most complex td 
             # if sample != "NA19122": continue # Example of multiple homozygous contained
-            # if sample != "NA18973": continue # correct answer not preferable?
+            if sample != "NA18973": continue # correct answer not preferable?
             # if sample != "NA10865": continue # Heterozygous with default
             # if sample != "NA19147": continue # Example of loose homozygous variants existing
             # if sample != "NA07348": continue # Has suballele of 1
